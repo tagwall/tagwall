@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Foundry
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/.env
+
+# Node / frontend
+node_modules/
+dist/
+.env
+.env.local
+
+# Python (simulation)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs / reports
+*.log
+coverage/
+lcov.info
