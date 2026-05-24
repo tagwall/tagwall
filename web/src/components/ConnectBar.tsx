@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom'
 
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
 import { shortenAddress } from '../lib/format'
+import { useViewerChainId, useSetViewerChain } from '../lib/viewerChain'
 import { NavMetrics } from './NavMetrics'
 import { ShareReferralButton } from './ShareReferralButton'
 
@@ -44,19 +45,68 @@ function formatNativeBalance(value: bigint, decimals: number): string {
  */
 export function ConnectBar() {
   const { address, isConnected } = useAccount()
-  const { connect, connectors, error, isPending } = useConnect()
-  // Suppress the "wallet_requestPermissions already pending" race that fires
-  // when a user double-clicks Connect before MetaMask's popup mounts. It's
-  // not a real failure (the wallet will still resolve the original request),
-  // and surfacing it as red error text just confuses people. Real errors
-  // (UserRejected, NoEthereumProvider, etc) still display.
+  const { connectAsync, connectors, error, isPending } = useConnect()
+  // Suppress noisy non-fatal connect errors that confuse users:
+  //   - "already pending"   → wallet_requestPermissions race when the
+  //                            user double-clicks Connect before
+  //                            MetaMask's popup mounts. Original request
+  //                            still resolves.
+  //   - "already connected" → wagmi v3 connector-state quirk after
+  //                            disconnect+reconnect. handleConnect()
+  //                            below catches and force-resets, so by
+  //                            the time it would surface here it's
+  //                            already been handled (or the user is
+  //                            mid-flow on the retry).
   const visibleError =
-    error && !/already pending/i.test(error.message) ? error : null
-  const { disconnect } = useDisconnect()
+    error && !/already pending|already connected/i.test(error.message)
+      ? error
+      : null
+  const { disconnect, disconnectAsync } = useDisconnect()
+
+  // Wagmi v3.x has a known race: after `disconnect()` the connector's
+  // internal state can stay "connected" even though the React state
+  // says disconnected. The next `connect()` then throws "Connector
+  // already connected" and the Connect button looks frozen. Detect
+  // that error, force the connector to reset via `disconnectAsync`,
+  // then retry the connect once. Real errors (UserRejected, no
+  // provider, chain mismatch) still bubble normally.
+  const handleConnect = async () => {
+    const c = connectors[0]
+    if (!c) return
+    try {
+      await connectAsync({ connector: c })
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? ''
+      if (/already connected/i.test(msg)) {
+        try {
+          await disconnectAsync()
+        } catch {
+          /* swallow — best-effort reset */
+        }
+        // Tiny gate so the connector's onDisconnect listener fires
+        // before we re-request. 50ms is empirical; longer made the
+        // UI feel laggy, shorter raced the same error again.
+        await new Promise((r) => setTimeout(r, 50))
+        try {
+          await connectAsync({ connector: c })
+        } catch {
+          /* second failure: let wagmi's error state handle it */
+        }
+      }
+    }
+  }
   const chainId = useChainId()
   const chains = useChains()
   const { switchChain } = useSwitchChain()
   const currentChain = chains.find((c) => c.id === chainId)
+  // Viewer chain: what the user is currently looking at. Equals
+  // `chainId` (wallet's chain) when connected; falls back to a URL
+  // `?chain=` param when disconnected so a no-wallet visitor can still
+  // browse any chain's canvas. The dropdown's label + active row read
+  // from this so disconnected switches show up immediately.
+  const viewerChainId = useViewerChainId()
+  const viewerChain = chains.find((c) => c.id === viewerChainId)
+  const setViewerChain = useSetViewerChain()
 
   // Native-token balance on the connected chain. Auto-disabled when no
   // address. Refetches on chain switch automatically because wagmi keys
@@ -159,9 +209,9 @@ export function ConnectBar() {
             onClick={() => setChainMenuOpen((o) => !o)}
             aria-haspopup="listbox"
             aria-expanded={chainMenuOpen}
-            title={isConnected ? 'Switch chain' : 'Connect a wallet to switch chains'}
+            title={isConnected ? 'Switch chain' : 'Browse a chain (no wallet needed)'}
           >
-            <span className="chain-dropdown-label">{currentChain?.name ?? `Chain ${chainId}`}</span>
+            <span className="chain-dropdown-label">{viewerChain?.name ?? `Chain ${viewerChainId}`}</span>
             <span className="chain-dropdown-caret" aria-hidden>▾</span>
           </button>
           {chainMenuOpen && (
@@ -171,14 +221,19 @@ export function ConnectBar() {
                   key={c.id}
                   type="button"
                   role="option"
-                  aria-selected={c.id === chainId}
-                  className={`chain-dropdown-item ${c.id === chainId ? 'chain-dropdown-item-active' : ''}`}
+                  aria-selected={c.id === viewerChainId}
+                  className={`chain-dropdown-item ${c.id === viewerChainId ? 'chain-dropdown-item-active' : ''}`}
                   onClick={() => {
+                    // Connected wallet: prompt the wallet so paint UX
+                    // stays aligned with what gets signed. Disconnected:
+                    // just write the URL ?chain= param so the canvas
+                    // reads switch to that chain without needing a
+                    // wallet at all.
                     if (isConnected) switchChain({ chainId: c.id })
+                    else setViewerChain(c.id)
                     setChainMenuOpen(false)
                   }}
-                  disabled={!isConnected && c.id !== chainId}
-                  title={!isConnected ? 'Connect a wallet first' : `Switch to ${c.name}`}
+                  title={isConnected ? `Switch wallet to ${c.name}` : `View the ${c.name} canvas`}
                 >
                   <span>{c.name}</span>
                   <span className="chain-dropdown-item-sub">{c.nativeCurrency.symbol}</span>
@@ -214,7 +269,7 @@ export function ConnectBar() {
               {connectors[0] && (
                 <button
                   className="wallet-btn"
-                  onClick={() => connect({ connector: connectors[0] })}
+                  onClick={handleConnect}
                   disabled={isPending}
                   aria-busy={isPending}
                 >

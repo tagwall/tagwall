@@ -84,6 +84,13 @@ export function AppLayout() {
     >
       <SprayTrail />
       <ConnectBar />
+      {/* LeaderboardTicker is rendered by HomePage (it needs the
+          `regions` prop, which HomePage already owns from its own
+          `usePaintedRegions` call). Mounting it here in AppLayout was
+          tried but the parallel `usePaintedRegions` instances landed
+          in different react-query buckets (StrictMode + hook ordering)
+          and the AppLayout copy never received data. Keeping it in
+          HomePage avoids that. */}
       <Outlet />
       <footer className="site-footer">
         <div className="site-footer-left">

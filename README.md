@@ -19,7 +19,7 @@ Per-pixel overwrite premium: 1.10× the last paid price. After 90 days, painted 
 
 ## What's in this repo
 
-This is the public mirror of the official frontend. The Solidity source, simulation, deploy scripts, and operator playbooks live in a separate private repo. The contract is fully immutable; this frontend is interchangeable with any fork.
+This is the public mirror of the official frontend. The contract is fully immutable; this frontend is interchangeable with any fork.
 
 | Path | Purpose |
 |---|---|

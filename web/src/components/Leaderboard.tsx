@@ -25,12 +25,14 @@ interface Props {
 /** Magnitude-aware formatter for native amounts. The previous toFixed(0)
  *  collapsed any sub-1-token cost to "0" — fine when the floor was 1 ETH
  *  and stamps cost hundreds, but every paint reads "0 ETH" with a 20k
- *  gwei floor. Picks precision so small amounts stay readable. */
+ *  gwei floor. Picks precision so small amounts stay readable, and
+ *  thousand-separator commas above 1k so PLS-scale numbers like
+ *  6700 / 13400 read as 6,700 / 13,400 instead of running together. */
 function formatNative(wei: bigint): string {
   const ether = Number(formatEther(wei))
   if (!Number.isFinite(ether) || ether === 0) return '0'
-  if (ether >= 1000) return ether.toFixed(0)
-  if (ether >= 1) return ether.toFixed(2)
+  if (ether >= 1000) return ether.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  if (ether >= 1) return ether.toLocaleString('en-US', { maximumFractionDigits: 2 })
   if (ether >= 0.001) return ether.toFixed(4)
   if (ether >= 0.000001) return ether.toFixed(6)
   return ether.toExponential(2)
@@ -49,7 +51,7 @@ function regionKey(r: PaintedRegion): string {
  * going blank for late-painted top spenders that fell in the truncated tail
  * of the canvas-wide fetch.
  */
-function useThumbnailPixels(regions: readonly PaintedRegion[]) {
+export function useThumbnailPixels(regions: readonly PaintedRegion[]) {
   const publicClient = usePublicClient()
 
   const coords = useMemo(() => {
@@ -151,8 +153,10 @@ function colorToHex(c: number): string {
   return `#${c.toString(16).padStart(6, '0')}`
 }
 
-/** Fetches the URL for each unique linkId in the top regions. */
-function useLinkUrls(linkIds: number[]) {
+/** Fetches the URL for each unique linkId in the top regions.
+ *  Exported so `LeaderboardTicker` can reuse the same wagmi cache key
+ *  and avoid double-fetching. */
+export function useLinkUrls(linkIds: number[]) {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
   const { data } = useReadContracts({
     allowFailure: true,
@@ -177,8 +181,10 @@ function useLinkUrls(linkIds: number[]) {
   return map
 }
 
-/** Mini canvas showing the stamp's actual pixel data. */
-function Thumbnail({ region, pixels }: { region: PaintedRegion; pixels: readonly PixelState[] | undefined }) {
+/** Mini canvas showing the stamp's actual pixel data. Exported so
+ *  `LeaderboardTicker` (and any future "leaderboard slice" UI) can render
+ *  the same pixel preview without duplicating the canvas-paint logic. */
+export function Thumbnail({ region, pixels }: { region: PaintedRegion; pixels: readonly PixelState[] | undefined }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {

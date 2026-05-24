@@ -8,6 +8,7 @@ import { CANVAS_ADDRESS } from '../contracts/canvas'
 import { deployBlockFor } from '../lib/deployBlocks'
 import { rectsIntersect } from '../lib/filterList'
 import { getLogsPaginated } from '../lib/paginatedLogs'
+import { useViewerChainId } from '../lib/viewerChain'
 import { useOfacSanctioned } from './useOfacSanctioned'
 import { useStaticFilterList } from './useStaticFilterList'
 
@@ -59,8 +60,11 @@ const PAINTED_EVENT = parseAbiItem(
  *     of the canvas still renders rather than going blank.
  */
 export function usePaintedRegions(options?: { fromBlock?: bigint }) {
-  const publicClient = usePublicClient()
-  const chainId = publicClient?.chain.id
+  // Pin the client to the viewer's chain so a no-wallet visitor can
+  // browse any chain's canvas via `?chain=base` etc. When connected,
+  // useViewerChainId returns the wallet chain so paint UX stays aligned.
+  const chainId = useViewerChainId()
+  const publicClient = usePublicClient({ chainId })
   const fromBlock = options?.fromBlock ?? deployBlockFor(chainId)
 
   const query = useQuery({

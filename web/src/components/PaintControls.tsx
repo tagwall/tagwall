@@ -130,14 +130,16 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`
 }
 
-/** 4 sf keeps token values readable (e.g. "962.0" not "962.06500123"). */
+/** 4 sf keeps token values readable (e.g. "962.0" not "962.06500123").
+ *  Thousand-separator commas above 1k so PLS-scale numbers
+ *  (6,700 / 13,400 / 100,000) don't run together as a digit blob. */
 function formatCost(wei: bigint): string {
   const ether = formatEther(wei)
   const num = Number(ether)
   if (!Number.isFinite(num)) return ether
   if (num === 0) return '0'
-  if (num >= 1000) return num.toFixed(0)
-  if (num >= 1) return num.toFixed(2)
+  if (num >= 1000) return num.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  if (num >= 1) return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
   if (num >= 0.01) return num.toFixed(4)
   return num.toPrecision(2)
 }
@@ -299,16 +301,21 @@ export function PaintControls({
   else if (disabledReason && submitStatus === 'idle')
     statusLine = { kind: 'info', text: disabledReason }
 
-  // "1 transaction" used to ride alongside the Cost label, but for the
-  // common single-chunk path it was noise. Multi-chunk paints still need
-  // visibility, so the batch-progress status line already covers that
-  // case when submitting; we also annotate the cap line below when
-  // `needsBatching`.
-  const chunksMessage = needsBatching
-    ? canAtomicBatch
-      ? `Needs ${chunksRequired} txs, 1 signature`
-      : `Needs ${chunksRequired} signatures`
-    : null
+  // Signature-count caption under the cost line in the CTA zone.
+  // Always shown when there's a draft (operator preference 2026-05-24:
+  // "Needs 1 signature" is informative for first-time painters even
+  // when no batching is needed, so the single-chunk path shouldn't
+  // hide it). Multi-chunk paints distinguish between atomic-batch
+  // wallets (1 signature for N txs via EIP-5792) and serial-sign
+  // wallets (N signatures for N txs).
+  const chunksMessage =
+    chunksRequired > 0
+      ? needsBatching
+        ? canAtomicBatch
+          ? `Needs ${chunksRequired} txs, 1 signature`
+          : `Needs ${chunksRequired} signatures`
+        : 'Needs 1 signature'
+      : null
 
   const scaled = draft && (draft.sourceW !== draft.w || draft.sourceH !== draft.h)
 
@@ -430,9 +437,12 @@ export function PaintControls({
 
           {/* Zone 4 (empty-state) — Minimap + zoom controls. Mirrors
               the open-state Zone 5 so the canvas overview + zoom are
-              reachable before the user uploads anything. */}
+              reachable before the user uploads anything. Label dropped
+              the "04 ·" prefix 2026-05-24 (operator preference: the
+              numeric prefixes feel over-templated for this single-word
+              zone). */}
           <div className="pz pz-minimap">
-            <div className="pz-label">04 · Map</div>
+            <div className="pz-label">Map</div>
             <Minimap
               regions={regions}
               canvasWidth={canvasWidth}
@@ -440,11 +450,7 @@ export function PaintControls({
               draft={null}
             />
             {(onZoomIn || onZoomOut || onZoomReset || onRefresh) && (
-              <div
-                className="pz-zoom"
-                role="toolbar"
-                aria-label="Canvas zoom"
-              >
+              <div className="pz-zoom" role="toolbar" aria-label="Canvas zoom">
                 <button
                   type="button"
                   className="pz-zoom-btn"
@@ -550,7 +556,7 @@ export function PaintControls({
                 id="paint-referrer"
                 className="pz-field-input"
                 type="text"
-                placeholder="0x… address (optional, earns 1%)"
+                placeholder="0x… address (optional, earns 5%)"
                 value={referrer}
                 onChange={(e) => setReferrer(e.target.value)}
                 spellCheck={false}
@@ -566,35 +572,31 @@ export function PaintControls({
             )}
           </div>
 
-          {/* Zone 3 — Pricing. Stacked, right-aligned: native value on
-              line 1, USD subline on line 2, slippage cap on line 3,
-              chunk-signature notice on line 4. Premium slider follows
-              with a one-line explainer. */}
+          {/* Zone 3 — Pricing. Order top-to-bottom: cost value + USD
+              subline, then Premium slider, then a one-line explainer
+              about what the multiplier does (operator preference
+              2026-05-24: caption belongs UNDER the control it
+              describes, not above it). */}
           <div className="pz pz-pricing">
             <div className="pz-label">03 · Pricing</div>
-            <div className="pz-cost-row">
-              <div className="pz-premium-explainer">
-                Premium multiplier deters tags being overwritten
+            <div className="pz-cost">
+              <div className="pz-cost-line pz-cost-line-primary">
+                <span className="pz-cost-value">
+                  {quoteLoading
+                    ? '…'
+                    : quoteError
+                    ? 'err'
+                    : scaledCost !== null
+                    ? formatCost(scaledCost)
+                    : '—'}
+                </span>
+                <span className="pz-cost-unit">{nativeSymbol}</span>
               </div>
-              <div className="pz-cost">
-                <div className="pz-cost-line pz-cost-line-primary">
-                  <span className="pz-cost-value">
-                    {quoteLoading
-                      ? '…'
-                      : quoteError
-                      ? 'err'
-                      : scaledCost !== null
-                      ? formatCost(scaledCost)
-                      : '—'}
-                  </span>
-                  <span className="pz-cost-unit">{nativeSymbol}</span>
+              {scaledCostUsdLabel && (
+                <div className="pz-cost-line pz-cost-usd">
+                  ≈ {scaledCostUsdLabel}
                 </div>
-                {scaledCostUsdLabel && (
-                  <div className="pz-cost-line pz-cost-usd">
-                    ≈ {scaledCostUsdLabel}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
             <div className="pz-premium">
               <span className="pz-premium-label">Premium</span>
@@ -609,6 +611,9 @@ export function PaintControls({
                 className="pz-slider"
               />
               <span className="pz-premium-value">{fmtMultiplier(reserveBps)}</span>
+            </div>
+            <div className="pz-premium-explainer">
+              Premium multiplier deters tags being overwritten
             </div>
           </div>
 
@@ -661,12 +666,10 @@ export function PaintControls({
             )}
           </div>
 
-          {/* Zone 5 — Minimap + zoom controls. Replaces the old
-              canvas-toolbar row entirely; minimap shows where the
-              draft lands relative to the rest of the canvas, the
-              zoom cluster controls the live canvas below. */}
+          {/* Zone 5 — Minimap + zoom controls. Label dropped the
+              "05 ·" prefix 2026-05-24 to match the empty-state zone. */}
           <div className="pz pz-minimap">
-            <div className="pz-label">05 · Map</div>
+            <div className="pz-label">Map</div>
             <Minimap
               regions={regions}
               canvasWidth={canvasWidth}
@@ -674,11 +677,7 @@ export function PaintControls({
               draft={draft ? { x: draft.x, y: draft.y, w: draft.w, h: draft.h } : null}
             />
             {(onZoomIn || onZoomOut || onZoomReset || onRefresh) && (
-              <div
-                className="pz-zoom"
-                role="toolbar"
-                aria-label="Canvas zoom"
-              >
+              <div className="pz-zoom" role="toolbar" aria-label="Canvas zoom">
                 <button
                   type="button"
                   className="pz-zoom-btn"

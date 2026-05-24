@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query'
 import { usePublicClient } from 'wagmi'
 
 import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { useViewerChainId } from '../lib/viewerChain'
 import type { PaintedRegion } from './usePaintedRegions'
 
 /** Tile edge length in canvas pixels. 128 keeps a full tile at 16,384 px,
@@ -117,7 +118,10 @@ export function useTilePixels(
   canvasWidth: number,
   canvasHeight: number,
 ): TilePixelsMap {
-  const publicClient = usePublicClient()
+  // Pin to viewer chain so the tile fetch follows the user's chain
+  // selection even when no wallet is connected.
+  const chainId = useViewerChainId()
+  const publicClient = usePublicClient({ chainId })
 
   // queryKey DOES NOT include a regions fingerprint. An earlier version
   // did, reasoning that a new region should refresh the tile — but with

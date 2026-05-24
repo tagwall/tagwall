@@ -10,19 +10,27 @@ import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
  * Returned tuple is positionally stable; callers destructure by index.
  * Kept as a tuple (not a named-keys object) because wagmi's
  * useReadContracts returns a positional array.
+ *
+ * The optional `chainId` arg pins the read to a specific chain so
+ * callers (e.g. NavMetrics) can follow the viewer chain even when
+ * disconnected. Without it, wagmi falls back to the first chain in
+ * config which mismatched the dropdown's chain on no-wallet sessions.
  */
-export function useCanvasHeader() {
-  return useReadContracts({
-    contracts: [
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'width' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'height' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'startingPrice' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'treasury' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'stampCount' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'freezePeriod' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'decayPerMonthBps' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'maxPixelsPerTx' },
-      { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'linkCount' },
-    ],
-  })
+export function useCanvasHeader(chainId?: number) {
+  const calls = [
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'width' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'height' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'startingPrice' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'treasury' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'stampCount' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'freezePeriod' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'decayPerMonthBps' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'maxPixelsPerTx' as const },
+    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'linkCount' as const },
+  ]
+  return useReadContracts(
+    chainId !== undefined
+      ? { contracts: calls.map((c) => ({ ...c, chainId })) }
+      : { contracts: calls },
+  )
 }

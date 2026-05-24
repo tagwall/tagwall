@@ -73,6 +73,112 @@
 html, body, #root { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); }
 
+/* ======================================================================
+   Leaderboard ticker — full-width strip mounted between the ConnectBar
+   and the page content (see AppLayout). Items duplicated in JSX; the
+   track animates from translateX(0) to translateX(-50%) so the loop
+   reset is invisible. Pauses on hover so users can read entries.
+   ====================================================================== */
+.lb-ticker {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  overflow: hidden;
+  background: var(--tw-panel);
+  border-top: 1px solid var(--tw-line);
+  border-bottom: 1px solid var(--tw-line);
+  padding: 8px 0;
+  /* Mask the edges so items entering/exiting fade rather than hard-cut. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 48px,
+    black calc(100% - 48px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 48px,
+    black calc(100% - 48px),
+    transparent 100%
+  );
+}
+.lb-ticker-track {
+  display: flex;
+  gap: 36px;
+  width: max-content;
+  animation: lb-ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+.lb-ticker:hover .lb-ticker-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .lb-ticker-track { animation: none; }
+  .lb-ticker { overflow-x: auto; }
+}
+@keyframes lb-ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.lb-ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  color: var(--tw-fg);
+  flex: 0 0 auto;
+}
+.lb-ticker-rank {
+  color: var(--tw-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+/* Override the thumbnail's 38px Leaderboard sizing — ticker-scale is
+   24px to keep the strip short. */
+.lb-ticker-item .leaderboard-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+}
+.lb-ticker-link {
+  color: var(--tw-fg-bright);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  /* Subtle underline appears on hover so the link affordance reads
+     without dominating the ticker's data-dense row. */
+  border-bottom: 1px solid transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+  /* Anchors auto-pause animations differently per browser; lift the
+     pause to the track-level :hover via the .lb-ticker block so
+     clicking the link doesn't fight the scroll. */
+  pointer-events: auto;
+}
+a.lb-ticker-link:hover,
+a.lb-ticker-link:focus-visible {
+  color: var(--tw-accent);
+  border-bottom-color: var(--tw-accent);
+  outline: none;
+}
+.lb-ticker-link-empty {
+  color: var(--tw-dim);
+  font-style: italic;
+}
+.lb-ticker-painter { color: var(--tw-dim); }
+.lb-ticker-price {
+  color: var(--tw-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lb-ticker-price-unit { color: var(--tw-fg); font-weight: 400; }
+@media (max-width: 600px) {
+  .lb-ticker-track { gap: 24px; animation-duration: 45s; }
+  .lb-ticker-item { font-size: 11px; gap: 8px; }
+}
+
 /* App shell: columns-of-content stack, full viewport width. Individual
    sections manage their own inner padding so the canvas can go
    edge-to-edge while chrome (connect bar, footer, paint row) stays
@@ -759,7 +865,12 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   flex: 0 0 360px;
   max-width: 360px;
   min-width: 0;
-  border-left: 1px solid var(--tw-line);
+  /* Previously had `border-left: 1px solid var(--tw-line)` to separate
+     this rail from the canvas. Removed 2026-05-24: the leaderboard
+     panel inside already has its own rounded-card border, so the
+     rail's separator rendered as a double-edge / orphan tail (the
+     rail's border ran the full canvas height while the leaderboard
+     card was shorter). The inner card supplies the visual boundary. */
   /* Design Phase 2: widened from 320 → 360 to match the handoff's
      "High Scores" rail width. No height cap — the activity dock is
      now a full-width strip below the canvas, not a fight for space
@@ -769,8 +880,6 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   .canvas-side {
     flex: 1 1 100%;
     max-width: none;
-    border-left: none;
-    border-top: 1px solid var(--tw-line);
   }
 }
 /* Canvas column: vertical stack of [paint bar] + [canvas scroll].
@@ -1119,24 +1228,28 @@ body { margin: 0; background: var(--bg); color: var(--text); }
    ====================================================================== */
 .paint-bar {
   display: grid;
-  /* Image | Metadata | Pricing | CTA | Map. Metadata uses minmax so the
-     URL/referrer inputs never collapse below a readable width — at 100%
-     browser zoom on a 1280-1400px viewport the second column was shrinking
-     past usability before this guard. Map column sized to the minimap's
-     160 + 12+12 padding ≈ 184; matches CTA visually. */
+  /* Image | Metadata | Pricing | CTA | Map. The brief 2026-05-24 merge
+     of Map into Image (operator preference G) was reverted same-day:
+     the merged image+map column made the IMAGE preview cramped, and a
+     dedicated 244px map column reads better at this width. Metadata
+     uses minmax so the URL/referrer inputs never collapse below a
+     readable width. */
   grid-template-columns: 280px minmax(280px, 1fr) 240px 160px 244px;
   gap: 0;
   border: 1px solid var(--tw-line);
   border-bottom: none;
+  /* Rounded top corners only; flat bottom meets the canvas below.
+     Mirrors the canvas-toolbar treatment (6px 6px 0 0 there) so the
+     section reads as a header attached to the canvas. */
+  border-radius: 8px 8px 0 0;
   background: var(--tw-bg);
   min-height: 112px;
+  overflow: hidden;
 }
 @media (max-width: 1380px) {
   /* Drop the map column at narrower widths so the rest of the bar
      keeps its breathing room. Zoom is still reachable via wheel
-     gestures on the canvas. Bumped the breakpoint up from 1280 →
-     1380 so common 1366-class laptops drop the map column rather
-     than squeezing Metadata. */
+     gestures on the canvas. */
   .paint-bar {
     grid-template-columns: 280px minmax(280px, 1fr) 240px 160px;
   }
@@ -1173,6 +1286,13 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-right: 1px solid var(--tw-line);
 }
 .pz:last-child { border-right: none; }
+
+/* .pz-map-sub was a brief 2026-05-24 attempt to merge the Map zone
+   into the Image column. Reverted same-day at operator request: the
+   merged image+map column made the IMAGE preview cramped. The Map is
+   back to a standalone zone. Rule retained as a no-op so any stray
+   `.pz-map-sub` references degrade gracefully. */
+.pz-map-sub { display: contents; }
 .pz-label {
   font-family: var(--tw-mono);
   font-size: 10px;
@@ -1363,24 +1483,22 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
-/* Pricing-zone middle row: explainer left, cost stack right. Both
-   align to the same baseline so the right-aligned price still reads
-   as the dominant numeric element while the explainer fills the
-   left dead space. */
-.pz-cost-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
+/* `.pz-cost-row` used to wrap [explainer | cost] horizontally. The
+   explainer moved out of this row entirely (operator preference
+   2026-05-24): it now sits BELOW the Premium slider as a caption
+   for the control it describes. Rule retained as a no-op so any
+   stray `.pz-cost-row` references still render their children
+   without forcing the old horizontal arrangement. */
+.pz-cost-row { display: contents; }
 .pz-premium-explainer {
-  flex: 1 1 0;
-  min-width: 0;
+  /* Caption under the Premium slider — describes what the multiplier
+     does. Right-aligned to align with the cost stack above it. */
+  width: 100%;
   font-family: var(--tw-mono);
   font-size: 10px;
   color: var(--tw-dim);
   line-height: 1.4;
-  text-align: left;
+  text-align: right;
 }
 .pz-premium {
   display: grid;
@@ -1475,11 +1593,17 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
   min-width: 0;
 }
 .paint-minimap {
+  /* Compact-by-default 2026-05-24 (operator preference). Was
+     `width: 100%` which stretched the minimap to the column width
+     (~220px = ~140px tall at 25:16) and dominated the Zone vertically.
+     Capping at 160px wide gives a ~100px-tall preview that still
+     reads the canvas overview clearly without taking over the column. */
   width: 100%;
+  max-width: 160px;
   height: auto;
   aspect-ratio: 25 / 16;
   border: 1px solid var(--tw-line-2);
@@ -1720,10 +1844,10 @@ body { margin: 0; background: var(--bg); color: var(--text); }
    grid to 3 columns and tunes children.
    ====================================================================== */
 .paint-bar-empty {
-  /* 360px image / fluid how-it-works / 160px CTA / 184px map, per
-     docs/design_handoff_upload_tile §Artboard. Map column matches
-     the open-state Zone 5 width so the bar's right edge is stable
-     across upload state. */
+  /* 360px image / fluid how-it-works / 160px CTA / 184px map. Mirrors
+     the loaded-state 5-zone bar with one fewer column (no Metadata
+     until something's uploaded). Map column matches the open-state
+     Zone 5 width so the bar's right edge is stable across upload state. */
   grid-template-columns: 360px 1fr 160px 184px;
   border-bottom: 1px solid var(--tw-line);
 }
@@ -2751,9 +2875,12 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   margin: 12px auto 0 auto;
 }
 
-/* Activity dock — full-width strip under the canvas + leaderboard
-   row. ActivityFeed and StatsCards stack vertically; the leaderboard
-   moved back into the <aside.canvas-side> rail next to the canvas. */
+/* Activity dock — full-width strip under the canvas. Holds the
+   Leaderboard + ActivityFeed side-by-side on wide viewports (operator
+   2026-05-24: move leaderboard out of the side rail so the canvas
+   gets more width). StatsCards spans the full row below them via
+   `grid-column: 1 / -1`. On narrow viewports the grid collapses to
+   a single column and everything stacks. */
 .activity-dock {
   width: 100vw;
   margin-left: calc(50% - 50vw);
@@ -2761,9 +2888,24 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   background: var(--tw-panel);
   border-top: 1px solid var(--tw-line);
   padding: 16px 24px 24px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1.4fr);
   gap: 16px;
+  align-items: start;
+}
+/* StatsCards renders its root as `.stats-grid` (not `.stats-cards` —
+   the latter never existed). Both selectors listed so the rule survives
+   any future rename. The full-width span lets the inner
+   `repeat(auto-fill, minmax(220px, 1fr))` flow naturally to whatever
+   number of columns fits the activity-dock width, instead of being
+   trapped in one half of the 2-col leaderboard+activity row above it. */
+.activity-dock > .stats-grid,
+.activity-dock > .stats-cards,
+.activity-dock > .stats-missing {
+  grid-column: 1 / -1;
+}
+@media (max-width: 980px) {
+  .activity-dock { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .activity-dock { padding: 12px; }

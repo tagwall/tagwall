@@ -1,10 +1,11 @@
 import { formatEther } from 'viem'
-import { useAccount, useChainId, useChains } from 'wagmi'
+import { useAccount, useChains } from 'wagmi'
 
 import { useCanvasHeader } from '../hooks/useCanvasHeader'
 import { useNativeUsdPrice } from '../hooks/useNativeUsdPrice'
 import { useOwnedByYou } from '../hooks/useOwnedByYou'
 import { usePaintedRegions } from '../hooks/usePaintedRegions'
+import { useViewerChainId } from '../lib/viewerChain'
 import { formatUsd, weiToUsdRate } from '../lib/usdPrice'
 
 const DEFAULT_W = 1_250
@@ -18,10 +19,15 @@ const DEFAULT_H = 800
  * doesn't double-fetch.
  */
 export function NavMetrics() {
-  const header = useCanvasHeader()
+  // Viewer chain drives the metrics so a no-wallet visitor sees the
+  // floor / tag-count / native symbol for whichever chain they're
+  // browsing via the dropdown. Without this NavMetrics displayed
+  // wagmi's default-chain ETH instead of the URL-selected PulseChain
+  // PLS for disconnected viewers.
+  const chainId = useViewerChainId()
+  const header = useCanvasHeader(chainId)
   const { data: regions } = usePaintedRegions()
   const { isConnected, address } = useAccount()
-  const chainId = useChainId()
   const chains = useChains()
   const activeChain = chains.find((c) => c.id === chainId)
   const nativeSymbol = activeChain?.nativeCurrency.symbol ?? 'native'

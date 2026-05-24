@@ -30,6 +30,22 @@ function shortenAddress(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`
 }
 
+/** Magnitude-aware native amount formatter for the price column.
+ *  Adds thousand-separator commas above 1k so PLS-scale numbers
+ *  read as 6,700 / 13,400 instead of running together. Mirrors the
+ *  formatter in Leaderboard + PaintControls so all three displays
+ *  agree on style. Centralise into lib/format.ts when a fourth caller
+ *  appears. */
+function formatActivityPrice(wei: bigint): string {
+  const num = Number(formatEther(wei))
+  if (!Number.isFinite(num) || num === 0) return '0'
+  if (num >= 1000) return num.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  if (num >= 1) return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  if (num >= 0.001) return num.toFixed(4)
+  if (num >= 0.000001) return num.toFixed(6)
+  return num.toExponential(2)
+}
+
 function effectiveMultiplier(r: PaintedRegion, startingPrice: bigint | null): number | null {
   if (!startingPrice || startingPrice === 0n || r.pixelsPainted === 0) return null
   const baseline = BigInt(r.pixelsPainted) * startingPrice
@@ -216,7 +232,7 @@ export function ActivityFeed({
                       {shortenAddress(r.painter)}
                     </td>
                     <td className="activity-td activity-td-price" title={`${formatEther(r.pricePaid)} ${nativeSymbol}`}>
-                      <code>{Number(formatEther(r.pricePaid)).toFixed(2)} <span className="token">{nativeSymbol}</span></code>
+                      <code>{formatActivityPrice(r.pricePaid)} <span className="token">{nativeSymbol}</span></code>
                     </td>
                     <td className="activity-td activity-td-mult">
                       {mult !== null ? `${mult.toFixed(1)}×` : '—'}

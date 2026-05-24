@@ -3,10 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { formatEther, isAddress, getAddress } from 'viem'
 import type { Address } from 'viem'
-import { useAccount, useChainId, useChains } from 'wagmi'
+import { useAccount, useChains } from 'wagmi'
+
+import { useViewerChainId } from '../lib/viewerChain'
 
 import { ActivityFeed } from '../components/ActivityFeed'
 import { Leaderboard } from '../components/Leaderboard'
+import { LeaderboardTicker } from '../components/LeaderboardTicker'
 import { StatsCards } from '../components/StatsCards'
 import { OutboundLinkModal } from '../components/OutboundLinkModal'
 import { PaintControls } from '../components/PaintControls'
@@ -241,8 +244,10 @@ function CanvasView({
   // Native-token ticker for the currently-selected chain. Derived from
   // the chain picker's selection rather than the connected wallet, so
   // the cost line shows the right ticker ("PLS", "ETH", etc.) even
-  // before the user connects a wallet.
-  const chainId = useChainId()
+  // before the user connects a wallet. Viewer chain id falls back to
+  // wagmi's chainId when connected, so paint UX stays aligned with
+  // what the wallet will sign.
+  const chainId = useViewerChainId()
   const chains = useChains()
   const activeChain = chains.find((c) => c.id === chainId)
   const nativeSymbol = activeChain?.nativeCurrency.symbol ?? 'native'
@@ -719,6 +724,13 @@ function CanvasView({
 
   return (
     <section className="canvas-section" data-mobile-tab={mobileTab}>
+      {/* Stock-ticker-style scroller of the top leaderboard entries.
+          Rendered here (not in AppLayout) so it can receive the
+          `regions` prop that HomePage already owns from its single
+          `usePaintedRegions` call — avoids a duplicate query that
+          tripped on StrictMode in AppLayout. Self-hides when zero
+          regions (fresh-chain or filtered-empty). */}
+      <LeaderboardTicker regions={regions} nativeSymbol={nativeSymbol} onRequestOutbound={setOutboundUrl} />
       <div className="canvas-wrap">
         <div className="canvas-col">
         <div data-mobile-panel="paint" className="mobile-panel-wrap">
@@ -890,14 +902,14 @@ function CanvasView({
           </div>
         </div>
 
-        <aside className="canvas-side" aria-label="Leaderboard" data-mobile-panel="scores">
-          <Leaderboard
-            regions={regions}
-            nativeSymbol={nativeSymbol}
-            chainId={chainId}
-            onRequestOutbound={setOutboundUrl}
-          />
-        </aside>
+        {/* Leaderboard previously lived in a `<aside.canvas-side>` rail
+            to the right of the canvas, but that ate ~360px of horizontal
+            space the canvas wanted, AND the rail's full-height border
+            ran past the leaderboard card and looked like an orphan line.
+            Moved 2026-05-24 below the canvas alongside Activity (operator
+            preference: more canvas, less side-chrome). Mobile-tabs "Scores"
+            target still works because the new home in `.activity-dock` keeps
+            the same component instance. */}
       </div>
 
       {/* Mobile tab strip (Phase 3) — visible only at <720px via CSS.
@@ -931,10 +943,20 @@ function CanvasView({
         </button>
       </nav>
 
-      {/* Activity dock — full-width under canvas + leaderboard rail.
-          ActivityFeed + StatsCards stack vertically; leaderboard now
-          lives in <aside.canvas-side> next to the canvas, not here. */}
+      {/* Below-canvas dock. Wide viewports: 2-column [Leaderboard |
+          ActivityFeed] with StatsCards spanning below. Narrow: stacks
+          to a single column. Replaces the canvas-side rail layout
+          where the leaderboard sat next to the canvas (2026-05-24).
+          The `data-mobile-panel` on the wrapper still drives mobile
+          tab selection; "scores" and "activity" both render content
+          inside this dock now. */}
       <div className="activity-dock" data-mobile-panel="activity">
+        <Leaderboard
+          regions={regions}
+          nativeSymbol={nativeSymbol}
+          chainId={chainId}
+          onRequestOutbound={setOutboundUrl}
+        />
         <ActivityFeed
           regions={regions}
           isLoading={regionsLoading}

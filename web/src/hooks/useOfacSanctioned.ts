@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import type { Address } from 'viem'
 import { getAddress } from 'viem'
-import { useChainId, useReadContracts } from 'wagmi'
+import { useReadContracts } from 'wagmi'
 
 import { OFAC_ORACLE_ABI, ofacOracleFor } from '../lib/ofacOracles'
+import { useViewerChainId } from '../lib/viewerChain'
 
 /**
  * Returns the subset of `addresses` that the Chainalysis sanctions oracle
@@ -25,7 +26,10 @@ const FILTER_ENABLED = import.meta.env.VITE_FILTER_OFAC_ENABLED !== 'false'
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 export function useOfacSanctioned(addresses: readonly Address[]): Set<Address> {
-  const chainId = useChainId()
+  // Use viewer chain so the right oracle is queried even when no wallet
+  // is connected (a Base-viewing visitor should hit the Base Chainalysis
+  // oracle, not the wagmi default chain).
+  const chainId = useViewerChainId()
   const oracle = ofacOracleFor(chainId)
 
   // Dedupe + checksum-normalise. Filter out the zero address (no-referrer

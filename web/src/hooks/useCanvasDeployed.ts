@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useChainId, usePublicClient } from 'wagmi'
+import { usePublicClient } from 'wagmi'
 
 import { CANVAS_ADDRESS } from '../contracts/canvas'
+import { useViewerChainId } from '../lib/viewerChain'
 
 /**
  * Reports whether the Canvas contract has bytecode at CANVAS_ADDRESS on
@@ -27,8 +28,11 @@ import { CANVAS_ADDRESS } from '../contracts/canvas'
 export type CanvasDeployedStatus = 'unknown' | 'deployed' | 'not-deployed'
 
 export function useCanvasDeployed(): CanvasDeployedStatus {
-  const chainId = useChainId()
-  const client = usePublicClient()
+  const chainId = useViewerChainId()
+  // Pin the client to the viewer chain so this check is correct even
+  // when no wallet is connected (a passer-by browsing tagwall.io/?chain=base
+  // should see Base's deployment status, not the default-chain fallback).
+  const client = usePublicClient({ chainId })
   const { data, isLoading, isError } = useQuery({
     queryKey: ['canvas-deployed', chainId],
     queryFn: async (): Promise<boolean> => {
