@@ -28,13 +28,13 @@ const LOCAL_ANVIL = 31337
 const LOCAL_HARDHAT = 1337
 
 const CHAIN_DEPLOY_BLOCK: Record<number, bigint> = {
-  // Production chains: not deployed yet; replace with real deploy block at
-  // launch. Until then the scanner walks from 0n, which is fine because
-  // there are no Painted events to find anyway.
-  [ETHEREUM]: 0n,
-  [BSC]: 0n,
-  [BASE]: 0n,
-  [PULSECHAIN]: 0n,
+  // Production chains (Day-0 launch 2026-05-24). Canvas address is the
+  // same on every chain: 0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415.
+  // Frontend scans Painted events from these blocks forward.
+  [ETHEREUM]: 25_161_961n,
+  [BSC]: 100_071_283n,
+  [BASE]: 46_399_049n,
+  [PULSECHAIN]: 26_606_708n,
   // PulseChain v4 testnet has had several test deploys. Replace with the
   // current deploy block when the CANVAS_ADDRESS in canvas.ts changes.
   [PULSECHAIN_TESTNET]: 0n,

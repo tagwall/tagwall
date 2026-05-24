@@ -28,13 +28,20 @@ const PULSECHAIN_V4_RPC_URLS = [
   'https://rpc-testnet-pulsechain.g4mm4.io',
   'https://pulsechain-testnet-rpc.publicnode.com',
 ] as const
+// Ethereum primary swapped 2026-05-24 (Day-0): cloudflare-eth.com was
+// rate-limiting (429) with no CORS headers, blocking browser access
+// entirely. eth.merkle.io (Flashbots-operated) returns CORS=* and has
+// solid uptime per public dashboards.
 const ETHEREUM_RPC_URLS = [
-  'https://cloudflare-eth.com',
+  'https://eth.merkle.io',
   'https://ethereum-rpc.publicnode.com',
 ] as const
+// Base secondary swapped 2026-05-24 (Day-0): base.llamarpc.com was
+// returning HTTP 526 (Cloudflare bad-origin) with no CORS. base.drpc.org
+// mirrors the BSC primary pattern (bsc.drpc.org) for consistency.
 const BASE_RPC_URLS = [
   'https://base-rpc.publicnode.com',
-  'https://base.llamarpc.com',
+  'https://base.drpc.org',
 ] as const
 const BSC_RPC_URLS = [
   'https://bsc.drpc.org',
