@@ -1,13 +1,16 @@
 name = "tagwall"
 compatibility_date = "2026-05-03"
 
-# Workers Static Assets. Pre-launch posture: ships ONLY the contents of
-# `./holding/` — a single static index.html + favicon, no React, no Vite,
-# no canvas source. The full app source stays in the private GitLab repo
-# until launch.
+# Workers Static Assets. Day-0 launch posture (2026-05-24): serves the
+# built canvas bundle from `./web/dist`. Cloudflare's git integration
+# runs the build below on every push.
 #
-# At launch, point this at the built canvas bundle (e.g. ./web/dist) and
-# update the Cloudflare build command accordingly.
+# Pre-launch the directory was `./holding/` (static HTML placeholder);
+# the holding/ folder is retained in-repo as historical reference but
+# is no longer served.
+[build]
+command = "npm --prefix web ci && npm --prefix web run build"
+
 [assets]
-directory = "./holding"
+directory = "./web/dist"
 not_found_handling = "single-page-application"

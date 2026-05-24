@@ -1,0 +1,3179 @@
+:root {
+  color-scheme: dark;
+
+  /* Palette — from docs/design_handoff_tagwall_layout/README.md (Claude
+     Design). Lime `#A8FF2E` on deep-black, sharp 1-2px radii, terminal
+     aesthetic. Variable names kept for back-compat with existing
+     selectors; `--tw-*` aliases expose the design-tokens spec. */
+  --bg: #0a0b0a;            /* page bg (was #07070b) */
+  --bg-panel: #0f1110;      /* panels, metric strip */
+  --bg-panel-hi: #14171a;   /* chips, raised surfaces */
+  --border: #1e2226;        /* section dividers */
+  --border-control: #2a2f34;/* input/chip borders */
+  --text: #c9d1d4;          /* body text */
+  --text-bright: #e8eef0;   /* primary text / values */
+  --text-dim: #5c6670;      /* labels, secondary */
+  --accent: #a8ff2e;        /* lime — CTA + highlight */
+  --accent-2: #7bd42a;      /* lime hover */
+  --warn: #ff6b3d;          /* destructive */
+  --err: #ff6b3d;           /* back-compat alias */
+
+  /* Design-tokens aliases — same values, spec-named. Use these in new code. */
+  --tw-bg: var(--bg);
+  --tw-panel: var(--bg-panel);
+  --tw-panel-2: var(--bg-panel-hi);
+  --tw-line: var(--border);
+  --tw-line-2: var(--border-control);
+  --tw-dim: var(--text-dim);
+  --tw-fg: var(--text);
+  --tw-fg-bright: var(--text-bright);
+  --tw-accent: var(--accent);
+  --tw-accent-2: var(--accent-2);
+  --tw-warn: var(--warn);
+
+  /* Typography */
+  --tw-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --tw-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Glows */
+  --tw-glow-accent: 0 0 32px rgba(168, 255, 46, 0.27);
+  --tw-glow-accent-sm: 0 0 6px rgba(168, 255, 46, 0.53);
+  --tw-glow-tooltip: 0 0 24px rgba(168, 255, 46, 0.20);
+
+  /* Chain accents — see docs/design_handoff_chain_palette/README.md.
+     Lime stays brand (CTA, "you/owned"); chain accents only ride on
+     the wallet chip dot, network badge, and tx-link affordances. */
+  --tw-chain-anvil:      #A8FF2E;  /* aliases --tw-accent on purpose (dev mode) */
+  --tw-chain-ethereum:   #7C9BFF;
+  --tw-chain-pulse:      #FF5BD0;
+  --tw-chain-base:       #3DC9FF;
+  --tw-chain-solana:     #B47BFF;
+  /* Reserved — wire when chain ships. */
+  --tw-chain-arbitrum:   #5BD9C5;
+  --tw-chain-optimism:   #FF5C5C;
+  --tw-chain-polygon:    #9B5CFF;
+  --tw-chain-avalanche:  #FF7849;
+  --tw-chain-sui:        #5BB8FF;
+  --tw-chain-bnb:        #FFD63D;
+  --tw-on-accent:        #0A0B0A;  /* CTA ink — pairs with every chain ≥ 7:1 */
+
+  /* Default chain color for chrome. Set via inline style on the
+     ConnectBar header so child rules don't need to switch on chain id.
+     Falls back to the brand lime for unknown chains and pre-connect.
+     Children compose alpha steps via the *-55 / -88 / -33 vars when the
+     parent sets them, otherwise via opaque var(--chain-color). */
+  --chain-color: var(--tw-accent);
+
+  font-family: var(--tw-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+
+/* App shell: columns-of-content stack, full viewport width. Individual
+   sections manage their own inner padding so the canvas can go
+   edge-to-edge while chrome (connect bar, footer, paint row) stays
+   within a readable measure. */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 40px;
+  gap: 18px;
+}
+
+/* Shared max-measure wrapper for chrome sections (connect bar + paint
+   controls + footer) that should NOT stretch edge-to-edge. The canvas
+   breaks out of this by not using it. */
+.shell-measure {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+@media (max-width: 600px) {
+  .shell-measure { padding: 0 12px; }
+  .app { padding-bottom: 24px; gap: 14px; }
+}
+
+/* Connect bar */
+.connect-bar {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  /* Wrap is required so a `flex: 0 0 100%` banner child (wrong-chain
+     or not-yet-deployed) takes its own row above the brand cluster
+     instead of forcing siblings off-screen. row-gap separates the
+     wrapped rows; the regular `gap: 20px` already covered horizontal
+     spacing within a row. */
+  flex-wrap: wrap;
+  row-gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+/* Wrong-chain banner. Spans the entire row above the connect bar so the
+   warning is unmissable; pushed into the connect bar's flex flow with
+   100% basis so it stacks above brand + nav. */
+.wrong-chain-banner {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(220, 90, 50, 0.12);
+  border: 1px solid rgba(220, 90, 50, 0.4);
+  color: #f4c8b3;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.wrong-chain-banner .wallet-btn {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .wrong-chain-banner { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 600px) {
+  .connect-bar { padding: 10px 12px; gap: 10px; flex-wrap: wrap; }
+}
+/* Narrow viewports: stack so wallet/chain cluster sits on the top row
+   alongside the brand, and the Canvas/Stats nav wraps to its own row
+   underneath. Uses `order` to re-sequence without changing JSX: brand (0),
+   connect-bar-right (1), main-nav (2). The brand + right cluster share
+   row 1; the nav takes row 2. Kicks in below 720px, where the original
+   single-row layout was running out of horizontal space. */
+@media (max-width: 720px) {
+  .connect-bar { flex-wrap: wrap; row-gap: 8px; }
+  .brand { order: 0; }
+  .connect-bar-right { order: 1; margin-left: auto; }
+  .main-nav { order: 2; flex-basis: 100%; justify-content: center; }
+}
+
+.brand {
+  font-weight: 600;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  flex: 0 0 auto;
+}
+.brand:hover { color: var(--accent); }
+/* Brand mark — solid square in the accent color. Chain-aware: when
+   the user is connected, ConnectBar overrides --tw-accent at the .app
+   scope so the mark + every other accent surface track the chain. */
+.brand-mark {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: var(--tw-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tw-accent) 53%, transparent);
+}
+
+/* Primary menu: Canvas / Stats. Pill-shaped, visually distinct from
+   the chain dropdown on the right so the two roles don't compete. */
+.main-nav {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 0 0 auto;
+}
+.main-nav-link {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-radius: 5px;
+  line-height: 1.2;
+  transition: color 120ms, background-color 120ms;
+}
+.main-nav-link:hover { color: var(--text); background: var(--bg-panel-hi); }
+.main-nav-link-active {
+  color: #0a0a10;
+  background: var(--accent);
+}
+.main-nav-link-active:hover {
+  color: #0a0a10;
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+/* Right-cluster: NavMetrics (Floor / Tags / Yours) → chain dropdown →
+   wallet button. Pushed right by an auto-margin on the brand's
+   sibling. NavMetrics gets the larger gap so the metrics read as a
+   group separate from the chain/wallet cluster. */
+.connect-bar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+/* Top-bar canvas metrics. Replaces the old below-paint-bar metric
+   strip; reads as one row of mono labels alongside the chain badge
+   and Connect button. */
+.nav-metrics {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.nav-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  line-height: 1.1;
+}
+.nav-metric-label {
+  font-family: var(--tw-mono);
+  font-size: 9px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+.nav-metric-value {
+  font-family: var(--tw-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tw-fg-bright);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.nav-metric-unit {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  font-weight: 400;
+  /* Native ticker (ETH / PLS / etc.) uses the chain accent everywhere
+     it's shown so the user always reads "the chain you're on" by
+     glancing at the colored ticker. */
+  color: var(--tw-accent);
+}
+/* Dim variant of the unit suffix for non-token labels (e.g. "px"
+   beside the Yours pixel count) so they don't compete with the
+   chain-accent native ticker. */
+.nav-metric-unit-dim { color: var(--tw-dim); }
+.nav-metric-accent { color: var(--tw-accent); }
+/* Vertical divider between metrics in the top nav. Matches the chain
+   dropdown's border-color step so the metric cluster reads as a
+   gridded row, not a soup of inline text. */
+.nav-metric-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--tw-line-2);
+  /* A touch shorter than the metric cells so it doesn't visually
+     dominate the row. */
+  margin: 4px 0;
+}
+
+/* Shared inline native-token ticker. Used wherever a native symbol
+   like "ETH" / "PLS" appears next to a numeric amount, so the
+   ticker color tracks the chain palette. */
+.token {
+  color: var(--tw-accent);
+}
+
+/* Below ~900px the metrics collapse to icons-only or hide entirely
+   so the chain/Connect buttons keep room. Kept loud at desktop where
+   horizontal space is plenty. */
+@media (max-width: 900px) {
+  .nav-metrics { display: none; }
+}
+
+/* Chain dropdown */
+.chain-dropdown { position: relative; }
+.chain-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-panel);
+  /* Tracks --tw-accent — flips chain-by-chain via the AppLayout
+     override. 33% alpha on the border via color-mix; full color on
+     the label text. */
+  color: var(--tw-accent);
+  border: 1px solid color-mix(in srgb, var(--tw-accent) 33%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 140px;
+  line-height: 1.2;
+  /* Inner spans are decorative; the button itself owns every click.
+     Belt-and-braces against any UA that might surface the inner span
+     as a hit target ahead of the button. */
+  text-align: left;
+}
+.chain-dropdown-trigger > * { pointer-events: none; }
+.chain-dropdown-label { flex: 1; }
+.chain-dropdown-trigger:hover { border-color: var(--tw-accent); }
+.chain-dropdown-caret { color: var(--text-dim); font-size: 10px; }
+.chain-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chain-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+}
+.chain-dropdown-item:hover:not(:disabled) { background: var(--bg-panel-hi); }
+.chain-dropdown-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.chain-dropdown-item-active { color: var(--accent); }
+.chain-dropdown-item-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+}
+
+.wallet { display: flex; align-items: center; gap: 10px; }
+.wallet-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  gap: 2px;
+}
+.wallet .addr { font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace; font-size: 13px; }
+.wallet-balance {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+/* Native-token symbol picks up the chain accent so PLS/tPLS/ETH/BNB
+   reads as part of the same chain-colour story as the brand mark + CTA. */
+.wallet-balance-symbol { color: var(--tw-accent); }
+.wallet-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  background: var(--accent);
+  color: #0a0a10;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.wallet-btn:hover { filter: brightness(1.05); }
+.err { color: var(--err); font-size: 12px; }
+
+/* Referral share CTA. Sits right of the brand in the connect bar.
+   The connect-bar's flex `gap: 20px` already separates it from the
+   brand; the extra `margin-left` adds a deliberate breath so it reads
+   as its own affordance rather than part of the brand cluster.
+   Mirrors chain-dropdown's trigger/menu pattern so the visual
+   language stays consistent. */
+.share-ref { position: relative; margin-left: 12px; }
+.share-ref-trigger {
+  display: inline-block;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--bg-panel);
+  color: var(--tw-accent);
+  border: 1px solid color-mix(in srgb, var(--tw-accent) 33%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.share-ref-trigger:hover {
+  border-color: var(--tw-accent);
+  color: var(--tw-accent);
+  text-decoration: none;
+}
+.share-ref-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 280px;
+  padding: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.share-ref-blurb {
+  padding: 6px 8px 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.share-ref-action {
+  display: block;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  width: 100%;
+}
+.share-ref-action:hover { background: var(--bg-panel-hi); color: var(--text); }
+.share-ref-action-btn { font-family: inherit; }
+.share-ref-link {
+  margin-top: 4px;
+  padding: 6px 8px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border-radius: 4px;
+  word-break: break-all;
+  user-select: all;
+}
+.share-ref-more {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--tw-accent);
+  text-decoration: none;
+  border-top: 1px solid var(--border);
+}
+.share-ref-more:hover { background: var(--bg-panel-hi); }
+
+/* /share page. Owns its own column rhythm; uses .shell-measure for
+   horizontal centring so it lines up with the connect bar above. */
+.share-page { display: flex; flex-direction: column; gap: 28px; padding-top: 8px; }
+.share-page-header h1 { margin: 0 0 8px; font-size: 26px; }
+.share-page-header p { margin: 0 0 6px; color: var(--text-dim); line-height: 1.5; max-width: 720px; }
+.share-page-header code {
+  background: var(--bg-panel);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.share-page-note {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.share-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.share-form-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.share-form-input {
+  padding: 10px 12px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+.share-form-input:focus { border-color: var(--tw-accent); }
+.share-form-status { font-size: 12px; }
+.share-form-status-ok { color: var(--tw-accent); }
+.share-form-status-dim { color: var(--text-dim); }
+.share-form-status-err { color: var(--err); }
+.share-form-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.share-form-url {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 8px 10px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.share-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 14px;
+}
+.share-template {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.share-template-head { display: flex; flex-direction: column; gap: 4px; }
+.share-template-audience { margin: 0; font-size: 15px; }
+.share-template-use { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+.share-template-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+.share-template-edit-note,
+.share-template-image-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.share-template-edit-note { color: var(--accent); }
+.share-template-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.share-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #0a0a10;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-family: inherit;
+}
+.share-btn:hover { filter: brightness(1.05); color: #0a0a10; }
+.share-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.share-btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.share-btn-secondary:hover { border-color: var(--tw-accent); color: var(--text); }
+
+.share-embed { display: flex; flex-direction: column; gap: 10px; }
+.share-embed h2 { margin: 0; font-size: 18px; }
+.share-embed p { margin: 0; color: var(--text-dim); line-height: 1.5; max-width: 720px; }
+.share-embed code {
+  background: var(--bg-panel);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.share-embed-snippet { font-size: 12px; }
+
+/* Old /stats page still uses these Stat styles. Retained for the
+   dedicated stats page; removed from the home view. */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 110px; }
+.stat span { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.stat strong { font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace; font-weight: 500; }
+.stats-loading { color: var(--text-dim); }
+.stats-error, .stats-missing { color: var(--err); display: block; }
+.stats-missing .hint { color: var(--text-dim); margin-top: 8px; font-size: 13px; }
+.stats-missing code { background: var(--bg-panel-hi); padding: 2px 6px; border-radius: 4px; }
+
+/* Canvas section: paint row + toolbar + canvas + below-canvas. The paint
+   row and toolbar stay inside the chrome measure; the canvas breaks
+   out to the viewport edge. */
+.canvas-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Below-canvas strip: just the activity feed now. Kept as a grid so it's
+   easy to add more panels later. Lives in the measured chrome width. */
+.below-canvas {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .below-canvas { padding: 0 12px; }
+}
+
+/* Compact toolbar directly above the canvas: Floor + total tags on the
+   left, hover-readout on the right. Replaces the old bulky stats panel.
+   Also inside the chrome measure so it aligns with the paint row. */
+.canvas-toolbar {
+  width: 100%;
+  margin: 0;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  /* Mirror the canvas-scroll border so the toolbar reads as a header on
+     top of the canvas, not as free-floating chrome. Rounded top corners
+     only; flat bottom meets the canvas border directly. */
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  background: var(--bg);
+}
+@media (max-width: 600px) {
+  .canvas-toolbar { padding: 6px 10px; flex-wrap: wrap; }
+}
+.canvas-toolbar-stats {
+  display: flex;
+  gap: 20px;
+  align-items: baseline;
+}
+.canvas-toolbar-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.canvas-toolbar-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.canvas-toolbar-stat strong {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+.canvas-toolbar-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.canvas-toolbar-readout {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Zoom controls inline in the canvas toolbar, right edge. */
+.canvas-toolbar-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+/* Canvas wrap: flex row of [scroll-container] [vertical zoom rail].
+   Breaks out of the chrome measure to full viewport width so the art
+   area gets all available pixels. */
+.canvas-wrap {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 8px;
+  flex-wrap: wrap;
+}
+/* Activity feed sidebar: to the right of the canvas on wide viewports.
+   Wraps under the canvas on narrow viewports via flex-wrap on the parent.
+   Width is fixed so the canvas has predictable breathing room; max-height
+   matches the canvas so vertical real-estate parity is maintained.
+
+   Fit threshold: canvas max-width at a ~800px-tall viewport is
+   `(800-320)*25/16 = 750px`; with a 320px sidebar + 10px gap + 16px page
+   padding that's 1096px minimum. Bumped to 1280px so there's breathing
+   room on mid-range laptop widths and the sidebar never squeezes the
+   canvas to < 900px. Below 1280 → wrap under. */
+.canvas-side {
+  flex: 0 0 360px;
+  max-width: 360px;
+  min-width: 0;
+  border-left: 1px solid var(--tw-line);
+  /* Design Phase 2: widened from 320 → 360 to match the handoff's
+     "High Scores" rail width. No height cap — the activity dock is
+     now a full-width strip below the canvas, not a fight for space
+     inside this rail. */
+}
+@media (max-width: 1280px) {
+  .canvas-side {
+    flex: 1 1 100%;
+    max-width: none;
+    border-left: none;
+    border-top: 1px solid var(--tw-line);
+  }
+}
+/* Canvas column: vertical stack of [paint bar] + [canvas scroll].
+   Shares horizontal space with the leaderboard side rail
+   (.canvas-side). flex-grows to fill whatever's left after the rail
+   is sized; the canvas inside is aspect-locked at 25:16 so its
+   height follows the column width. Paint bar fills 100% of the
+   column so the two read as one continuous block flush against
+   each other. */
+.canvas-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+/* Scroll container for the zoomed canvas. At zoom=1 the stack fits; at
+   higher zoom the stack grows beyond the wrapper and the user pans.
+   Capped by viewport height so the canvas stays mostly above the fold
+   on laptop displays; width auto-derives from the 25/16 aspect ratio. */
+.canvas-scroll {
+  width: 100%;
+  /* No vertical clamp — the canvas-stack inside is aspect-locked at
+     25:16, so its height follows the column width. At full chrome
+     width the canvas may extend below the fold; the page scrolls
+     naturally rather than the canvas getting clipped. Removing the
+     previous max-height was needed once .canvas-col stopped capping
+     its own max-width — the column now fills the whole viewport
+     and the canvas grows with it. */
+  /* No scrollbars at zoom = 1 — the canvas exactly fills the wrapper.
+     ConnectBar/HomePage flips to .canvas-scroll-zoomed when zoom > 1
+     so panning becomes possible without scrollbars sitting around as
+     idle chrome at the default view. */
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  aspect-ratio: 25 / 16;
+  min-width: 0;
+}
+.canvas-scroll-zoomed { overflow: auto; }
+/* Zoom buttons: compact inline square buttons that sit in the canvas
+   toolbar row on the right. Rendered inside `.canvas-toolbar-zoom`. */
+.canvas-zoom-btn {
+  height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.canvas-zoom-btn:hover:not(:disabled) {
+  background: var(--bg-panel-hi);
+  border-color: var(--text-dim);
+}
+.canvas-zoom-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.canvas-zoom-fit { font-family: inherit; font-size: 11px; }
+.canvas-zoom-level {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  color: var(--text);
+  text-align: center;
+  padding: 0 6px;
+  background: transparent;
+  font-size: 11px;
+  letter-spacing: -0.02em;
+  min-width: 34px;
+}
+/*
+  Knight-Rider rainbow loading scanner. A stack of 50px rows overlayed on
+  the canvas, each sweeping a rainbow beam left → right. Rows are
+  staggered via animation-delay so the sweep cascades down the canvas,
+  giving a sense of "rows being processed" as the pixel data loads.
+  Pointer-events: none so it never eats a hover or click.
+*/
+.canvas-loading-scanner {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+  mix-blend-mode: screen;
+}
+.scanner-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 0, 128, 0.55) 20%,
+    rgba(255, 128, 0, 0.60) 30%,
+    rgba(255, 255, 0, 0.65) 40%,
+    rgba(0, 255, 128, 0.60) 50%,
+    rgba(0, 191, 255, 0.60) 60%,
+    rgba(128, 0, 255, 0.55) 70%,
+    transparent 90%
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  background-position: -40% 0;
+  /* 1.4s cycle pairs with the 0.05s/row stagger (HomePage.tsx) so
+     the top-down cascade reaches the last row at t = 0.95s — well
+     before the top row finishes its first sweep at t = 1.4s. After
+     ~1s the canvas reads as a continuous downward wave. */
+  animation: scanner-beam 1.4s linear infinite;
+}
+@keyframes scanner-beam {
+  /* Start: rainbow beam offscreen-left.
+     End: beam has fully traversed to offscreen-right.
+     Linear sweep matches the "row being scanned" vibe; ease curves looked
+     like the beam was pausing. */
+  0%   { background-position: -40% 0; }
+  100% { background-position: 140% 0; }
+}
+/* Respect prefers-reduced-motion: freeze animations at a subdued state
+   so users can still tell something is loading, minus the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .scanner-row {
+    animation: none;
+    background-position: 50% 0;
+    opacity: 0.25;
+  }
+}
+
+.canvas-stack {
+  position: relative;
+  width: 100%;
+  /* 1,250:800 == 25:16 canvas ratio (PRD v3.2, Canvas.sol v3.2).
+     Wider than 16:9 and 16:10 so the canvas fits most laptop
+     displays with the side panel AND stats strip visible without
+     vertical scroll. */
+  aspect-ratio: 25 / 16;
+  background: #0b0b10;
+  border: 1px solid var(--border);
+  /* NO border-radius. Corner pixels are paid for and must be
+     visible; a rounded-corner mask would visually amputate them. */
+}
+.tagwall-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.tagwall-canvas.base {
+  cursor: crosshair;
+}
+.tagwall-canvas.overlay {
+  pointer-events: none; /* clicks/drag go to the base canvas underneath */
+}
+
+/* Draft stamp move-affordance: marching-ants outline + a "Drag to move"
+   pill anchored above. CSS-animated so it's obviously a live target
+   (vs. the thin static white border drawn onto the overlay canvas
+   already). pointer-events: none so the outline never intercepts the
+   drag that it's advertising. */
+.draft-outline {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px dashed #ffffff;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
+  animation: draft-outline-march 0.6s linear infinite;
+}
+@keyframes draft-outline-march {
+  from { background-position: 0 0, 0 0, 0 0, 0 0; border-image-slice: 1; }
+  to   { background-position: 0 0, 0 0, 0 0, 0 0; border-image-slice: 1; }
+}
+/* Wiggle the dash pattern by animating the border via a pseudo-element
+   stripe. `border-style: dashed` is not animatable, so we simulate motion
+   with a gradient background that shifts across a thin inset stripe. */
+.draft-outline::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, #fff 50%, transparent 0) repeat-x top,
+    linear-gradient(90deg, #fff 50%, transparent 0) repeat-x bottom,
+    linear-gradient(0deg,  #fff 50%, transparent 0) repeat-y left,
+    linear-gradient(0deg,  #fff 50%, transparent 0) repeat-y right;
+  background-size: 8px 2px, 8px 2px, 2px 8px, 2px 8px;
+  animation: draft-ants 0.6s linear infinite;
+  mix-blend-mode: difference;
+  opacity: 0.85;
+}
+@keyframes draft-ants {
+  from { background-position: 0 0, 0 100%, 0 0, 100% 0; }
+  to   { background-position: 8px 0, -8px 100%, 0 -8px, 100% 8px; }
+}
+.draft-outline-label {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  background: #ffffff;
+  color: #0b0b10;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Floating hover tooltip that follows the cursor over the canvas.
+   position: fixed so it can escape the canvas scroll container and
+   sit above everything; pointer-events: none so it doesn't hijack
+   the mouse interactions on the canvas itself. */
+.pixel-tooltip {
+  position: fixed;
+  z-index: 80;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pixel-tooltip-coord {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.pixel-tooltip-coord code {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  color: var(--text);
+  font-weight: 600;
+}
+.pixel-tooltip-row {
+  display: grid;
+  grid-template-columns: 16px auto 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.pixel-tooltip-swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.pixel-tooltip-hex {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text);
+}
+.pixel-tooltip-price {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+.pixel-tooltip-link {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  word-break: break-all;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.pixel-tooltip-link:hover { text-decoration: underline; }
+.pixel-tooltip-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.pixel-tooltip-placeholder {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Paint controls. Two states, both animated by height transition:
+   - closed (no draft): compact 52px row with an upload button + hint
+   - open (draft loaded): 160px row with preview + all paint settings
+   The container animates between heights on state change so the panel
+   doesn't jump when a user picks a file. Inside the chrome measure so
+   it doesn't go edge-to-edge like the canvas does. */
+.paint-controls {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  transition: height 220ms ease, min-height 220ms ease, padding 220ms ease;
+}
+/* Paint controls live inside .canvas-col (via a .mobile-panel-wrap
+   intermediate div that mobile tabs use). Sharp edges + 1px
+   dividers + no bottom border so the bar butts flush against the
+   canvas below. Descendant selector (not direct child) so the
+   override survives whatever wrapper layers the mobile tab needs. */
+.canvas-col .paint-controls {
+  width: 100%;
+  /* Drop the default 1400px max-width so the bar exactly matches
+     the canvas-scroll below it (which is 100vw - canvas-wrap padding,
+     uncapped). Mismatched maxes were rendering the bar 24px narrower
+     than the canvas and visibly indented. */
+  max-width: none;
+  border-radius: 0;
+  border-bottom: none;
+  padding: 0;
+  background: transparent;
+  /* Strip the rounded-corner overflow clip from the default
+     .paint-controls rule so child borders don't get masked. */
+  overflow: visible;
+}
+.canvas-col .paint-controls + .canvas-toolbar {
+  border-top: none;
+  border-radius: 0;
+}
+.paint-controls-closed { height: 44px; min-height: 44px; padding: 6px 12px; }
+.paint-controls-open { height: auto; min-height: 112px; padding: 0; }
+
+/* ======================================================================
+   Paint bar — 5-zone grid.
+   Zones: 01 · Image, 02 · Metadata, 03 · Pricing, 04 · Tag CTA, 05 · Map.
+   Reference: docs/design_handoff_tagwall_layout/README.md.
+   ====================================================================== */
+.paint-bar {
+  display: grid;
+  /* Image | Metadata | Pricing | CTA | Map. Metadata uses minmax so the
+     URL/referrer inputs never collapse below a readable width — at 100%
+     browser zoom on a 1280-1400px viewport the second column was shrinking
+     past usability before this guard. Map column sized to the minimap's
+     160 + 12+12 padding ≈ 184; matches CTA visually. */
+  grid-template-columns: 280px minmax(280px, 1fr) 240px 160px 244px;
+  gap: 0;
+  border: 1px solid var(--tw-line);
+  border-bottom: none;
+  background: var(--tw-bg);
+  min-height: 112px;
+}
+@media (max-width: 1380px) {
+  /* Drop the map column at narrower widths so the rest of the bar
+     keeps its breathing room. Zoom is still reachable via wheel
+     gestures on the canvas. Bumped the breakpoint up from 1280 →
+     1380 so common 1366-class laptops drop the map column rather
+     than squeezing Metadata. */
+  .paint-bar {
+    grid-template-columns: 280px minmax(280px, 1fr) 240px 160px;
+  }
+  .paint-bar .pz-minimap { display: none; }
+}
+@media (max-width: 1100px) {
+  /* Wrap at mid-width: Image + Metadata on row 1, Pricing + CTA on row 2. */
+  .paint-bar {
+    grid-template-columns: 260px 1fr 220px;
+  }
+  .paint-bar .pz-cta {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .paint-bar .pz-pricing {
+    grid-column: 1 / 4;
+    grid-row: 2;
+    border-top: 1px solid var(--tw-line);
+  }
+}
+@media (max-width: 760px) {
+  .paint-bar {
+    grid-template-columns: 1fr;
+  }
+  .paint-bar .pz { grid-column: 1 !important; border-right: none !important; border-bottom: 1px solid var(--tw-line); }
+  .paint-bar .pz:last-child { border-bottom: none; }
+}
+.pz {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border-right: 1px solid var(--tw-line);
+}
+.pz:last-child { border-right: none; }
+.pz-label {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* ------ Zone 1: Image ------ */
+.pz-image-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+}
+.pz-thumb {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  object-fit: contain;
+  background: #07070b;
+  border: 1px solid var(--tw-line-2);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.pz-image-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pz-filename {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-fg-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pz-dims {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+}
+.pz-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  background: var(--tw-panel);
+  border: 1px solid var(--tw-line-2);
+  border-radius: 2px;
+  cursor: pointer;
+  margin-top: 2px;
+}
+.pz-chip:hover { background: var(--tw-panel-2); }
+.pz-chip input[type='file'] { display: none; }
+.pz-clear {
+  background: transparent;
+  color: var(--tw-dim);
+  border: 1px solid var(--tw-line-2);
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.pz-clear:hover { color: var(--tw-fg-bright); border-color: var(--tw-accent); }
+.pz-scale {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.pz-scale-label {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ------ Zone 2: Metadata ------ */
+.pz-metadata { gap: 6px; }
+.pz-field {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--tw-line-2);
+  background: var(--tw-panel);
+  min-height: 30px;
+}
+.pz-field-invalid { border-color: var(--warn); }
+.pz-field-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-right: 1px solid var(--tw-line-2);
+  min-width: 84px;
+}
+.pz-field-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  color: var(--tw-fg-bright);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+.pz-field-input::placeholder { color: var(--tw-dim); }
+.pz-field-input:focus { outline: 1px solid var(--tw-accent); outline-offset: -1px; }
+.pz-field-err {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--warn);
+  letter-spacing: 0.04em;
+}
+
+/* ------ Zone 3: Pricing ------ */
+.pz-cost {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pz-cost-value {
+  font-family: var(--tw-mono);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--tw-fg-bright);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pz-cost-unit {
+  font-family: var(--tw-mono);
+  font-size: 13px;
+  color: var(--tw-accent);
+}
+.pz-cost {
+  /* Right-aligned cost stack: native value (large), USD (medium),
+     slippage + chunk-signature lines (small). Each line on its own
+     row so dense pricing context doesn't wrap awkwardly. The min-
+     height pins the column so dragging the stamp around (which
+     triggers a quote refetch) doesn't make the column visibly
+     collapse and re-expand between every reposition. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-height: 78px;
+}
+.pz-cost-line { line-height: 1.2; }
+.pz-cost-line-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.pz-cost-cap {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.pz-cost-warn { color: var(--warn); }
+.pz-cost-usd {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-fg);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* Pricing-zone middle row: explainer left, cost stack right. Both
+   align to the same baseline so the right-aligned price still reads
+   as the dominant numeric element while the explainer fills the
+   left dead space. */
+.pz-cost-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pz-premium-explainer {
+  flex: 1 1 0;
+  min-width: 0;
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  line-height: 1.4;
+  text-align: left;
+}
+.pz-premium {
+  display: grid;
+  grid-template-columns: 68px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+}
+.pz-premium-label {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.pz-premium-value {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-fg-bright);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.pz-slider {
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  /* Use -webkit/-moz pseudo-elements so we can square the thumb to
+     match the terminal aesthetic. accent-color alone can't restyle
+     the thumb shape on most engines. */
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.pz-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--tw-line-2);
+}
+.pz-slider::-moz-range-track {
+  height: 2px;
+  background: var(--tw-line-2);
+  border: none;
+}
+.pz-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px; /* center on the 2px track */
+  background: var(--tw-accent);
+  border: none;
+  border-radius: 0; /* squared corners */
+  cursor: pointer;
+}
+.pz-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--tw-accent);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* ------ Zone 4: Tag-it CTA ------ */
+.pz-cta {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+/* Slippage cap + signature count, sitting directly above the Tag-it
+   button so the user reads the spend ceiling and tx count right
+   before they click. Mono small dim — same treatment as the old
+   Zone 3 .pz-cost-cap, just relocated. */
+.pz-cta-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pz-cta-meta-line {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--tw-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ------ Zone 5: Minimap + zoom controls ------ */
+.pz-minimap {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+}
+.paint-minimap {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 25 / 16;
+  border: 1px solid var(--tw-line-2);
+  background: #0b0b10;
+  /* Pixel-perfect rendering of the dim region rects + draft outline. */
+  image-rendering: pixelated;
+}
+/* Zoom + refresh cluster, sits in the lower half of Zone 4 to
+   replace the old standalone canvas-toolbar row. */
+.pz-zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+.pz-zoom-btn {
+  height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
+  background: var(--bg-panel);
+  color: var(--tw-fg);
+  border: 1px solid var(--tw-line-2);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pz-zoom-btn:hover:not(:disabled) {
+  border-color: var(--tw-accent);
+  color: var(--tw-accent);
+}
+.pz-zoom-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pz-zoom-fit { font-size: 10px; padding: 0 8px; }
+.pz-zoom-level {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-fg);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: center;
+}
+.pz-zoom-refresh-spinning {
+  animation: pz-zoom-spin 0.8s linear infinite;
+}
+@keyframes pz-zoom-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-zoom-refresh-spinning { animation: none; opacity: 0.6; }
+}
+.pz-tag-btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  background: var(--tw-accent);
+  color: #0a0b0a;
+  border: none;
+  border-radius: 2px;
+  font-family: var(--tw-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--tw-glow-accent);
+  transition: background 120ms ease;
+}
+.pz-tag-btn:hover:not(:disabled) { background: var(--tw-accent-2); }
+.pz-tag-btn:disabled {
+  background: var(--tw-panel-2);
+  color: var(--tw-dim);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+/* Secondary retry button — sits below the main Tag-it button after a
+   failed paint. Outlined rather than filled so it doesn't compete
+   with the primary CTA, but still tracks the chain accent. */
+.pz-tag-btn-secondary {
+  background: transparent;
+  color: var(--tw-accent);
+  border: 1px solid var(--tw-accent);
+  box-shadow: none;
+  min-height: 36px;
+  font-size: 11px;
+}
+.pz-tag-btn-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tw-accent) 8%, transparent);
+}
+/* Tx-progress / error line, anchored under the Tag-it button. Word-
+   wraps inside the 160-wide zone without blowing the paint bar's
+   height. */
+.pz-status {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--tw-dim);
+  word-break: break-word;
+}
+.pz-status-err { color: var(--warn); }
+.pz-status-info { color: var(--tw-fg); }
+
+/* ======================================================================
+   Metric strip — sits between the paint bar and the canvas. Replaces
+   the old `.canvas-toolbar`. Compact row of labeled metrics with
+   vertical dividers + right-aligned Hover-to-inspect + zoom cluster.
+   ====================================================================== */
+.metric-strip {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 8px 16px;
+  min-height: 40px;
+  background: var(--tw-panel);
+  border: 1px solid var(--tw-line);
+  border-top: none;
+}
+.canvas-col > .paint-bar + .metric-strip {
+  border-top: none;
+}
+.ms-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.ms-label {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.ms-value {
+  font-family: var(--tw-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tw-fg-bright);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.ms-unit {
+  font-size: 10px;
+  color: var(--tw-dim);
+  font-weight: 400;
+}
+.ms-hint {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+}
+.ms-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--tw-line);
+}
+.ms-spacer { flex: 1 1 auto; }
+.ms-readout {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-dim);
+  font-variant-numeric: tabular-nums;
+}
+.ms-zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ms-chip {
+  height: 24px;
+  min-width: 24px;
+  padding: 0 8px;
+  background: var(--tw-panel-2);
+  color: var(--tw-fg);
+  border: 1px solid var(--tw-line-2);
+  border-radius: 2px;
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-chip:hover:not(:disabled) {
+  color: var(--tw-fg-bright);
+  border-color: var(--tw-accent);
+}
+.ms-chip:disabled {
+  color: var(--tw-dim);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.ms-chip-refresh {
+  /* Slight margin so the refresh control reads as a separate cluster
+     from the zoom group. */
+  margin-left: 4px;
+}
+.ms-chip-refresh-spinning {
+  /* While invalidations are in flight, the glyph rotates so the user
+     gets visual confirmation of the click. The button is also
+     disabled so the spinner doesn't double-fire. */
+  animation: ms-chip-spin 0.8s linear infinite;
+}
+@keyframes ms-chip-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-chip-refresh-spinning { animation: none; opacity: 0.6; }
+}
+.ms-zoom-level {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-fg);
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  text-align: center;
+}
+.ms-chip-fit { margin-left: 4px; }
+@media (max-width: 900px) {
+  .metric-strip { flex-wrap: wrap; gap: 12px; }
+  .ms-divider { display: none; }
+  .ms-spacer { flex-basis: 100%; height: 0; }
+}
+
+/* ======================================================================
+   Empty-state paint bar — 3-zone dropzone (Image / How it works / CTA).
+   Reference: docs/design_handoff_upload_tile/README.md.
+   Reuses .paint-bar shell (border, min-height) for visual continuity
+   with the open-state 4-zone bar; .paint-bar-empty just retemplates the
+   grid to 3 columns and tunes children.
+   ====================================================================== */
+.paint-bar-empty {
+  /* 360px image / fluid how-it-works / 160px CTA / 184px map, per
+     docs/design_handoff_upload_tile §Artboard. Map column matches
+     the open-state Zone 5 width so the bar's right edge is stable
+     across upload state. */
+  grid-template-columns: 360px 1fr 160px 184px;
+  border-bottom: 1px solid var(--tw-line);
+}
+@media (max-width: 1280px) {
+  /* Drop the map at narrower widths so the rest of the bar keeps
+     breathing room. Zoom is still reachable via wheel gestures. */
+  .paint-bar-empty { grid-template-columns: 360px 1fr 160px; }
+  .paint-bar-empty .pz-minimap { display: none; }
+}
+@media (max-width: 1100px) {
+  .paint-bar-empty { grid-template-columns: 320px 1fr 160px; }
+  .paint-bar-empty .pz { grid-column: auto; grid-row: auto; }
+}
+@media (max-width: 760px) {
+  .paint-bar-empty { grid-template-columns: 1fr; }
+}
+
+/* Zone label flips lime when dragging. Mirrors the layout-handoff
+   `.pz-label` style on the open-state bar. */
+.peb-zone-label-active { color: var(--tw-accent); }
+
+/* ------ Zone 1: dropzone tile ------ */
+.peb-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px dashed var(--tw-line-2);
+  background: var(--tw-panel);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.peb-tile:hover { border-color: var(--tw-accent); }
+.peb-tile:focus-within { outline: 2px solid var(--tw-accent); outline-offset: 2px; }
+.peb-tile input[type='file'] {
+  /* Visually hidden but kept tab-focusable. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.peb-tile-icon {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tw-line-2);
+  background: #000;
+  color: var(--tw-accent);
+  font-family: var(--tw-mono);
+  font-size: 22px;
+  line-height: 1;
+}
+.peb-tile-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.peb-tile-primary {
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  color: var(--tw-fg-bright);
+  line-height: 1.4;
+}
+.peb-tile-browse {
+  color: var(--tw-accent);
+  text-decoration: underline;
+}
+.peb-tile-secondary {
+  margin-top: 4px;
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ------ Zone 1: dragging state ------ */
+.peb-tile-active {
+  border-color: var(--tw-accent);
+  background: color-mix(in srgb, var(--tw-accent) 6%, transparent);
+  box-shadow: inset 0 0 24px color-mix(in srgb, var(--tw-accent) 13%, transparent);
+}
+.peb-tile-active .peb-tile-icon {
+  border-color: var(--tw-accent);
+  background: #000;
+  color: var(--tw-accent);
+}
+.peb-tile-primary-active { color: var(--tw-accent); }
+.peb-tile-secondary-active { color: var(--tw-fg-bright); }
+
+/* Inline error from a failed upload (e.g. unsupported format). Shares
+   the .paint-err token with the rest of the form. */
+.peb-err {
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+/* ------ Zone 2: How it works (3-step explainer / dragging-state line) ------ */
+.peb-steps {
+  /* Vertical stack — steps read top-to-bottom rather than columns,
+     so the user's eye follows 1 → 2 → 3 naturally without scanning
+     across the bar. Tighter gap than the previous grid since each
+     step is now narrower (no grid track to fill). */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.peb-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.peb-step-num {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tw-accent);
+  color: var(--tw-accent);
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  line-height: 1;
+}
+.peb-step-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.peb-step-head {
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  color: var(--tw-fg-bright);
+  line-height: 1.4;
+}
+.peb-step-sub {
+  margin-top: 4px;
+  font-family: var(--tw-mono);
+  font-size: 10px;
+  color: var(--tw-dim);
+  line-height: 1.5;
+}
+
+.peb-howto-line {
+  margin: 0;
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  color: var(--tw-fg-bright);
+  line-height: 1.6;
+}
+.peb-howto-accent { color: var(--tw-accent); }
+
+/* ------ Zone 3: disabled CTA / hidden-during-drag spacer ------ */
+.peb-cta-zone {
+  /* Keep the cell padding even when the button is hidden so the grid
+     doesn't reflow when entering the dragging state. */
+  display: flex;
+  align-items: stretch;
+}
+.peb-cta {
+  flex: 1;
+  background: var(--tw-panel);
+  color: var(--tw-dim);
+  border: 1px dashed var(--tw-line-2);
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: not-allowed;
+}
+
+/* ======================================================================
+   Canvas drop-target overlay — full-bleed lime ring + DROP ANYWHERE
+   callout card. Pointer-events: none so the actual drop event still
+   reaches the underlying canvas (window-level handler in the hook).
+   ====================================================================== */
+.paint-drop-overlay {
+  position: absolute;
+  inset: 20px;
+  border: 2px dashed var(--tw-accent);
+  background: color-mix(in srgb, var(--tw-accent) 4%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+}
+.paint-drop-card {
+  padding: 20px 28px;
+  background: rgba(10, 11, 10, 0.92);
+  border: 1px solid var(--tw-accent);
+  box-shadow: 0 0 48px color-mix(in srgb, var(--tw-accent) 33%, transparent);
+  text-align: center;
+}
+.paint-drop-headline {
+  font-family: var(--tw-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--tw-accent);
+  letter-spacing: 0.04em;
+}
+.paint-drop-sub {
+  margin-top: 8px;
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--tw-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .paint-drop-overlay,
+  .peb-tile-active { transition: none; }
+}
+
+/* Draft-loaded state: single flex row filling the panel. */
+.paint-compact-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 14px;
+  align-items: stretch;
+}
+
+/* 2-column variant (Scale/Link/Referrer | Cost/Premium), plus a tiny
+   thumb + clear on the left and a Tag button on the right. Everything
+   sits inline in a dense row so the canvas gets more vertical space. */
+.paint-compact-row-2col {
+  gap: 10px;
+  align-items: stretch;
+}
+.paint-compact-row-2col .pc-col-1,
+.paint-compact-row-2col .pc-col-2 {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.paint-compact-row-2col .pc-col-submit {
+  flex: 0 0 132px;
+  display: flex;
+  align-items: stretch;
+}
+.pc-thumb-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+.pc-thumb-wrap .paint-thumb {
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+  background: #07070b;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.pc-thumb-wrap .pc-clear {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+/* Inline field: [label] [input] side-by-side in one row, tight.
+   Chained `.pc-field.pc-field-inline` selector so it outranks the
+   later `.pc-field { display: flex; flex-direction: column }` rule,
+   which otherwise forced labels to stack above inputs. */
+.pc-field.pc-field-inline {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-height: 22px;
+  /* Override .pc-field's stacked gap; grid rows don't apply here. */
+  flex-direction: row;
+}
+.pc-field.pc-field-inline > .pc-field-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Override .pc-field-label flex layout that adds baseline spacing. */
+  justify-content: flex-start;
+}
+.pc-field.pc-field-inline .paint-slider,
+.pc-field.pc-field-inline .paint-input {
+  margin: 0;
+  height: 22px;
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1;
+  box-sizing: border-box;
+}
+.pc-field.pc-field-inline .paint-slider { padding: 0; }
+/* Cost row: value sits inline with the label on the same line; the
+   slippage cap rides along as smaller dimmed text. Keeps the Cost
+   field at a single row like the others. */
+.pc-col-2 .pc-cost-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  min-width: 0;
+}
+.pc-col-2 .pc-cost-value { font-size: 14px; font-weight: 700; color: var(--text); }
+.pc-col-2 .pc-cost-unit { font-size: 11px; color: var(--text-dim); }
+.pc-col-2 .pc-cost-cap {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pc-col-2 .pc-tx-warn { color: var(--warn, #f5a524); }
+.pc-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  position: relative;
+}
+
+/* Shared label/field primitives. pc-field wraps a label on top of a
+   control (input or slider). pc-field-label is the small caps label
+   row; pc-field-hint is the dim explanatory text after the label. */
+.pc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pc-field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  min-width: 0;
+}
+.pc-field-label-inline { width: 100%; }
+.pc-field-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: right;
+  /* No truncation: short hints fit, long ones wrap. Reserve/bid
+     description was ellipsing mid-sentence which made it look broken. */
+  white-space: normal;
+  line-height: 1.3;
+}
+.pc-field-value {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+/* Col 1: large preview thumbnail + labelled size slider + drag hint */
+.pc-col-meta {
+  flex: 1 1 340px;
+  flex-direction: row;
+  gap: 12px;
+  align-items: stretch;
+  padding-right: 22px; /* room for the clear × */
+}
+.pc-col-meta .paint-thumb {
+  /* Fill the row height; container is 160px and has ~20px of padding/status,
+     leaving ~130px for the thumb. Square so extreme aspects don't skew it. */
+  width: 130px;
+  height: 130px;
+  flex: 0 0 130px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0b0b10;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  align-self: center;
+}
+.pc-col-meta-controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pc-size-slider { width: 100%; }
+/* Scale label shows two dim lines: source above (only when scaled),
+   target below, both monospaced and right-aligned so the row reads
+   as "was / now". */
+.pc-scale-dims {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pc-scale-source {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 400;
+  text-decoration: line-through;
+  text-decoration-color: var(--text-dim);
+}
+.pc-scale-target {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 600;
+}
+/* Drag hint sits below the slider, dim and small. Replaces the global
+   status-line version so it's anchored to the control it describes. */
+.pc-col-meta-hint {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+.pc-clear {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  background: transparent;
+  color: var(--text-dim);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.pc-clear:hover { background: var(--bg-panel-hi); color: var(--text); }
+
+/* Col 2: Link + Referrer stacked inputs */
+.pc-col-links {
+  flex: 1 1 240px;
+  gap: 10px;
+  justify-content: center;
+}
+.pc-col-links .paint-input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Col 3: Cost (top) + tx estimate + Reserve slider (bottom) */
+.pc-col-quote {
+  flex: 1 1 220px;
+  gap: 10px;
+  justify-content: center;
+}
+.pc-quote-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pc-cost-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1;
+}
+.pc-cost-value {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+.pc-cost-unit {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pc-cost-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+.pc-tx-warn { color: var(--accent); }
+/* Bid slider hint: wraps onto as many lines as needed below the
+   slider so the description doesn't ellipse mid-sentence. */
+.pc-bid-hint {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+/* Col 4: Paint button */
+.pc-col-submit {
+  flex: 0 0 140px;
+  justify-content: stretch;
+}
+.pc-submit-btn {
+  margin-top: 0;
+  height: 100%;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+/* Paint-success toast popover. Slides in top-right, auto-dismisses. */
+.paint-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 120;
+  padding: 12px 16px;
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: paint-toast-in 180ms ease-out;
+}
+.paint-toast code {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--accent);
+}
+.paint-toast button {
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.paint-toast button:hover { color: var(--text); }
+@keyframes paint-toast-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Single status line below the row (e.g. "Connect your wallet", chunk
+   progress, tx mining, validation error). Only one shows at a time. */
+.paint-status {
+  font-size: 11px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+  line-height: 1.3;
+}
+.paint-status-err { color: var(--err); }
+.paint-status-success { color: var(--accent); }
+.paint-status-info { color: var(--text-dim); }
+
+/* Narrower viewports: the 4-col row wraps. Container grows to contain
+   the reflowed content; the height transition still runs between
+   closed (compact upload) and open (reflowed rows) states. */
+@media (max-width: 960px) {
+  .paint-controls-open { height: auto; min-height: 160px; }
+  .paint-compact-row { flex-wrap: wrap; }
+  .pc-col-meta { flex: 1 1 100%; }
+  .pc-col-links { flex: 1 1 100%; }
+  .pc-col-quote { flex: 1 1 60%; }
+  .pc-col-submit { flex: 1 1 30%; }
+}
+/* Legacy classes from the earlier paint-controls design. Kept in case
+   anything references them; the new 120px-row layout uses .pc-* classes
+   above. */
+.paint-controls h3 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.link-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.link-btn:hover { color: var(--text); }
+
+.file-drop {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+}
+.file-drop:hover { border-color: var(--accent); color: var(--text); }
+.file-drop > span:first-child { color: var(--text); font-weight: 600; }
+.file-drop-hint { font-size: 12px; }
+.file-drop input[type="file"] { display: none; }
+
+.paint-err { color: var(--err); font-size: 12px; margin: 8px 0 0; }
+
+.paint-draft-summary {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 12px;
+}
+.paint-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0b0b10;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.paint-draft-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.paint-filename {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.paint-draft-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+.paint-draft-hint {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.paint-letterbox-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-panel-hi);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.paint-letterbox-row input { margin-top: 3px; }
+.paint-letterbox-hint { display: block; margin-top: 2px; }
+.paint-scale-note { color: var(--text-dim); font-size: 10px; margin-left: 4px; }
+
+.paint-resize-row,
+.paint-reserve-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.paint-reserve-row .paint-draft-hint { margin-top: 2px; }
+.paint-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.paint-slider-bounds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+}
+
+.paint-link-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+.paint-input {
+  background: var(--bg-panel-hi);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 12px;
+  width: 100%;
+}
+.paint-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.paint-input.invalid { border-color: var(--err); }
+/* Inline field-level error, sits directly under a bad input. Small + muted
+   so it doesn't dominate the row; uses the accent error colour. */
+.pc-field-err {
+  font-size: 10px;
+  color: var(--err);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+/*
+  High-scores leaderboard. Lives above ActivityFeed in the canvas side
+  column; top 10 stamps by price paid, with a mini-thumbnail rendered
+  from the actual pixel data so users can see at a glance what's winning.
+*/
+.leaderboard {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.leaderboard-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.leaderboard-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.leaderboard-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.leaderboard-row {
+  display: grid;
+  /* rank | thumb | meta (URL over painter) | price (right, larger) */
+  grid-template-columns: 22px 38px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 4px;
+}
+.leaderboard-rank {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: right;
+  font-size: 11px;
+}
+.leaderboard-thumb {
+  width: 38px;
+  height: 38px;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: #07070b;
+  flex: 0 0 auto;
+  /* Preserve the stamp's aspect ratio inside the 38x38 box. The
+     <canvas> element's intrinsic dimensions are region.w x region.h,
+     so a 25x38 portrait stamp would otherwise stretch to a square.
+     `object-fit: contain` letterboxes the canvas inside the slot. */
+  object-fit: contain;
+}
+.leaderboard-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+/* Price: moved to the right edge of the row, rendered larger so it reads
+   as the primary rank axis. Previously wedged inline with painter/coords. */
+.leaderboard-cost {
+  color: var(--text);
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: right;
+  justify-self: end;
+}
+.leaderboard-painter {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+/* URL first, above painter; accent colour so the "where does this go"
+   answer reads first. */
+.leaderboard-link {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.leaderboard-link:hover { text-decoration: underline; }
+.leaderboard-link-empty {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/*
+  Spray-paint cursor trail overlay. Sits above everything, never catches
+  input. Hidden on touch-only devices and under prefers-reduced-motion;
+  also the JS bails early in those cases, so this is a defence-in-depth
+  hide in case the media-query lands before the effect mounts.
+*/
+.spray-trail {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spray-trail { display: none; }
+}
+@media (hover: none) {
+  .spray-trail { display: none; }
+}
+
+.paint-quote {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-panel-hi);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.paint-submit-btn {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #0a0a10;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.paint-submit-btn:hover:not(:disabled) { filter: brightness(1.05); }
+.paint-submit-btn:disabled {
+  background: var(--bg-panel-hi);
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.paint-success {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+/* Activity feed */
+.activity-feed {
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.activity-feed-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.activity-feed-header h3 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.activity-feed-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.activity-filter {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  min-width: 180px;
+}
+.activity-filter:focus { outline: none; border-color: var(--text-dim); }
+.activity-count {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* DexScreener-style table: sortable columns, zebra rows, sticky header.
+   Replaces the old card-per-paint list so users can compare rows quickly. */
+.activity-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+}
+.activity-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  z-index: 1;
+}
+.activity-th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.activity-th-sortable { cursor: pointer; user-select: none; }
+.activity-th-sortable:hover { color: var(--text); background: var(--bg-panel-hi); }
+.activity-th-active { color: var(--accent); }
+.activity-tr { border-top: 1px solid var(--border); }
+.activity-tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+.activity-tr:hover { background: var(--bg-panel-hi); }
+.activity-td {
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 11px;
+  vertical-align: middle;
+}
+.activity-td-time { color: var(--text-dim); }
+.activity-td-painter { color: var(--text-dim); }
+.activity-td-price { text-align: right; }
+.activity-td-mult { text-align: right; color: var(--text-dim); }
+.activity-td-link a { color: var(--accent); text-decoration: none; }
+.activity-td-link a:hover { text-decoration: underline; }
+
+/* Container sitting directly below the canvas. Inherits the canvas-col
+   max-width via its parent, so the table width equals the canvas width.
+   Kept for back-compat; the new layout uses `.activity-dock` instead. */
+.activity-below-canvas {
+  width: 100%;
+  max-width: calc((100vh - 320px) * 25 / 16);
+  margin: 12px auto 0 auto;
+}
+
+/* Activity dock — full-width strip under the canvas + leaderboard
+   row. ActivityFeed and StatsCards stack vertically; the leaderboard
+   moved back into the <aside.canvas-side> rail next to the canvas. */
+.activity-dock {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background: var(--tw-panel);
+  border-top: 1px solid var(--tw-line);
+  padding: 16px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .activity-dock { padding: 12px; }
+}
+
+/* ======================================================================
+   Mobile tab strip (Design Phase 3) — only visible at <720px. Hides
+   when wider. Switches which of the Paint / Scores / Activity panels
+   renders in the bottom sheet under the canvas; the canvas itself
+   stays pinned at the top as the hero of every tab.
+   ====================================================================== */
+.mobile-tabs {
+  display: none; /* desktop: never rendered */
+}
+.mobile-panel-wrap { display: contents; }
+
+@media (max-width: 720px) {
+  .mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--tw-panel);
+    border-top: 1px solid var(--tw-line);
+    border-bottom: 1px solid var(--tw-line);
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+  .mt-btn {
+    background: transparent;
+    color: var(--tw-dim);
+    border: none;
+    padding: 10px 0;
+    font-family: var(--tw-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    border-top: 2px solid transparent;
+  }
+  .mt-btn-active {
+    color: var(--tw-accent);
+    border-top-color: var(--tw-accent);
+  }
+  .mt-btn:focus-visible {
+    outline: 2px solid var(--tw-accent);
+    outline-offset: -4px;
+  }
+
+  /* Hide inactive panels via the tab → panel attribute pair. The
+     canvas itself has no data-mobile-panel attribute, so it's always
+     visible. */
+  .canvas-section[data-mobile-tab='paint']
+    [data-mobile-panel]:not([data-mobile-panel='paint']),
+  .canvas-section[data-mobile-tab='scores']
+    [data-mobile-panel]:not([data-mobile-panel='scores']),
+  .canvas-section[data-mobile-tab='activity']
+    [data-mobile-panel]:not([data-mobile-panel='activity']) {
+    display: none !important;
+  }
+
+  /* Mobile metric strip: 3 cells (Floor / Tags / Owned). Last block +
+     zoom cluster hide to make room — zoom still works via pinch/wheel,
+     block number is specialist info that can live on /stats. */
+  .metric-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    padding: 8px 12px;
+  }
+  .metric-strip .ms-divider { display: none; }
+  .metric-strip .ms-metric {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding-right: 8px;
+    border-right: 1px solid var(--tw-line);
+  }
+  .metric-strip .ms-metric:last-of-type { border-right: none; }
+  /* Hide the "Last block" metric + the readout + zoom cluster on
+     mobile. The explicit `.ms-metric-last-block` class dodges the
+     `:nth-of-type` pitfall (sibling dividers count as the same TYPE
+     and break positional selectors). */
+  .metric-strip .ms-metric-last-block,
+  .metric-strip .ms-divider-mobile-hide,
+  .metric-strip .ms-spacer,
+  .metric-strip .ms-readout,
+  .metric-strip .ms-zoom { display: none; }
+
+  /* Shrink the paint bar down to a single-column stack on mobile.
+     Keeps the 4 zones but collapses them vertically so the sheet
+     scrolls. */
+  .paint-bar {
+    grid-template-columns: 1fr !important;
+  }
+  .paint-bar .pz {
+    border-right: none !important;
+    border-bottom: 1px solid var(--tw-line);
+  }
+  .paint-bar .pz:last-child { border-bottom: none; }
+  /* Let users always see the Tag-it CTA without scrolling past the
+     image/metadata/pricing zones. */
+  .paint-bar { display: flex; flex-direction: column; }
+  .paint-bar .pz-cta { order: -1; position: sticky; top: 0; background: var(--tw-panel); z-index: 2; border-bottom: 1px solid var(--tw-line); }
+
+  /* Canvas-side rail becomes a full-width panel (media query at 1280
+     already took care of flex/width); tighten spacing for the small
+     viewport. */
+  .canvas-side { padding: 0; }
+  .activity-dock { padding: 12px; }
+}
+
+/* Embed view: no layout chrome, fills the iframe */
+.embed {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #07070b;
+}
+.embed-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0b0b10;
+}
+.embed-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+}
+.embed-region { flex: 1; }
+.embed-price { color: var(--text); }
+.embed-paint {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+.embed-paint:hover { background: rgba(164, 248, 139, 0.1); }
+.embed-brand {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-weight: 500;
+}
+.embed-brand:hover { color: var(--text); }
+
+/* Stats page */
+.stats-page { display: flex; flex-direction: column; gap: 24px; }
+.stats-page-header h1 { margin: 0 0 6px; font-size: 22px; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  /* When rendered on the canvas page (inline below the activity table),
+     breathe a bit. The old /stats page had its own section padding. */
+  margin-top: 14px;
+}
+.stat-card {
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stat-card-emphasis { border-color: var(--accent); }
+.stat-card-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stat-card-value {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 18px;
+  font-weight: 600;
+}
+.stat-card-code {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+.stat-card-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+/* Outbound link confirmation modal */
+.outbound-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+.outbound-modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.outbound-modal h3 { margin: 0; font-size: 16px; }
+.outbound-modal-body { margin: 0; font-size: 13px; color: var(--text-dim); }
+.outbound-modal-url {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg-panel-hi);
+  border-radius: 6px;
+}
+.outbound-modal-fullurl {
+  word-break: break-all;
+  font-size: 12px;
+  color: var(--accent);
+}
+.outbound-modal-host { font-size: 11px; }
+.outbound-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Footer */
+.site-footer {
+  margin-top: auto;
+  width: 100%;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 18px 24px 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+@media (max-width: 600px) {
+  .site-footer { padding: 14px 12px 0; flex-direction: column; align-items: flex-start; }
+}
+.site-footer-left { flex: 1 1 auto; min-width: 0; }
+.site-footer small { font-size: 12px; }
+.site-footer code { background: var(--bg-panel); padding: 2px 6px; border-radius: 4px; font-size: 11px; word-break: break-all; }
+.site-footer-socials {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.site-footer-social {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: color 120ms, background 120ms, border-color 120ms;
+}
+.site-footer-social:hover {
+  color: var(--text);
+  background: var(--bg-panel-hi);
+  border-color: var(--text-dim);
+}
+
+/* ---------------------------------------------------------------------------
+ * Pre-launch holding page (web/src/pages/HoldingPage.tsx).
+ *
+ * Shares the brand chrome (lime accent, dark bg, mono headlines) with the
+ * full app so the cutover at launch feels like a continuation, not a new
+ * site. Single column, vertically centered, no router, no chain awareness.
+ * ------------------------------------------------------------------------ */
+.holding {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.holding-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5rem;
+  max-width: 38rem;
+  width: 100%;
+}
+
+.holding-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--tw-mono);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.holding-brand-text { color: var(--text); }
+
+.holding-eyebrow {
+  font-family: var(--tw-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.holding-headline {
+  font-family: var(--tw-mono);
+  font-weight: 600;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 1.05;
+  margin: 0;
+  color: var(--text);
+}
+
+.holding-body {
+  font-family: var(--tw-sans);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.holding-chains {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-family: var(--tw-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.holding-chains > span { white-space: nowrap; }
+
+.holding-socials {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.holding-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--text-dim) 60%, transparent);
+  border-radius: 2px;
+  background: var(--bg-panel);
+  color: var(--text);
+  text-decoration: none;
+  font-family: var(--tw-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.holding-social:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.holding-social[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.holding-social-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.holding-social-primary:hover {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: var(--bg);
+}

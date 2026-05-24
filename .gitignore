@@ -38,3 +38,11 @@ venv/
 *.log
 coverage/
 lcov.info
+
+# Marketing renderer artifacts (regenerable from token icons + script)
+marketing-plan/.svg-cache/
+
+# Token icon source folders (operator-supplied marketing assets, may include
+# images whose redistribution rights aren't ours to grant)
+/token icons/
+/liberty-token-logos/

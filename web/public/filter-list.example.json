@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "publishedAt": "2026-05-02T00:00:00Z",
+  "publisher": "tagwall.io",
+  "entries": [
+    {
+      "kind": "address",
+      "value": "0x0000000000000000000000000000000000000000",
+      "reason": "ofac-fallback",
+      "addedAt": "2026-05-02T00:00:00Z",
+      "id": "example-address-entry-uuid"
+    },
+    {
+      "kind": "pixelRect",
+      "value": { "x": 0, "y": 0, "w": 0, "h": 0 },
+      "reason": "imda-takedown",
+      "addedAt": "2026-05-02T00:00:00Z",
+      "id": "example-pixelrect-entry-uuid"
+    },
+    {
+      "kind": "linkHash",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "reason": "malicious-url",
+      "addedAt": "2026-05-02T00:00:00Z",
+      "id": "example-linkhash-entry-uuid"
+    }
+  ],
+  "signature": "0x"
+}
