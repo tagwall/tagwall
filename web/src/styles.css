@@ -896,19 +896,93 @@ a.lb-ticker-link:focus-visible {
   min-width: 0;
   margin: 0;
 }
+
+/* Paint-controls-as-side-rail (operator preference 2026-05-25): on wide
+   viewports the paint bar sits to the RIGHT of the canvas instead of
+   above it. This wins twice: the side space stops being wasted, and the
+   chrome budget for canvas height drops by ~185px (the paint-bar's
+   former vertical footprint), which lets `canvas-scroll`'s max-height
+   give back ~185px to the canvas → bigger canvas → bigger pixels.
+   Narrow viewports keep the original above-the-canvas stacked layout
+   so mobile tabs still work. */
+@media (min-width: 980px) {
+  .canvas-col {
+    flex-direction: row-reverse;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .canvas-col > .mobile-panel-wrap {
+    /* Override the global `.mobile-panel-wrap { display: contents }` —
+       on wide viewports we want this wrapper to participate in flex
+       layout so it can be a 340px rail. Mobile tab switching still works
+       because mobile viewports never hit this media query (< 980px). */
+    display: block;
+    flex: 0 0 340px;
+    max-width: 340px;
+  }
+  .canvas-col > .canvas-frame {
+    flex: 1 1 auto;
+  }
+  /* Paint-bar inside the rail: stack 5 zones vertically. Border becomes
+     a full rounded card (was top-rounded "header attached to canvas"). */
+  .canvas-col .paint-bar,
+  .canvas-col .paint-bar-empty {
+    grid-template-columns: 1fr !important;
+    border-radius: 8px;
+    border-bottom: 1px solid var(--tw-line);
+    min-height: 0;
+  }
+  .canvas-col .paint-bar .pz {
+    border-right: none;
+    border-bottom: 1px solid var(--tw-line);
+  }
+  .canvas-col .paint-bar .pz:last-child {
+    border-bottom: none;
+  }
+  /* Override the earlier `.canvas-col .paint-controls` rule that
+     stripped the wrapper's rounded corners + bottom border for the
+     header-attached layout — that doesn't apply when the bar lives
+     in a side rail. */
+  .canvas-col .paint-controls {
+    border-radius: 8px;
+    border-bottom: 1px solid var(--tw-line);
+  }
+  /* Pricing zone's slider rail needs breathing room when the zone is
+     now a column-stretched 1fr instead of a 240px-wide grid cell. */
+  .canvas-col .pz-pricing .pz-premium {
+    grid-template-columns: 68px 1fr 44px;
+  }
+}
 /* Scroll container for the zoomed canvas. At zoom=1 the stack fits; at
    higher zoom the stack grows beyond the wrapper and the user pans.
    Capped by viewport height so the canvas stays mostly above the fold
    on laptop displays; width auto-derives from the 25/16 aspect ratio. */
+/* canvas-frame: non-scrolling wrapper that owns the visible canvas
+   area. Holds canvas-scroll (filling it) and the MinimapOverlay
+   (absolute on the frame). Splitting these means scrolling inside
+   canvas-scroll cannot drift the overlay — the overlay isn't inside
+   the scroller. Hard rule from operator 2026-05-25 ("minimap floats
+   on top, not attached"). The frame takes over the flex sizing and
+   aspect-ratio that canvas-scroll used to own. */
+.canvas-frame {
+  width: 100%;
+  /* Fit-to-viewport at zoom = 1. Chrome budget on wide viewports
+     where the paint bar lives in a side rail (canvas-col is
+     flex-row-reverse at >=980px): ConnectBar (~80) +
+     LeaderboardTicker (~58) + wrap padding (~16) + footer margin
+     (~30) ≈ 184. Below 980px the paint-bar stacks above the canvas
+     and eats ~185 more vertical — handled by the media block below. */
+  max-height: calc(100dvh - 184px);
+  max-width: calc((100dvh - 184px) * 25 / 16);
+  margin-left: auto;
+  margin-right: auto;
+  aspect-ratio: 25 / 16;
+  min-width: 0;
+  position: relative;
+}
 .canvas-scroll {
   width: 100%;
-  /* No vertical clamp — the canvas-stack inside is aspect-locked at
-     25:16, so its height follows the column width. At full chrome
-     width the canvas may extend below the fold; the page scrolls
-     naturally rather than the canvas getting clipped. Removing the
-     previous max-height was needed once .canvas-col stopped capping
-     its own max-width — the column now fills the whole viewport
-     and the canvas grows with it. */
+  height: 100%;
   /* No scrollbars at zoom = 1 — the canvas exactly fills the wrapper.
      ConnectBar/HomePage flips to .canvas-scroll-zoomed when zoom > 1
      so panning becomes possible without scrollbars sitting around as
@@ -917,10 +991,17 @@ a.lb-ticker-link:focus-visible {
   background: #000;
   border: 1px solid var(--border);
   border-radius: 0;
-  aspect-ratio: 25 / 16;
   min-width: 0;
 }
 .canvas-scroll-zoomed { overflow: auto; }
+@media (max-width: 979px) {
+  /* Narrow viewports: paint-bar is stacked above canvas again (column
+     layout), so the chrome budget includes it. */
+  .canvas-frame {
+    max-height: calc(100dvh - 370px);
+    max-width: calc((100dvh - 370px) * 25 / 16);
+  }
+}
 /* Zoom buttons: compact inline square buttons that sit in the canvas
    toolbar row on the right. Rendered inside `.canvas-toolbar-zoom`. */
 .canvas-zoom-btn {
@@ -1026,6 +1107,166 @@ a.lb-ticker-link:focus-visible {
   /* NO border-radius. Corner pixels are paid for and must be
      visible; a rounded-corner mask would visually amputate them. */
 }
+
+/* Floating minimap overlay (operator preference 2026-05-25): sits on
+   top of the canvas, draggable, shows visible-viewport rect when
+   zoomed, bundles zoom + fit + refresh controls. Positioned absolutely
+   against .canvas-scroll (which is position:relative) so the overlay
+   stays in the visible viewport when the user pans a zoomed canvas.
+   Position is set inline via React state (left/top in canvas-scroll-
+   relative px). */
+.minimap-overlay {
+  position: absolute;
+  z-index: 5;
+  background: rgba(10, 11, 16, 0.86);
+  border: 1px solid var(--tw-accent);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  touch-action: none;
+  overflow: hidden;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* Map area is non-interactive aside from the viewport rect overlaid
+   on it. Drag-to-move-the-whole-overlay lives on the tiny grip handle
+   (operator preference 2026-05-25: drag mechanic isolated to a small
+   intentional target so button clicks + canvas-pan aren't fighting
+   the drag handler). */
+.minimap-overlay-map { position: relative; flex: 0 0 auto; }
+
+/* Tiny grip handle anchored to the overlay's top-left corner. Only
+   element that initiates a drag of the whole overlay. */
+.minimap-overlay-grip {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 11, 16, 0.9);
+  border: 1px solid var(--tw-accent);
+  border-radius: 2px;
+  color: var(--tw-accent);
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  z-index: 7;
+  letter-spacing: -2px;
+}
+.minimap-overlay-grip:active { cursor: grabbing; }
+.minimap-overlay-grip:hover { background: var(--tw-accent); color: var(--bg); }
+.minimap-overlay > .minimap-overlay-map > canvas.paint-minimap {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Override the rail-Minimap's `max-width: 160px` and centering
+     since this floating instance is sized via container width. */
+  max-width: none;
+  margin: 0;
+  border: none;
+}
+.minimap-overlay-viewport {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Was `pointer-events: none` — now interactive so the user can drag
+     the rect to pan the canvas. Cursor swaps so the affordance is
+     discoverable. Stops transitioning during a drag because the rect
+     should track the cursor pixel-for-pixel, not glide. */
+  pointer-events: auto;
+  cursor: move;
+  border: 1.5px solid var(--tw-accent);
+  background: rgba(168, 255, 46, 0.10);
+  box-shadow: 0 0 0 1px rgba(10, 11, 16, 0.5);
+  transition: width 80ms linear, height 80ms linear;
+}
+.minimap-overlay-viewport:active { cursor: grabbing; }
+/* Zoom + fit + refresh control strip below the minimap canvas. */
+.minimap-overlay-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 26px;
+}
+.minimap-overlay-btn {
+  height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.minimap-overlay-btn:hover:not(:disabled) {
+  border-color: var(--tw-accent);
+  color: var(--tw-accent);
+}
+.minimap-overlay-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.minimap-overlay-level {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.minimap-overlay-fit { font-size: 11px; }
+.minimap-overlay-refresh.is-spinning {
+  animation: minimap-overlay-spin 700ms linear infinite;
+}
+@keyframes minimap-overlay-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Global "refresh canvas" button in ConnectBar (operator preference
+   2026-05-25: a second refresh discoverable without finding the
+   minimap first). Sits between NavMetrics and the chain dropdown so
+   it's adjacent to the chain-state chrome it acts on. */
+.global-refresh-btn {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--tw-mono);
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.global-refresh-btn:hover:not(:disabled) {
+  border-color: var(--tw-accent);
+  color: var(--tw-accent);
+}
+.global-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.global-refresh-btn.is-spinning {
+  animation: minimap-overlay-spin 700ms linear infinite;
+}
+
+/* Rail's MAP zone is fully redundant now that the floating overlay
+   bundles minimap + zoom + fit + refresh. Hide the whole zone.
+   (Kept in JSX so mirror operators / mobile layout can re-enable
+   without restructuring components.) */
+.canvas-col .pz-minimap { display: none; }
 .tagwall-canvas {
   position: absolute;
   inset: 0;

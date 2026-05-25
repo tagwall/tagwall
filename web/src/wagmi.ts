@@ -43,9 +43,23 @@ const BASE_RPC_URLS = [
   'https://base-rpc.publicnode.com',
   'https://base.drpc.org',
 ] as const
+// BSC stack rebuilt 2026-05-25 after the canvas hit "history has been
+// pruned" errors from publicnode and 400/408s from drpc.org. BSC's free
+// public RPCs are unusable for `eth_getLogs` across most of the public
+// landscape: publicnode + dataseeds prune logs after ~24h, dataseed1-4
+// rate-limit, blast caps at 10 blocks, drpc.org caps at 10k blocks (but
+// also flaps with 400s under load), nodies.app caps at 500 blocks. The
+// only public BSC endpoint that actually returns canvas-deploy-block
+// logs without arbitrary range caps or pruning is Bloxroute's
+// bsc.rpc.blxrbdn.com (also CORS-clean and fast: 35-120ms).
+//
+// Secondary is drpc.org despite the flake risk — its 10k-block range
+// limit is above our 9.5k paginated chunk, and it's at least functional
+// for write-side RPC calls (eth_sendRawTransaction, eth_call). When
+// Bloxroute is up (the common case), drpc never gets hit.
 const BSC_RPC_URLS = [
+  'https://bsc.rpc.blxrbdn.com',
   'https://bsc.drpc.org',
-  'https://bsc-rpc.publicnode.com',
 ] as const
 
 // Per-chain RPC overrides. wagmi/chains ships single-URL defaults for

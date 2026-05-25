@@ -10,6 +10,7 @@ import { useViewerChainId } from '../lib/viewerChain'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { Leaderboard } from '../components/Leaderboard'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
+import { MinimapOverlay } from '../components/MinimapOverlay'
 import { StatsCards } from '../components/StatsCards'
 import { OutboundLinkModal } from '../components/OutboundLinkModal'
 import { PaintControls } from '../components/PaintControls'
@@ -188,6 +189,10 @@ function CanvasView({
   // are hidden entirely and the desktop layout is restored.
   const [mobileTab, setMobileTab] = useState<'paint' | 'scores' | 'activity'>('paint')
   const canvasScrollRef = useRef<HTMLDivElement>(null)
+  // Ref to the inner canvas-stack so the MinimapOverlay can measure
+  // its container bounds (for clamping drag) and the visible-viewport
+  // rect math.
+  const canvasStackRef = useRef<HTMLDivElement>(null)
 
   // Sync with route changes: moving from /pixel/123,456 to /pixel/200,200
   // (or dropping the route) re-applies the deep-linked hover.
@@ -221,6 +226,25 @@ function CanvasView({
     canvasHeight,
     maxStampSide: MAX_STAMP_SIDE,
     regions,
+    // Constrain random placement to the visible viewport when the user
+    // is zoomed in (operator preference 2026-05-25). At zoom = 1 the
+    // user sees the whole canvas, so return null and pickFreeSlot
+    // falls back to its canvas-wide sampling.
+    getViewport: () => {
+      const scroller = canvasScrollRef.current
+      const stack = canvasStackRef.current
+      if (!scroller || !stack) return null
+      const stackRect = stack.getBoundingClientRect()
+      if (stackRect.width === 0 || stackRect.height === 0) return null
+      // No effective zoom → no constraint (whole canvas visible).
+      if (zoom <= 1.0001) return null
+      return {
+        x: (scroller.scrollLeft / stackRect.width) * canvasWidth,
+        y: (scroller.scrollTop / stackRect.height) * canvasHeight,
+        w: (scroller.clientWidth / stackRect.width) * canvasWidth,
+        h: (scroller.clientHeight / stackRect.height) * canvasHeight,
+      }
+    },
   })
   const draftName = paint.draft?.name ?? null
   useEffect(() => {
@@ -797,6 +821,13 @@ function CanvasView({
             canvasHeight={canvasHeight}
           />
         </div>
+          {/* canvas-frame: non-scrolling positioned wrapper around
+              canvas-scroll. The minimap overlay is a sibling of
+              canvas-scroll inside this frame — that way the overlay
+              isn't a child of the scrolling container, so it can't
+              scroll-drift even at zoom > 1. Operator hard rule
+              2026-05-25 ("minimap floats on top, not attached"). */}
+          <div className="canvas-frame">
           <div
             className={`canvas-scroll${zoom > 1 ? ' canvas-scroll-zoomed' : ''}`}
             ref={canvasScrollRef}
@@ -804,6 +835,7 @@ function CanvasView({
           >
           <div
             className="canvas-stack"
+            ref={canvasStackRef}
             style={{ width: `${zoom * 100}%` }}
           >
             <canvas
@@ -899,7 +931,25 @@ function CanvasView({
               </div>
             )}
           </div>
-          </div>
+          </div>{/* /canvas-scroll */}
+          {/* Floating minimap overlay — sibling of canvas-scroll
+              inside the non-scrolling canvas-frame. Does not move
+              when the canvas-stack inside canvas-scroll scrolls. */}
+          <MinimapOverlay
+            regions={regions}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            draft={paint.draft ? { x: paint.draft.x, y: paint.draft.y, w: paint.draft.w, h: paint.draft.h } : null}
+            zoom={zoom}
+            scrollContainerRef={canvasScrollRef}
+            stackRef={canvasStackRef}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onZoomReset={zoomReset}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+          />
+          </div>{/* /canvas-frame */}
         </div>
 
         {/* Leaderboard previously lived in a `<aside.canvas-side>` rail

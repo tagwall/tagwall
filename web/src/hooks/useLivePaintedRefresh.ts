@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { useWatchContractEvent } from 'wagmi'
 
 import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { useViewerChainId } from '../lib/viewerChain'
 import { TILE_SIZE } from './useTilePixels'
 
 /**
@@ -22,11 +23,21 @@ export function useLivePaintedRefresh() {
   const queryClient = useQueryClient()
   const pendingTiles = useRef<Set<string>>(new Set())
   const timerRef = useRef<number | null>(null)
+  // Tie the watcher to the viewer's chain (operator preference 2026-05-25
+  // after BSC felt "slow to refresh"): without this, useWatchContractEvent
+  // defaults to wagmi's chainId, which when the user is disconnected or
+  // their wallet is on a chain different from the dropdown selection
+  // means the watcher subscribes to the wrong chain entirely. New paints
+  // on the viewed chain then never invalidate the cache, so the canvas
+  // only refreshes on hard reload. Passing chainId here makes the watcher
+  // re-subscribe whenever the dropdown switches chains.
+  const chainId = useViewerChainId()
 
   useWatchContractEvent({
     address: CANVAS_ADDRESS,
     abi: canvasAbi,
     eventName: 'Painted',
+    chainId,
     onLogs(logs) {
       // Bail on heartbeat polls with no matching events. wagmi fires
       // `onLogs` every filter poll; on many chains (and on anvil) the

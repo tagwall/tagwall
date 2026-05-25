@@ -48,6 +48,16 @@ export interface PaintDraftParams {
    * canvas-centre placement.
    */
   regions?: readonly PaintedRegion[]
+  /**
+   * Callback that returns the currently-visible canvas viewport rect
+   * in CANVAS pixel coords (x, y, w, h), or null if the user is at
+   * zoom = 1 and seeing the whole canvas. Called inside `load()` so a
+   * draft uploaded while zoomed in lands within the visible area.
+   * Without this, a random placement could land far outside the
+   * user's view and they wouldn't see their draft until they scroll.
+   * Operator preference 2026-05-25.
+   */
+  getViewport?: () => { x: number; y: number; w: number; h: number } | null
 }
 
 /**
@@ -56,6 +66,12 @@ export interface PaintDraftParams {
  * if every sample overlaps (canvas is saturated), returns a random
  * position anyway so the user has something to drag. Returns canvas-
  * centre if there are no regions to dodge.
+ *
+ * When the user is zoomed in and only seeing a sub-rect of the canvas,
+ * passing `viewport` constrains the candidate positions to land WITHIN
+ * the visible area. Without this, a randomly-placed stamp could land
+ * far outside what the user is looking at, requiring them to scroll
+ * around to find their own draft. Operator preference 2026-05-25.
  */
 function pickFreeSlot(
   w: number,
@@ -63,13 +79,28 @@ function pickFreeSlot(
   canvasWidth: number,
   canvasHeight: number,
   regions: readonly PaintedRegion[] | undefined,
+  viewport?: { x: number; y: number; w: number; h: number } | null,
 ): { x: number; y: number } {
-  const maxX = Math.max(0, canvasWidth - w)
-  const maxY = Math.max(0, canvasHeight - h)
+  // Constrain the sampling box to the visible viewport (if any),
+  // intersected with the canvas extents. The stamp's top-left corner
+  // must land in [minX, maxX] × [minY, maxY] for the stamp to fit
+  // entirely within the constraint box.
+  const minX = viewport ? Math.max(0, Math.floor(viewport.x)) : 0
+  const minY = viewport ? Math.max(0, Math.floor(viewport.y)) : 0
+  const constraintMaxX = viewport
+    ? Math.min(canvasWidth, Math.ceil(viewport.x + viewport.w)) - w
+    : canvasWidth - w
+  const constraintMaxY = viewport
+    ? Math.min(canvasHeight, Math.ceil(viewport.y + viewport.h)) - h
+    : canvasHeight - h
+  const maxX = Math.max(minX, constraintMaxX)
+  const maxY = Math.max(minY, constraintMaxY)
+
   if (!regions || regions.length === 0) {
+    // No regions to dodge: pick the centre of the constraint box.
     return {
-      x: Math.floor(maxX / 2),
-      y: Math.floor(maxY / 2),
+      x: minX + Math.floor((maxX - minX) / 2),
+      y: minY + Math.floor((maxY - minY) / 2),
     }
   }
 
@@ -89,13 +120,13 @@ function pickFreeSlot(
   // probability of failing the sampling — negligible. We still fall back
   // to a random position if we somehow miss, so the stamp always appears.
   for (let i = 0; i < 50; i++) {
-    const x = Math.floor(Math.random() * (maxX + 1))
-    const y = Math.floor(Math.random() * (maxY + 1))
+    const x = minX + Math.floor(Math.random() * (maxX - minX + 1))
+    const y = minY + Math.floor(Math.random() * (maxY - minY + 1))
     if (!overlapsAny(x, y)) return { x, y }
   }
   return {
-    x: Math.floor(Math.random() * (maxX + 1)),
-    y: Math.floor(Math.random() * (maxY + 1)),
+    x: minX + Math.floor(Math.random() * (maxX - minX + 1)),
+    y: minY + Math.floor(Math.random() * (maxY - minY + 1)),
   }
 }
 
@@ -192,6 +223,7 @@ export function usePaintDraft({
   canvasHeight,
   maxStampSide,
   regions,
+  getViewport,
 }: PaintDraftParams) {
   const [draft, setDraft] = useState<PaintDraft | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -199,6 +231,11 @@ export function usePaintDraft({
   // without re-memoising the callback on every region change.
   const regionsRef = useRef<readonly PaintedRegion[] | undefined>(regions)
   regionsRef.current = regions
+  // Same ref pattern for the viewport getter so load() can read the
+  // current zoom-aware viewport without re-memoising the callback on
+  // every scroll/zoom change.
+  const getViewportRef = useRef(getViewport)
+  getViewportRef.current = getViewport
   // When true, the stamp is laid out in a square frame with the image
   // centered inside and the rest transparent. Useful for extreme-aspect
   // uploads (panoramas, portrait photos) where the default scale leaves
@@ -266,7 +303,8 @@ export function usePaintDraft({
       disposeSource()
       sourceBitmapRef.current = bitmap
 
-      const { x, y } = pickFreeSlot(w, h, canvasWidth, canvasHeight, regionsRef.current)
+      const viewport = getViewportRef.current?.() ?? null
+      const { x, y } = pickFreeSlot(w, h, canvasWidth, canvasHeight, regionsRef.current, viewport)
 
       setDraft({
         name: file.name,

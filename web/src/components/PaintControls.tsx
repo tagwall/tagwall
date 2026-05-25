@@ -401,7 +401,7 @@ export function PaintControls({
                   <span className="peb-step-body">
                     <span className="peb-step-head">Auto-scaled</span>
                     <span className="peb-step-sub">
-                      Fit to {maxStampSide} × {maxStampSide} px · one tx per stamp
+                      Fit to {maxStampSide} × {maxStampSide} px · split across txs as needed
                     </span>
                   </span>
                 </li>
@@ -442,7 +442,7 @@ export function PaintControls({
               numeric prefixes feel over-templated for this single-word
               zone). */}
           <div className="pz pz-minimap">
-            <div className="pz-label">Map</div>
+            <div className="pz-label">Zoom</div>
             <Minimap
               regions={regions}
               canvasWidth={canvasWidth}
@@ -669,7 +669,7 @@ export function PaintControls({
           {/* Zone 5 — Minimap + zoom controls. Label dropped the
               "05 ·" prefix 2026-05-24 to match the empty-state zone. */}
           <div className="pz pz-minimap">
-            <div className="pz-label">Map</div>
+            <div className="pz-label">Zoom</div>
             <Minimap
               regions={regions}
               canvasWidth={canvasWidth}

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import {
   useAccount,
@@ -108,6 +109,27 @@ export function ConnectBar() {
   const viewerChain = chains.find((c) => c.id === viewerChainId)
   const setViewerChain = useSetViewerChain()
 
+  // Global "refresh canvas data" button (operator preference 2026-05-25:
+  // there's a refresh on the minimap overlay too, but a second one in
+  // the global chrome makes it discoverable without finding the
+  // minimap first). Invalidates the same react-query keys HomePage's
+  // own refresh handler does — react-query dedupes the refetches.
+  const queryClient = useQueryClient()
+  const [refreshing, setRefreshing] = useState(false)
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['painted-regions'] }),
+        queryClient.invalidateQueries({ queryKey: ['tile-pixels'] }),
+        queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] }),
+      ])
+    } finally {
+      setTimeout(() => setRefreshing(false), 250)
+    }
+  }, [queryClient, refreshing])
+
   // Native-token balance on the connected chain. Auto-disabled when no
   // address. Refetches on chain switch automatically because wagmi keys
   // the query on chainId.
@@ -201,6 +223,16 @@ export function ConnectBar() {
             canvas itself can claim the vertical space the old metric
             strip ate. */}
         <NavMetrics />
+        <button
+          type="button"
+          className={`global-refresh-btn${refreshing ? ' is-spinning' : ''}`}
+          onClick={onRefresh}
+          disabled={refreshing}
+          title="Refresh canvas data from the chain"
+          aria-label="Refresh canvas"
+        >
+          ↻
+        </button>
         <div className="chain-dropdown">
           <button
             ref={chainBtnRef}
