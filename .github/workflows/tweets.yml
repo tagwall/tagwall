@@ -1,0 +1,110 @@
+name: Tweets bot
+
+# Scans all four EVM chains every 30 min for new Painted events,
+# writes per-paint tweet candidates to bots/tweets/QUEUE.md +
+# web/public/queue.json, and writes a trailing-7-day per-chain
+# summary to web/public/summary.json. Both JSON files are rendered
+# by tagwall.io/tweets.
+#
+# Named "tweets" because that's what it produces — even though the
+# final step (paste-and-post on X) is still operator-driven. Was
+# "manual-queue" through the May 2026 launch when most of the
+# automation around it didn't exist yet.
+#
+# Replaces the original auto-posting twitter-bot workflow. X moved to
+# a paid pay-per-use API in Feb 2026 (~$0.20 per tweet with a URL),
+# so this version surfaces ready-to-post tweet copy on a page rather
+# than posting from a bot account directly.
+#
+# Runs on GitHub Actions against the public mirror at
+# github.com/tagwall/tagwall. Bot commits land here directly,
+# Cloudflare Worker picks them up via build-watch-paths and rebuilds
+# the static site.
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub's scheduler is best-effort; expect drift
+    # of a few minutes during peak load. Acceptable for an
+    # amplification surface that gets reviewed manually anyway.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (print queue entries, do not write files or push)'
+        type: boolean
+        default: false
+
+# Concurrency guard: never let two runs race on state.json or QUEUE.md.
+# Newer scheduled runs cancel an in-flight one; manual dispatches always
+# wait for the in-flight to finish so the operator gets a clean
+# diagnostic instead of a silent kill.
+concurrency:
+  group: tweets-bot
+  cancel-in-progress: ${{ github.event_name == 'schedule' }}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to commit state.json + QUEUE.md + queue.json + summary.json back
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: bots/tweets/requirements.txt
+
+      - name: Install deps
+        working-directory: bots/tweets
+        run: pip install --quiet -r requirements.txt
+
+      - name: Run scanner
+        working-directory: bots/tweets
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          CANVAS_ADDRESS:            ${{ vars.CANVAS_ADDRESS }}
+          PULSECHAIN_RPC_URL:        ${{ vars.PULSECHAIN_RPC_URL }}
+          # Defaults to https://eth.drpc.org inside main.py if both
+          # secret and variable are empty. Secret takes priority over
+          # variable so a paid provider URL with an embedded API key
+          # gets log-masking. Public override URLs (no key) can live as
+          # a variable instead.
+          ETHEREUM_RPC_URL:          ${{ secrets.ETHEREUM_RPC_URL || vars.ETHEREUM_RPC_URL }}
+          BASE_RPC_URL:              ${{ vars.BASE_RPC_URL }}
+          BSC_RPC_URL:               ${{ vars.BSC_RPC_URL }}
+          TAGWALL_BASE_URL:          ${{ vars.TAGWALL_BASE_URL }}
+          # Canonical names (current). The bot also accepts the
+          # MANUAL_QUEUE_* names for backward compatibility with any
+          # GitHub variable already configured under the old labels.
+          TWEETS_MIN_PIXELS:         ${{ vars.TWEETS_MIN_PIXELS || vars.MANUAL_QUEUE_MIN_PIXELS }}
+          TWEETS_MAX_PER_RUN:        ${{ vars.TWEETS_MAX_PER_RUN || vars.MANUAL_QUEUE_MAX_PER_RUN }}
+        run: python main.py
+
+      - name: Commit scan results
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if git diff --quiet \
+                bots/tweets/state.json \
+                bots/tweets/QUEUE.md \
+                web/public/queue.json \
+                web/public/summary.json; then
+            echo "no queue or state change"
+            exit 0
+          fi
+          # Author identity matches publish-public.sh's EMAIL_ALLOWLIST
+          # so the public-repo commit log stays uniform (bot commits
+          # and operator-driven publish commits look the same).
+          git config user.name 'tagwall'
+          git config user.email 'noreply@tagwall.io'
+          git add \
+            bots/tweets/state.json \
+            bots/tweets/QUEUE.md \
+            web/public/queue.json \
+            web/public/summary.json
+          git commit -m "bot: append notable paints"
+          # GITHUB_TOKEN with `contents: write` on this repo (granted by
+          # the job-level permissions block above) is automatically
+          # configured as the push credential by actions/checkout@v4.
+          git push

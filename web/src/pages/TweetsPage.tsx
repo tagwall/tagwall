@@ -11,10 +11,10 @@ import { chainColorTokens } from '../lib/chainColor'
  *   2. Per-chain 7-day weekly recap (one per chain, in the summary
  *      cards).
  *   3. Per-paint notable-event tweets (the original "queue", from the
- *      manual-queue bot's scan of recent Painted events).
+ *      tweets bot's scan of recent Painted events).
  *
  * Reads /queue.json (per-paint candidates) and /summary.json (7-day
- * aggregates), both written every 30 min by the manual-queue GitHub
+ * aggregates), both written every 30 min by the tweets-bot GitHub
  * Actions workflow scanning all four EVM chains. The page renders
  * everything client-side with Copy buttons; per-paint entries can be
  * marked "posted" (localStorage; doesn't sync across devices).
