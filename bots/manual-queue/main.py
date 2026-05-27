@@ -23,7 +23,7 @@ marker.
 Env (all required unless noted):
   CANVAS_ADDRESS              — CREATE2 address, identical on every chain
   PULSECHAIN_RPC_URL          — public default works (rpc.pulsechain.com)
-  ETHEREUM_RPC_URL            — recommend a paid provider (Alchemy etc.)
+  ETHEREUM_RPC_URL            — public default works (eth.drpc.org)
   BASE_RPC_URL                — public default works
   BSC_RPC_URL                 — public default works
   TAGWALL_BASE_URL            — defaults to https://tagwall.io
@@ -77,7 +77,12 @@ CHAINS = [
         "id": 1,
         "name": "Ethereum",
         "rpc_env": "ETHEREUM_RPC_URL",
-        "rpc_default": "",  # paid provider strongly recommended
+        # dRPC's public Ethereum endpoint. Free tier, no key required.
+        # Survives the bot's 7-day backfill (~11 get_logs calls per run
+        # at LOGS_WINDOW=5000 on a chain with 12s block times). Operator
+        # can override via ETHEREUM_RPC_URL if they want a paid provider
+        # for headroom; current load doesn't justify it.
+        "rpc_default": "https://eth.drpc.org",
         "native": "ETH",
         "explorer_tx": "https://etherscan.io/tx/",
     },

@@ -73,6 +73,7 @@ copies.
 |---|---|
 | `CANVAS_ADDRESS` | the deployed Canvas address (CREATE2; same on every chain). `0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415` for the launch deployment. |
 | `PULSECHAIN_RPC_URL` | optional override of `rpc.pulsechain.com` |
+| `ETHEREUM_RPC_URL` | optional override of `eth.drpc.org` |
 | `BASE_RPC_URL` | optional override of `mainnet.base.org` |
 | `BSC_RPC_URL` | optional override of `bsc-dataseed.binance.org` (consider Bloxroute `bsc.rpc.blxrbdn.com` to dodge log pruning) |
 | `TAGWALL_BASE_URL` | optional, defaults to `https://tagwall.io` |
@@ -81,9 +82,10 @@ copies.
 
 ### Repository secrets
 
-| Name | Value |
-|---|---|
-| `ETHEREUM_RPC_URL` | Alchemy / paid provider URL (public Ethereum RPC won't survive the 7-day backfill scan) |
+(None required.) All four chain RPCs default to free public endpoints
+that survive the bot's load. If you ever switch to a paid Ethereum RPC
+that embeds an API key in the URL, add it as a secret named
+`ETHEREUM_RPC_URL` (overrides the public default).
 
 The Twitter / X secrets from the old `bots/twitter-paints/` bot
 (`TWITTER_API_KEY`, etc.) are no longer used. They were never on the

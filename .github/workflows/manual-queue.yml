@@ -57,7 +57,12 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           CANVAS_ADDRESS:            ${{ vars.CANVAS_ADDRESS }}
           PULSECHAIN_RPC_URL:        ${{ vars.PULSECHAIN_RPC_URL }}
-          ETHEREUM_RPC_URL:          ${{ secrets.ETHEREUM_RPC_URL }}
+          # Defaults to https://eth.drpc.org inside main.py if both
+          # secret and variable are empty. Secret takes priority over
+          # variable so a paid provider URL with an embedded API key
+          # gets log-masking. Public override URLs (no key) can live as
+          # a variable instead.
+          ETHEREUM_RPC_URL:          ${{ secrets.ETHEREUM_RPC_URL || vars.ETHEREUM_RPC_URL }}
           BASE_RPC_URL:              ${{ vars.BASE_RPC_URL }}
           BSC_RPC_URL:               ${{ vars.BSC_RPC_URL }}
           TAGWALL_BASE_URL:          ${{ vars.TAGWALL_BASE_URL }}
