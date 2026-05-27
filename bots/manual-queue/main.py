@@ -132,11 +132,19 @@ CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 3}
 # a 5% buffer for rounding / multi-pixel mixed paints.
 OVERPAINT_RATIO = 1.05
 
-MIN_PIXELS = int(os.environ.get("MANUAL_QUEUE_MIN_PIXELS", "100"))
-MAX_PER_RUN = int(os.environ.get("MANUAL_QUEUE_MAX_PER_RUN", "50"))
+# `os.environ.get(name, default)` only returns `default` when the name
+# is absent; an EMPTY-STRING value bypasses the default and gets
+# returned as "". That bites under GitHub Actions, where unset
+# `vars.X` references still render as `env: X: ''` in the workflow, so
+# every "optional" knob arrived as "" and int("") tanked the run on
+# the first cron tick. Use `or` to treat empty-string the same as
+# absent, matching the pattern already used for the per-chain
+# rpc_default lookup.
+MIN_PIXELS = int(os.environ.get("MANUAL_QUEUE_MIN_PIXELS") or "100")
+MAX_PER_RUN = int(os.environ.get("MANUAL_QUEUE_MAX_PER_RUN") or "50")
 BACKFILL_BLOCKS = 1_000   # on first run, look back this far
 LOGS_WINDOW = 5_000       # cap each get_logs call to stay under public-RPC limits
-TAGWALL_BASE_URL = os.environ.get("TAGWALL_BASE_URL", "https://tagwall.io").rstrip("/")
+TAGWALL_BASE_URL = (os.environ.get("TAGWALL_BASE_URL") or "https://tagwall.io").rstrip("/")
 
 
 # Header injected at the top of QUEUE.md the first time the file is
