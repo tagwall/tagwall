@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { formatEther } from 'viem'
+import { decodeFunctionData, formatEther, type Hex } from 'viem'
 import { useQuery } from '@tanstack/react-query'
 import { usePublicClient, useReadContracts } from 'wagmi'
 
@@ -44,99 +44,89 @@ function regionKey(r: PaintedRegion): string {
 }
 
 /**
- * Fetches the per-pixel colour state for the given leaderboard regions,
- * independent of the main-canvas bulk fetch. Small workload (top-N regions
- * × ~1-2k pixels each), so the per-region multicall is cheap and doesn't
- * compete with the canvas-wide cap in `useRegionPixels`. Fixes thumbnails
- * going blank for late-painted top spenders that fell in the truncated tail
- * of the canvas-wide fetch.
+ * Fetches the per-pixel colour state for the given leaderboard regions
+ * *as painted*, i.e. the historical colours the painter submitted, not
+ * the current canvas state.
+ *
+ * Why not `pixelAt`: each leaderboard entry is one Painted event with
+ * its own `pricePaid`. When a pixel is later overwritten, the older
+ * entry still earns its rank from the original spend, but `pixelAt`
+ * returns the new colour. The thumbnail then misrepresents the entry —
+ * e.g. the genesis (0,0) grey paint shows up green after an overwrite.
+ *
+ * Source of truth: the `paint(x, y, w, h, colors[], …)` calldata of the
+ * paint transaction. We fetch each region's tx, decode the input, and
+ * map `colors[dy*w + dx]` (row-major, matches the submit path in
+ * usePaintDraft.ts) onto canvas coordinates. One RPC per region beats
+ * w*h pixelAt reads, so this is also much cheaper than the previous
+ * per-pixel multicall.
  */
 export function useThumbnailPixels(regions: readonly PaintedRegion[]) {
   const publicClient = usePublicClient()
-
-  const coords = useMemo(() => {
-    const out: Array<{ key: string; x: number; y: number }> = []
-    for (const r of regions) {
-      const key = regionKey(r)
-      for (let dy = 0; dy < r.h; dy++) {
-        for (let dx = 0; dx < r.w; dx++) {
-          out.push({ key, x: r.x + dx, y: r.y + dy })
-        }
-      }
-    }
-    return out
-  }, [regions])
 
   return useQuery({
     queryKey: [
       'leaderboard-pixels',
       publicClient?.chain.id,
       CANVAS_ADDRESS,
-      regions.map(regionKey).join(','),
+      regions.map((r) => `${regionKey(r)}:${r.txHash}`).join(','),
     ],
-    enabled: !!publicClient && coords.length > 0,
-    staleTime: 10_000,
-    gcTime: 30_000,
+    enabled: !!publicClient && regions.length > 0,
+    // Calldata is immutable, so once decoded the result never changes.
+    // Long stale window keeps Leaderboard + Ticker sharing one cache.
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
     queryFn: async (): Promise<Map<string, PixelState[]>> => {
-      if (!publicClient || coords.length === 0) return new Map()
+      if (!publicClient || regions.length === 0) return new Map()
 
-      const calls = coords.map(({ x, y }) => ({
-        address: CANVAS_ADDRESS,
-        abi: canvasAbi,
-        functionName: 'pixelAt' as const,
-        args: [x, y] as const,
-      }))
-
-      let tuples: Array<readonly [number, bigint, number] | null>
-      try {
-        const results = await publicClient.multicall({
-          contracts: calls,
-          allowFailure: true,
-          batchSize: 8192,
-        })
-        if (results.length === 0 && coords.length > 0) {
-          throw new Error('multicall empty, falling back')
-        }
-        tuples = results.map((r) =>
-          r.status === 'success'
-            ? (r.result as unknown as readonly [number, bigint, number])
-            : null,
-        )
-      } catch {
-        // Chains without Multicall3 at the canonical address fall back to
-        // parallel individual reads. Slower, but the N here is small (top-10
-        // thumbnails, ~15k reads worst-case) so the fallback is tolerable.
-        const chunkSize = 100
-        tuples = []
-        for (let i = 0; i < calls.length; i += chunkSize) {
-          const slice = calls.slice(i, i + chunkSize)
-          const batch = await Promise.all(
-            slice.map((c) =>
-              publicClient
-                .readContract(c)
-                .then(
-                  (r) => r as unknown as readonly [number, bigint, number],
-                  () => null,
-                ),
+      const txs = await Promise.all(
+        regions.map((r) =>
+          publicClient
+            .getTransaction({ hash: r.txHash as Hex })
+            .then(
+              (tx) => ({ region: r, input: tx.input as Hex }),
+              () => ({ region: r, input: null as Hex | null }),
             ),
-          )
-          tuples.push(...batch)
-        }
-      }
+        ),
+      )
 
       const map = new Map<string, PixelState[]>()
-      for (let i = 0; i < tuples.length; i++) {
-        const tuple = tuples[i]
-        if (!tuple) continue
-        const [color, lastPrice, linkId] = tuple
-        if (lastPrice === 0n) continue
-        const c = coords[i]
-        let list = map.get(c.key)
-        if (!list) {
-          list = []
-          map.set(c.key, list)
+      for (const { region: r, input } of txs) {
+        if (!input) continue
+        let colors: readonly number[]
+        try {
+          const decoded = decodeFunctionData({ abi: canvasAbi, data: input })
+          if (decoded.functionName !== 'paint') continue
+          // paint(x, y, w, h, colors, link, referrer, metadataHash, …)
+          colors = decoded.args[4] as readonly number[]
+        } catch {
+          continue
         }
-        list.push({ x: c.x, y: c.y, color, lastPrice, linkId })
+        const expected = r.w * r.h
+        if (colors.length !== expected) continue
+        const key = regionKey(r)
+        const list: PixelState[] = []
+        for (let dy = 0; dy < r.h; dy++) {
+          for (let dx = 0; dx < r.w; dx++) {
+            const color = colors[dy * r.w + dx]
+            // 0xFFFFFFFF is the transparent sentinel (Canvas.sol skips
+            // these pixels and doesn't charge for them). Omit from the
+            // list so Thumbnail's backdrop shows through, matching the
+            // behaviour of the previous lastPrice===0 skip.
+            if ((color >>> 0) === 0xffffffff) continue
+            list.push({
+              x: r.x + dx,
+              y: r.y + dy,
+              color,
+              // Historical lastPrice / linkId aren't carried in calldata
+              // and aren't read by Thumbnail; placeholders preserve the
+              // PixelState shape for other consumers.
+              lastPrice: r.pricePaid,
+              linkId: r.linkId,
+            })
+          }
+        }
+        if (list.length > 0) map.set(key, list)
       }
       return map
     },
