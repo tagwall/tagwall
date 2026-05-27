@@ -85,24 +85,44 @@ jobs:
       - name: Commit scan results
         if: ${{ !inputs.dry_run }}
         run: |
-          if git diff --quiet \
-                bots/tweets/state.json \
-                bots/tweets/QUEUE.md \
-                web/public/queue.json \
-                web/public/summary.json; then
+          set -euo pipefail
+          # Files the bot may touch. Some may not exist on disk if
+          # this is the first real run after a clean publish (the
+          # publish allowlist excludes state.json + QUEUE.md so they
+          # don't ship from local), or if the bot exited before
+          # reaching its writers. `git diff --quiet PATH` errors when
+          # PATH isn't in HEAD or working tree, so filter to existing
+          # files before any git command sees them.
+          BOT_FILES=(
+            bots/tweets/state.json
+            bots/tweets/QUEUE.md
+            web/public/queue.json
+            web/public/summary.json
+          )
+          EXISTING=()
+          for f in "${BOT_FILES[@]}"; do
+            [ -f "$f" ] && EXISTING+=("$f")
+          done
+          if [ ${#EXISTING[@]} -eq 0 ]; then
+            echo "Bot wrote no recognised output files this run; nothing to commit."
+            exit 0
+          fi
+
+          # `git status --porcelain` includes untracked files (a freshly
+          # written state.json on first run is untracked, not modified),
+          # which `git diff` would miss. Empty output → nothing changed.
+          CHANGES=$(git status --porcelain -- "${EXISTING[@]}")
+          if [ -z "$CHANGES" ]; then
             echo "no queue or state change"
             exit 0
           fi
+
           # Author identity matches publish-public.sh's EMAIL_ALLOWLIST
           # so the public-repo commit log stays uniform (bot commits
           # and operator-driven publish commits look the same).
           git config user.name 'tagwall'
           git config user.email 'noreply@tagwall.io'
-          git add \
-            bots/tweets/state.json \
-            bots/tweets/QUEUE.md \
-            web/public/queue.json \
-            web/public/summary.json
+          git add "${EXISTING[@]}"
           git commit -m "bot: append notable paints"
           # GITHUB_TOKEN with `contents: write` on this repo (granted by
           # the job-level permissions block above) is automatically

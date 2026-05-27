@@ -419,23 +419,33 @@ def read_existing_queue() -> tuple[str, str]:
 
 def write_queue(new_entries: list[str]) -> None:
     """Prepend new_entries (newest first) between the header marker and
-    the existing tail. No-op if new_entries is empty.
+    the existing tail.
+
+    Always writes the file, even when new_entries is empty. This makes
+    the file exist on disk after every real (non-dry-run) bot run,
+    which is required by the workflow's `git diff --quiet` check (that
+    command errors on a pathspec that doesn't exist in either HEAD or
+    the working tree). On an empty-entries run with no pre-existing
+    tail, the file ends up as just the header — same as the initial
+    template, which leaves no diff against HEAD.
     """
-    if not new_entries:
-        return
     head, tail = read_existing_queue()
-    body = "\n".join(new_entries)
-    QUEUE_FILE.write_text(f"{head}\n{body}\n{tail}")
+    if new_entries:
+        body = "\n".join(new_entries) + "\n"
+    else:
+        body = ""
+    QUEUE_FILE.write_text(f"{head}\n{body}{tail}")
 
 
 def write_queue_json(new_entries_json: list[dict], now_iso: str) -> None:
     """Prepend new_entries_json (already newest-first) to the existing
     queue.json, trim to JSON_QUEUE_KEEP, write to web/public/queue.json.
-    No-op if new_entries_json is empty.
-
-    Note: we *do* update generatedAt only when the entry list changes,
-    so a no-op run leaves the file byte-identical and the CF Pages
-    'watch web/**' rule doesn't trigger a deploy.
+    No-op when new_entries_json is empty: rewriting the file with only
+    `generatedAt` updated would change `web/public/queue.json`'s git
+    blob on every cron tick and trip the Cloudflare Worker's
+    `Build watch paths: web/**` rebuild trigger 48x/day for no
+    user-visible change. The file already exists in HEAD from the
+    initial publish so it doesn't need to be created here.
     """
     if not new_entries_json:
         return
