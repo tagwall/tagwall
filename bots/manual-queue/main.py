@@ -34,8 +34,11 @@ Env (all required unless noted):
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+import requests
 
 from web3 import Web3
 from web3.exceptions import ContractLogicError
@@ -90,7 +93,13 @@ CHAINS = [
         "id": 8453,
         "name": "Base",
         "rpc_env": "BASE_RPC_URL",
-        "rpc_default": "https://mainnet.base.org",
+        # PublicNode's Base endpoint. Survives the first-run 7-day
+        # backfill burst (~60 chunks at LOGS_WINDOW=5000 over 300k
+        # blocks @ 2s/block) — benchmark showed 3 chunks in 0.85s
+        # without rate-limit, vs mainnet.base.org's 429 after ~30
+        # rapid requests and base.drpc.org's intermittent 408 timeouts.
+        # Operator can override via BASE_RPC_URL if needed.
+        "rpc_default": "https://base.publicnode.com",
         "native": "ETH",
         "explorer_tx": "https://basescan.org/tx/",
     },
@@ -144,6 +153,12 @@ MIN_PIXELS = int(os.environ.get("MANUAL_QUEUE_MIN_PIXELS") or "100")
 MAX_PER_RUN = int(os.environ.get("MANUAL_QUEUE_MAX_PER_RUN") or "50")
 BACKFILL_BLOCKS = 1_000   # on first run, look back this far
 LOGS_WINDOW = 5_000       # cap each get_logs call to stay under public-RPC limits
+INTER_CHUNK_SLEEP_S = 0.2 # courtesy pause between get_logs chunks; without
+                          # this, a 60-chunk first-run Base backfill bursts
+                          # ~30 requests/sec and trips the free-tier 429s
+RETRY_MAX_ATTEMPTS = 5    # for transient HTTP errors (429, 503)
+RETRY_INITIAL_DELAY_S = 1.0
+RETRY_MAX_DELAY_S = 30.0
 TAGWALL_BASE_URL = (os.environ.get("TAGWALL_BASE_URL") or "https://tagwall.io").rstrip("/")
 
 
@@ -166,6 +181,58 @@ scanning all four EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 """
+
+
+# HTTP status codes worth retrying. All represent transient failures —
+# rate limits, upstream timeouts, gateway hiccups, momentary 5xx — not
+# bad requests we should give up on.
+RETRYABLE_HTTP_STATUS = {408, 429, 500, 502, 503, 504, 522, 524}
+
+
+def get_logs_with_retry(
+    painted_event, from_block: int, to_block: int, chain_name: str,
+) -> list:
+    """Wrap contract.events.Painted.get_logs with retry-on-transient-error.
+    Public RPCs (default PulseChain, Base, etc.) burst-cap at ~30
+    req/min or time out under sustained log queries, both of which the
+    first-run 7-day backfill blows past in seconds.
+
+    Exponential backoff with a 30s cap, 5 attempts total. Network-level
+    errors (ConnectionError, ReadTimeout) also retry. On final-attempt
+    failure, raises so the caller can decide whether to skip the chunk
+    or abort the chain. ContractLogicError / ValueError are NOT
+    handled here — they indicate a bad request (e.g. range too large)
+    and the caller treats them as fatal-for-this-chunk.
+    """
+    delay = RETRY_INITIAL_DELAY_S
+    for attempt in range(RETRY_MAX_ATTEMPTS):
+        try:
+            return painted_event.get_logs(from_block=from_block, to_block=to_block)
+        except requests.exceptions.HTTPError as err:
+            status = err.response.status_code if err.response is not None else None
+            if status in RETRYABLE_HTTP_STATUS and attempt < RETRY_MAX_ATTEMPTS - 1:
+                print(
+                    f"[{chain_name}] RPC HTTP {status} on [{from_block},{to_block}]; "
+                    f"backing off {delay:.1f}s (attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, RETRY_MAX_DELAY_S)
+                continue
+            raise
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as err:
+            if attempt < RETRY_MAX_ATTEMPTS - 1:
+                print(
+                    f"[{chain_name}] RPC {type(err).__name__} on [{from_block},{to_block}]; "
+                    f"backing off {delay:.1f}s (attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, RETRY_MAX_DELAY_S)
+                continue
+            raise
+    # Loop body always either returns or raises; this is unreachable.
+    return []
 
 
 def load_state() -> dict[str, int]:
@@ -440,10 +507,10 @@ def process_chain(
     while cur < latest and len(md_entries) < remaining_quota:
         to_block = min(latest, cur + LOGS_WINDOW)
         try:
-            events = contract.events.Painted.get_logs(
-                from_block=cur, to_block=to_block,
+            events = get_logs_with_retry(
+                contract.events.Painted, cur, to_block, chain["name"],
             )
-        except (ContractLogicError, ValueError) as err:
+        except (ContractLogicError, ValueError, requests.exceptions.RequestException) as err:
             print(
                 f"[{chain['name']}] get_logs failed in [{cur},{to_block}]: {err}",
                 file=sys.stderr,
@@ -452,6 +519,7 @@ def process_chain(
             # if the failure was transient (state hasn't moved past
             # to_block yet).
             cur = to_block + 1
+            time.sleep(INTER_CHUNK_SLEEP_S)
             continue
 
         if events:
@@ -473,6 +541,10 @@ def process_chain(
             )
         cur = to_block + 1
         state[cid_key] = cur
+        # Courtesy pause between chunks so the next iteration doesn't
+        # burst-trip the public RPC's rate limit.
+        if cur < latest:
+            time.sleep(INTER_CHUNK_SLEEP_S)
 
     return md_entries, json_entries
 
@@ -528,13 +600,16 @@ def compute_weekly_summary(chain: dict) -> dict | None:
     while cur <= latest:
         to = min(latest, cur + LOGS_WINDOW)
         try:
-            events = contract.events.Painted.get_logs(from_block=cur, to_block=to)
-        except (ContractLogicError, ValueError) as err:
+            events = get_logs_with_retry(
+                contract.events.Painted, cur, to, chain["name"],
+            )
+        except (ContractLogicError, ValueError, requests.exceptions.RequestException) as err:
             print(
                 f"[{chain['name']}] summary chunk [{cur},{to}] failed: {err}",
                 file=sys.stderr,
             )
             cur = to + 1
+            time.sleep(INTER_CHUNK_SLEEP_S)
             continue
         for ev in events:
             args = ev["args"]
@@ -549,6 +624,8 @@ def compute_weekly_summary(chain: dict) -> dict | None:
             if biggest_by_price is None or args["pricePaid"] > biggest_by_price[0]:
                 biggest_by_price = (args["pricePaid"], dict(args), tx_hash_hex)
         cur = to + 1
+        if cur <= latest:
+            time.sleep(INTER_CHUNK_SLEEP_S)
 
     def fmt_peak(peak: tuple[int, dict, str] | None) -> dict | None:
         if peak is None:
