@@ -1,5 +1,124 @@
 {
-  "generatedAt": "1970-01-01T00:00:00Z",
+  "generatedAt": "2026-05-27T22:21:41Z",
   "windowDays": 7,
-  "chains": []
+  "chains": [
+    {
+      "chain": "PulseChain",
+      "chainId": 369,
+      "native": "PLS",
+      "windowStartBlock": 26578319,
+      "windowEndBlock": 26638799,
+      "paintCount": 2,
+      "overpaintCount": 1,
+      "uniquePainters": 1,
+      "totalVolumeFormatted": "14,070 PLS",
+      "biggestByPixels": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "6,700 PLS",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://otter.pulsechain.com/tx/0xce79f806e06e744ab404afc5f24b0a8decfc9f3464684f4af1ce96609ec22d0f"
+      },
+      "biggestByPrice": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "7,370 PLS",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://otter.pulsechain.com/tx/0xbd9b2a9100da1f52612cbaaedf97cb0c96f132311a6428de20e5be2b0aa3228b"
+      }
+    },
+    {
+      "chain": "Ethereum",
+      "chainId": 1,
+      "native": "ETH",
+      "windowStartBlock": 25139228,
+      "windowEndBlock": 25189628,
+      "paintCount": 2,
+      "overpaintCount": 1,
+      "uniquePainters": 1,
+      "totalVolumeFormatted": "0.000046 ETH",
+      "biggestByPixels": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.000022 ETH",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://etherscan.io/tx/0x8883c4b5f773c3d649a6090eb51e24deef15ef4cdcb584adef72035ce0a73e6a"
+      },
+      "biggestByPrice": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.000024 ETH",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://etherscan.io/tx/0xeba8af5c427ac84e249f6ac2023bce14a74a56ab47ec50df5c61107a3e43ef10"
+      }
+    },
+    {
+      "chain": "Base",
+      "chainId": 8453,
+      "native": "ETH",
+      "windowStartBlock": 46263203,
+      "windowEndBlock": 46565603,
+      "paintCount": 2,
+      "overpaintCount": 1,
+      "uniquePainters": 1,
+      "totalVolumeFormatted": "0.000046 ETH",
+      "biggestByPixels": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.000022 ETH",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://basescan.org/tx/0x9c4dcc55043730247ee4d1357e2ae1db135ccab55e2a55f35a9457363e00ab46"
+      },
+      "biggestByPrice": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.000024 ETH",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://basescan.org/tx/0xdedc9ca0574b1be2f8207e8f5e26c1bb3da6f6298d4c323e0caeceb70f1aa155"
+      }
+    },
+    {
+      "chain": "BSC",
+      "chainId": 56,
+      "native": "BNB",
+      "windowStartBlock": 100608504,
+      "windowEndBlock": 100810104,
+      "paintCount": 0,
+      "overpaintCount": 0,
+      "uniquePainters": 0,
+      "totalVolumeFormatted": "0.000000 BNB",
+      "biggestByPixels": null,
+      "biggestByPrice": null
+    }
+  ]
 }
