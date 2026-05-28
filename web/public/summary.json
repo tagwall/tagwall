@@ -1,16 +1,18 @@
 {
-  "generatedAt": "2026-05-27T22:21:41Z",
+  "generatedAt": "2026-05-28T11:57:59Z",
   "windowDays": 7,
+  "minPixels": 100,
   "chains": [
     {
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26578319,
-      "windowEndBlock": 26638799,
+      "windowStartBlock": 26583005,
+      "windowEndBlock": 26643485,
       "paintCount": 2,
       "overpaintCount": 1,
       "uniquePainters": 1,
+      "uniqueReferrers": 0,
       "totalVolumeFormatted": "14,070 PLS",
       "biggestByPixels": {
         "x": 0,
@@ -41,11 +43,12 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25139228,
-      "windowEndBlock": 25189628,
+      "windowStartBlock": 25143294,
+      "windowEndBlock": 25193694,
       "paintCount": 2,
       "overpaintCount": 1,
       "uniquePainters": 1,
+      "uniqueReferrers": 0,
       "totalVolumeFormatted": "0.000046 ETH",
       "biggestByPixels": {
         "x": 0,
@@ -76,11 +79,12 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 46263203,
-      "windowEndBlock": 46565603,
+      "windowStartBlock": 46287675,
+      "windowEndBlock": 46590075,
       "paintCount": 2,
       "overpaintCount": 1,
       "uniquePainters": 1,
+      "uniqueReferrers": 0,
       "totalVolumeFormatted": "0.000046 ETH",
       "biggestByPixels": {
         "x": 0,
@@ -111,14 +115,37 @@
       "chain": "BSC",
       "chainId": 56,
       "native": "BNB",
-      "windowStartBlock": 100608504,
-      "windowEndBlock": 100810104,
-      "paintCount": 0,
+      "windowStartBlock": 99709102,
+      "windowEndBlock": 100918702,
+      "paintCount": 1,
       "overpaintCount": 0,
-      "uniquePainters": 0,
-      "totalVolumeFormatted": "0.000000 BNB",
-      "biggestByPixels": null,
-      "biggestByPrice": null
+      "uniquePainters": 1,
+      "uniqueReferrers": 0,
+      "totalVolumeFormatted": "0.000081 BNB",
+      "biggestByPixels": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.000081 BNB",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://bscscan.com/tx/0x551bb6401051d6a1cfc8d83315888f7b0677f61a7dfcc5a09a8ba53689bc6f2f"
+      },
+      "biggestByPrice": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.000081 BNB",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://bscscan.com/tx/0x551bb6401051d6a1cfc8d83315888f7b0677f61a7dfcc5a09a8ba53689bc6f2f"
+      }
     }
   ]
 }
