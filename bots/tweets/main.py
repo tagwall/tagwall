@@ -112,7 +112,14 @@ CHAINS = [
         "id": 56,
         "name": "BSC",
         "rpc_env": "BSC_RPC_URL",
-        "rpc_default": "https://bsc-dataseed.binance.org",
+        # Bloxroute is the only public BSC RPC that doesn't prune logs
+        # (the operator's pre-launch survey found dataseed1-4 and
+        # publicnode all return "history has been pruned" after ~24h,
+        # and most others cap eth_getLogs at 500-block ranges). The
+        # frontend uses the same endpoint for the same reason.
+        # bsc.drpc.org is a flake-prone secondary; not used as default
+        # because intermittent 400s would burn the bot's retry budget.
+        "rpc_default": "https://bsc.rpc.blxrbdn.com",
         "native": "BNB",
         "explorer_tx": "https://bscscan.com/tx/",
     },
@@ -139,7 +146,18 @@ SUMMARY_WINDOW_SECONDS = 7 * 24 * 60 * 60
 # 7-day window into a starting block; the actual scan still uses block
 # numbers, so a wrong estimate just means the window is slightly off,
 # not data loss.
-CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 3}
+#
+# BSC is set to 0.5s (not 3s as documented historically) because the
+# Maxwell upgrade dropped BNB Chain mainnet block time below 1s.
+# Empirically measured ~0.46s in late May 2026: a paint at block
+# 100_082_391 (~Day 0) is 751,588 blocks back as of 100_833_979.
+# Underestimating block time only shortens the effective window —
+# the previous 3s value meant the BSC summary scan covered ~42 hours
+# instead of the intended 7 days, so any paint older than that was
+# silently invisible (the only existing BSC paint was missed for
+# exactly this reason; user-reported as a "BSC bug" 2026-05-28).
+# Erring small here costs more RPC chunks but never drops events.
+CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 0.5}
 # Overpaint heuristic threshold: if a paint's pricePerPixel is more than
 # this multiple of the chain's startingPrice (floor), at least one
 # pixel was painted over (compounded at +10% per overwrite). 1.05 gives
@@ -511,7 +529,7 @@ def process_chain(
         # blocks happened to be quiet. Subsequent runs are incremental
         # from state.json.
         block_time = CHAIN_BLOCK_TIME_S.get(chain["id"], 10)
-        blocks_back = SUMMARY_WINDOW_SECONDS // block_time
+        blocks_back = int(SUMMARY_WINDOW_SECONDS / block_time)
         from_block = max(0, latest - blocks_back)
         print(f"[{chain['name']}] first run, backfilling from block {from_block} (~{blocks_back} blocks)")
 
@@ -574,12 +592,20 @@ def process_chain(
     return md_entries, json_entries
 
 
-def compute_weekly_summary(chain: dict) -> dict | None:
+def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
     """Scan the trailing SUMMARY_WINDOW_SECONDS of Painted events on
-    this chain and return aggregate stats. Returns None if the RPC is
-    unavailable. An empty window (no paints this week) still returns a
-    summary with paintCount: 0 so the frontend can render "no activity
-    yet" instead of hiding the chain entirely.
+    this chain and return (summary_stats, referrer_earnings) where:
+
+      summary_stats: aggregate dict for one chain's summary card, or
+        None if the RPC is unreachable. An empty window (no paints
+        this week) still returns a dict with paintCount: 0 so the
+        frontend can render "no activity yet" instead of hiding the
+        chain entirely.
+
+      referrer_earnings: dict[lowercased_address, {earnings_wei,
+        paint_count, native}] tracking per-referrer aggregates on this
+        chain. main() rolls these up across chains for the leaderboard.
+        Self-referrals and zero-address referrals are excluded.
 
     Note: this is a fresh scan every run. Not incremental. With a
     LOGS_WINDOW of 5,000 it's ~12 calls/week on PulseChain (~10s block
@@ -590,14 +616,14 @@ def compute_weekly_summary(chain: dict) -> dict | None:
     rpc = os.environ.get(chain["rpc_env"]) or chain["rpc_default"]
     if not rpc:
         print(f"[{chain['name']}] summary: no RPC configured")
-        return None
+        return None, {}
 
     w3 = Web3(Web3.HTTPProvider(rpc))
     try:
         latest = w3.eth.block_number
     except Exception as err:
         print(f"[{chain['name']}] summary: RPC unreachable: {err}", file=sys.stderr)
-        return None
+        return None, {}
 
     canvas_address = Web3.to_checksum_address(os.environ["CANVAS_ADDRESS"])
     contract = w3.eth.contract(address=canvas_address, abi=PAINTED_EVENT_ABI)
@@ -608,13 +634,19 @@ def compute_weekly_summary(chain: dict) -> dict | None:
         floor_wei = 0
 
     block_time = CHAIN_BLOCK_TIME_S.get(chain["id"], 10)
-    blocks_back = SUMMARY_WINDOW_SECONDS // block_time
+    blocks_back = int(SUMMARY_WINDOW_SECONDS / block_time)
     from_block = max(0, latest - blocks_back)
 
     paint_count = 0
     overpaint_count = 0
     total_volume_wei = 0
     unique_painters: set[str] = set()
+    unique_referrers: set[str] = set()
+    # Per-referrer aggregates on THIS chain. Keyed lowercased so the
+    # cross-chain rollup in main() can merge without case mismatches.
+    # earnings_wei is computed as pricePaid * REFERRAL_BPS / BPS,
+    # mirroring Canvas.sol's splitBps math.
+    referrer_data: dict[str, dict] = {}
     # Each "biggest" tracks (sort-key, args-dict, tx-hash-hex) for the
     # winning event. Updated in place during the scan; None until the
     # first event is seen.
@@ -643,6 +675,29 @@ def compute_weekly_summary(chain: dict) -> dict | None:
             unique_painters.add(args["painter"].lower())
             if is_overpaint(args["pricePaid"], args["pixelsPainted"], floor_wei):
                 overpaint_count += 1
+
+            # Referrer tracking. Skip zero-address and self-referral
+            # (matches Canvas.sol's splitBps() which routes the slice
+            # to treasury in those cases — no actual referrer was
+            # paid).
+            ref = args.get("referrer") or ""
+            if ref and int(ref, 16) != 0 and ref.lower() != args["painter"].lower():
+                ref_lower = ref.lower()
+                unique_referrers.add(ref_lower)
+                earn_wei = args["pricePaid"] * REFERRAL_BPS // BPS
+                slot = referrer_data.setdefault(
+                    ref_lower,
+                    {
+                        "address": Web3.to_checksum_address(ref),
+                        "earningsByNative": {},
+                        "paintCount": 0,
+                    },
+                )
+                slot["paintCount"] += 1
+                slot["earningsByNative"][chain["native"]] = (
+                    slot["earningsByNative"].get(chain["native"], 0) + earn_wei
+                )
+
             tx_hash_hex = "0x" + bytes(ev["transactionHash"]).hex()
             if biggest_by_pixels is None or args["pixelsPainted"] > biggest_by_pixels[0]:
                 biggest_by_pixels = (args["pixelsPainted"], dict(args), tx_hash_hex)
@@ -668,10 +723,11 @@ def compute_weekly_summary(chain: dict) -> dict | None:
 
     print(
         f"[{chain['name']}] summary: {paint_count} paints, "
-        f"{overpaint_count} overpaints, {len(unique_painters)} unique painters"
+        f"{overpaint_count} overpaints, {len(unique_painters)} unique painters, "
+        f"{len(unique_referrers)} unique referrers"
     )
 
-    return {
+    summary_stats = {
         "chain": chain["name"],
         "chainId": chain["id"],
         "native": chain["native"],
@@ -680,10 +736,12 @@ def compute_weekly_summary(chain: dict) -> dict | None:
         "paintCount": paint_count,
         "overpaintCount": overpaint_count,
         "uniquePainters": len(unique_painters),
+        "uniqueReferrers": len(unique_referrers),
         "totalVolumeFormatted": format_price(total_volume_wei, chain["native"]),
         "biggestByPixels": fmt_peak(biggest_by_pixels),
         "biggestByPrice": fmt_peak(biggest_by_price),
     }
+    return summary_stats, referrer_data
 
 
 def write_summary(summaries: list[dict], now_iso: str) -> None:
@@ -692,14 +750,151 @@ def write_summary(summaries: list[dict], now_iso: str) -> None:
     scratch, so a no-op run still produces a fresh `generatedAt` but
     likely identical chain stats. CF Pages's content-aware build-skip
     will catch the case where nothing actually changed.
+
+    Includes the operator-facing minPixels threshold so the frontend
+    can render an exact "≥ N px" line in the empty-state copy without
+    needing its own copy of the env-var default.
     """
     payload = {
         "generatedAt": now_iso,
         "windowDays": SUMMARY_WINDOW_SECONDS // 86400,
+        "minPixels": MIN_PIXELS,
         "chains": summaries,
     }
     SUMMARY_JSON_FILE.parent.mkdir(parents=True, exist_ok=True)
     with SUMMARY_JSON_FILE.open("w") as f:
+        json.dump(payload, f, indent=2)
+        f.write("\n")
+
+
+# Top-N cap on the referrer leaderboard. ENS reverse lookups cost an
+# Ethereum RPC round-trip per address (cap is a soft budget; lookups
+# are fast on dRPC's free tier). Frontend renders all of them; tighten
+# this if the leaderboard JSON gets too chatty.
+LEADERBOARD_TOP_N = 20
+
+# Where the cross-chain referrer leaderboard JSON lives, served at
+# tagwall.io/leaderboard.json. Same publish/serve pipeline as queue.json
+# and summary.json (operator publishes web/public/ via the standard
+# build, the bot writes here directly under GitHub Actions).
+LEADERBOARD_JSON_FILE = (HERE / ".." / ".." / "web" / "public" / "leaderboard.json").resolve()
+
+
+def build_referrer_leaderboard(
+    per_chain_referrer_data: list[dict[str, dict]],
+    chains_by_native: dict[str, dict],
+) -> list[dict]:
+    """Merge per-chain referrer dicts into a sorted cross-chain
+    leaderboard. Each row carries the referrer's address, total paint
+    count credited to them across all chains, and per-native-token
+    earnings (we can't sum across native tokens without a USD oracle,
+    so each row breaks the earnings out per token). Rows are sorted
+    by total paint count descending (a reasonable proxy for "most
+    active referrer" that doesn't require token-value normalisation);
+    the frontend can re-sort however it likes.
+
+    Truncates to LEADERBOARD_TOP_N before any ENS resolution so the
+    operator's ENS-RPC budget stays bounded.
+    """
+    merged: dict[str, dict] = {}
+    for per_chain in per_chain_referrer_data:
+        for addr_lower, payload in per_chain.items():
+            slot = merged.setdefault(
+                addr_lower,
+                {
+                    "address": payload["address"],
+                    "paintCount": 0,
+                    "earningsByNative": {},
+                },
+            )
+            slot["paintCount"] += payload["paintCount"]
+            for native, wei in payload["earningsByNative"].items():
+                slot["earningsByNative"][native] = (
+                    slot["earningsByNative"].get(native, 0) + wei
+                )
+
+    # Sort by total paint count, tiebreak by address for determinism.
+    rows = sorted(
+        merged.values(),
+        key=lambda r: (-r["paintCount"], r["address"]),
+    )[:LEADERBOARD_TOP_N]
+
+    # Format earnings for display + drop the lowercase address key from
+    # the public payload (we keep the checksummed `address` field).
+    formatted = []
+    for r in rows:
+        earnings = []
+        for native, wei in sorted(r["earningsByNative"].items()):
+            earnings.append({
+                "native": native,
+                "wei": str(wei),
+                "formatted": format_price(wei, native),
+            })
+        formatted.append({
+            "address": r["address"],
+            "addressShort": shorten_address(r["address"]),
+            "paintCount": r["paintCount"],
+            "earnings": earnings,
+            # name field is filled in later by resolve_ens_names; left
+            # as None here so callers can run leaderboard build without
+            # ENS resolution (e.g. during a dry run or if ENS fails).
+            "name": None,
+        })
+    return formatted
+
+
+def resolve_ens_names(leaderboard: list[dict]) -> None:
+    """Resolve each row's ENS name in place by reverse-lookup on
+    Ethereum mainnet. ENS only lives on Ethereum, but addresses are
+    chain-agnostic, so a name set on mainnet applies cross-chain. Best
+    effort: any failure (RPC unreachable, ens package missing, no
+    primary name set) leaves `name` as None and the frontend falls
+    back to the shortened address.
+    """
+    if not leaderboard:
+        return
+    try:
+        from ens import ENS  # bundled with web3.py 7.x
+    except ImportError:
+        print("ens package not available; skipping ENS resolution", file=sys.stderr)
+        return
+
+    eth_rpc = (
+        os.environ.get("ETHEREUM_RPC_URL")
+        or next(c for c in CHAINS if c["id"] == 1)["rpc_default"]
+    )
+    try:
+        w3_eth = Web3(Web3.HTTPProvider(eth_rpc))
+        ns = ENS.from_web3(w3_eth)
+    except Exception as err:
+        print(f"ENS setup failed, skipping resolution: {err}", file=sys.stderr)
+        return
+
+    for row in leaderboard:
+        try:
+            name = ns.name(row["address"])
+        except Exception as err:
+            print(f"ENS lookup failed for {row['address']}: {err}", file=sys.stderr)
+            continue
+        if name:
+            row["name"] = name
+
+
+def write_leaderboard(leaderboard: list[dict], now_iso: str) -> None:
+    """Always overwrite leaderboard.json. Same trade-off as summary.json:
+    rewriting with a fresh generatedAt every run changes the file's
+    git blob, but since CF Pages's content-aware skip won't see a
+    meaningful diff when rows are identical, the rebuild storm risk
+    is bounded to actual leaderboard movement.
+    """
+    payload = {
+        "generatedAt": now_iso,
+        "windowDays": SUMMARY_WINDOW_SECONDS // 86400,
+        "topN": LEADERBOARD_TOP_N,
+        "referrers": leaderboard,
+    }
+    LEADERBOARD_JSON_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with LEADERBOARD_JSON_FILE.open("w") as f:
         json.dump(payload, f, indent=2)
         f.write("\n")
 
@@ -734,16 +929,30 @@ def main() -> int:
     # Weekly summary scan runs every cron tick. Independent of the
     # incremental queue scan: it always covers the trailing 7 days
     # regardless of state.json. Slightly redundant on quiet weeks, but
-    # the cost is bounded and the output drives the /queue page's
-    # summary cards.
+    # the cost is bounded and the output drives the /tweets page's
+    # summary cards + the cross-chain referrer leaderboard.
     summaries: list[dict] = []
+    per_chain_referrers: list[dict[str, dict]] = []
     if os.environ.get("SKIP_SUMMARY") not in {"1", "true", "yes"}:
         for chain in CHAINS:
-            s = compute_weekly_summary(chain)
+            s, referrers = compute_weekly_summary(chain)
             if s is not None:
                 summaries.append(s)
+                per_chain_referrers.append(referrers)
     else:
         print("SKIP_SUMMARY set; skipping weekly summary scan")
+
+    # Roll up per-chain referrer data into a cross-chain leaderboard.
+    # ENS resolution happens against Ethereum mainnet; we kick it
+    # whether or not Ethereum was in the scan (the leaderboard is
+    # chain-agnostic).
+    chains_by_native = {c["native"]: c for c in CHAINS}
+    leaderboard = build_referrer_leaderboard(per_chain_referrers, chains_by_native)
+    if leaderboard:
+        print(f"resolving ENS names for {len(leaderboard)} leaderboard row(s)")
+        resolve_ens_names(leaderboard)
+        with_names = sum(1 for r in leaderboard if r.get("name"))
+        print(f"  {with_names}/{len(leaderboard)} resolved to a primary ENS name")
 
     if dry_run:
         for entry in md_entries:
@@ -753,14 +962,21 @@ def main() -> int:
             print("[json] " + json.dumps(entry))
         for s in summaries:
             print("[summary] " + json.dumps(s))
+        for row in leaderboard:
+            print("[leaderboard] " + json.dumps(row))
     else:
         write_queue(md_entries)
         write_queue_json(json_entries, now_iso)
         if summaries:
             write_summary(summaries, now_iso)
+        write_leaderboard(leaderboard, now_iso)
         save_state(state)
 
-    print(f"queued {len(md_entries)} paint(s) this run; summarised {len(summaries)} chain(s)")
+    print(
+        f"queued {len(md_entries)} paint(s) this run; "
+        f"summarised {len(summaries)} chain(s); "
+        f"leaderboard has {len(leaderboard)} referrer(s)"
+    )
     return 0
 
 

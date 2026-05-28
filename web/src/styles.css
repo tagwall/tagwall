@@ -764,6 +764,12 @@ a.lb-ticker-link:focus-visible {
   border: 1px dashed var(--border);
   border-radius: 10px;
 }
+.queue-empty-threshold {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.queue-empty-threshold strong { color: var(--text); }
 
 .queue-list {
   display: flex;
@@ -895,6 +901,12 @@ a.lb-ticker-link:focus-visible {
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
+/* 4-column variant added 2026-05-28 when the referrer count joined
+   the per-chain stats row. The card stays the same width; columns
+   compress, numbers stay tabular-aligned. */
+.queue-summary-card-stats-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
 .queue-summary-card-stat-num {
   font-size: 20px;
   font-weight: 600;
@@ -952,6 +964,99 @@ a.lb-ticker-link:focus-visible {
 .queue-summary-card-peak-detail {
   font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* Referrers leaderboard. Sits below the per-paint Leaderboard in the
+   activity-dock. Reuses the .leaderboard chrome (card bg, border,
+   header h3 styling) and the .leaderboard-row / -rank patterns where
+   they fit, then adds a few specific rules where the row layout
+   differs — paint count and per-native earnings sit in their own
+   columns instead of the per-paint thumb / URL / price layout. */
+.referrers-leaderboard { /* Same card chrome as .leaderboard; no overrides needed today. */ }
+
+.referrers-empty {
+  margin: 0;
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+.referrers-empty code {
+  font-size: 11px;
+  background: var(--bg-panel);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.referrers-empty a {
+  color: var(--tw-accent);
+  text-decoration: none;
+}
+.referrers-empty a:hover { text-decoration: underline; }
+
+.referrers-list { /* Inherits .leaderboard-list (flex column + gap). */ }
+
+.referrers-row {
+  /* rank | identity | count | earnings */
+  grid-template-columns: 22px 1fr auto auto;
+  gap: 12px;
+}
+.referrers-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.referrers-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.referrers-address-dim {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+.referrers-address {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.referrers-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.referrers-count-label {
+  font-size: 9.5px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+.referrers-earnings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 0;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--tw-accent);
+}
+.referrers-earnings-row {
+  white-space: nowrap;
 }
 
 /* Old /stats page still uses these Stat styles. Retained for the

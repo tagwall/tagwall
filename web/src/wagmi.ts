@@ -94,6 +94,12 @@ const base = {
 
 const bsc = {
   ...bscDefault,
+  // viem's bscDefault.name is "BNB Smart Chain", which most users don't
+  // recognise on sight. Override to "BSC" (the operator's preferred
+  // short form, also used as the chain key in chainColor and in the
+  // tweets bot config). Native token symbol stays "BNB" since the
+  // chain still pays in BNB.
+  name: 'BSC',
   rpcUrls: { default: { http: BSC_RPC_URLS } },
 } as const
 

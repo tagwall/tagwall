@@ -10,6 +10,7 @@ import { useViewerChainId } from '../lib/viewerChain'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { Leaderboard } from '../components/Leaderboard'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
+import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 import { MinimapOverlay } from '../components/MinimapOverlay'
 import { StatsCards } from '../components/StatsCards'
 import { OutboundLinkModal } from '../components/OutboundLinkModal'
@@ -1007,6 +1008,14 @@ function CanvasView({
           chainId={chainId}
           onRequestOutbound={setOutboundUrl}
         />
+        {/* Sibling to the per-paint Leaderboard above. Data source is
+            entirely independent — the tweets bot computes it server-
+            side from cross-chain Painted events and ENS reverse
+            lookups, so this component has zero RPC / wagmi coupling
+            and renders the same way regardless of the connected
+            chain. Lives in the activity-dock so it shares the same
+            "scores" mobile tab as the per-paint board. */}
+        <ReferrersLeaderboard />
         <ActivityFeed
           regions={regions}
           isLoading={regionsLoading}

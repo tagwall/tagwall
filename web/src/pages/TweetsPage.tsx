@@ -73,6 +73,7 @@ interface ChainSummary {
   paintCount: number
   overpaintCount: number
   uniquePainters: number
+  uniqueReferrers?: number  // added 2026-05-28; older summary.json may lack
   totalVolumeFormatted: string
   biggestByPixels: SummaryPeak | null
   biggestByPrice: SummaryPeak | null
@@ -81,6 +82,7 @@ interface ChainSummary {
 interface SummaryPayload {
   generatedAt: string
   windowDays: number
+  minPixels?: number  // added 2026-05-28; older summary.json may lack
   chains: ChainSummary[]
 }
 
@@ -125,12 +127,16 @@ function formatQueuedAt(iso: string): string {
  * test/reservation paints, not impressive recap content). When the
  * chain is quiet, emits a short "open invitation" tweet rather than
  * an empty one.
+ *
+ * Includes the unique-referrer count when there's at least one — the
+ * referrer split is 5% of every paint, surfaced here to nudge anyone
+ * with an audience to drop their ref link.
  */
 function chainWeeklyTweet(c: ChainSummary, windowDays: number): string {
   const lines: string[] = [`🎨 tagwall.io · ${c.chain} last ${windowDays} days`]
   if (c.paintCount === 0) {
     lines.push(`quiet week. canvas wide open for the next tag.`)
-    lines.push(`https://tagwall.io`)
+    lines.push(`5% per paint goes to the ref link. https://tagwall.io`)
     return lines.join('\n')
   }
   const paintLine = c.overpaintCount > 0
@@ -140,6 +146,11 @@ function chainWeeklyTweet(c: ChainSummary, windowDays: number): string {
   lines.push(
     `${c.uniquePainters} unique painter${c.uniquePainters === 1 ? '' : 's'} · ${c.totalVolumeFormatted} volume`
   )
+  if (c.uniqueReferrers && c.uniqueReferrers > 0) {
+    lines.push(
+      `${c.uniqueReferrers} ref link${c.uniqueReferrers === 1 ? '' : 's'} earned 5% this week`
+    )
+  }
   // Skip "biggest" if it's a 1-pixel paint — that's almost always a
   // test/reservation, not a flex. Surface it only when there's a real
   // region behind it.
@@ -156,6 +167,11 @@ function chainWeeklyTweet(c: ChainSummary, windowDays: number): string {
  * Build the cross-chain 7-day comparison tweet. We can't sum volumes
  * (different native tokens), so each chain gets its own line. Chains
  * with zero activity collapse to "quiet" to save chars.
+ *
+ * Surfaces the max-across-chains unique-referrer count when > 0.
+ * (Same wallet can refer on multiple chains so a sum across chains
+ * would double-count; the per-chain max is an honest lower bound on
+ * "how many distinct refs were active anywhere this week".)
  */
 function crossChainTweet(summary: SummaryPayload): string {
   const lines: string[] = [`📊 tagwall.io · last ${summary.windowDays}-day recap`]
@@ -168,11 +184,12 @@ function crossChainTweet(summary: SummaryPayload): string {
   }
   const totalPaints = summary.chains.reduce((n, c) => n + c.paintCount, 0)
   const totalOverpaints = summary.chains.reduce((n, c) => n + c.overpaintCount, 0)
-  const footer = totalOverpaints > 0
-    ? `${totalPaints} paints · ${totalOverpaints} overpaints`
-    : `${totalPaints} paints`
-  lines.push(footer)
-  lines.push(`https://tagwall.io`)
+  const maxReferrers = summary.chains.reduce((n, c) => Math.max(n, c.uniqueReferrers ?? 0), 0)
+  const footerParts = [`${totalPaints} paints`]
+  if (totalOverpaints > 0) footerParts.push(`${totalOverpaints} overpaints`)
+  if (maxReferrers > 0) footerParts.push(`${maxReferrers}+ active refs`)
+  lines.push(footerParts.join(' · '))
+  lines.push(`5% per paint goes to the ref link. https://tagwall.io`)
   return lines.join('\n')
 }
 
@@ -203,6 +220,9 @@ function SummarySection({ summary, copiedId, onCopy }: SummarySectionProps) {
   const maxUniquePainters = summary.chains.reduce(
     (n, c) => Math.max(n, c.uniquePainters), 0
   )
+  const maxUniqueReferrers = summary.chains.reduce(
+    (n, c) => Math.max(n, c.uniqueReferrers ?? 0), 0
+  )
 
   const crossChainText = crossChainTweet(summary)
   const isCrossChainCopied = copiedId === 'tweet:cross-chain'
@@ -223,6 +243,12 @@ function SummarySection({ summary, copiedId, onCopy }: SummarySectionProps) {
             <>
               {' · '}
               <strong>≥ {maxUniquePainters.toLocaleString()}</strong> unique painters
+            </>
+          )}
+          {maxUniqueReferrers > 0 && (
+            <>
+              {' · '}
+              <strong>≥ {maxUniqueReferrers.toLocaleString()}</strong> active refs
             </>
           )}
         </span>
@@ -277,7 +303,7 @@ function ChainSummaryCard({ chain: c, windowDays, copiedId, onCopy }: ChainSumma
         <span className="queue-summary-card-native">{c.native}</span>
       </header>
 
-      <div className="queue-summary-card-stats">
+      <div className="queue-summary-card-stats queue-summary-card-stats-4">
         <div>
           <div className="queue-summary-card-stat-num">{c.paintCount.toLocaleString()}</div>
           <div className="queue-summary-card-stat-label">paints</div>
@@ -289,6 +315,12 @@ function ChainSummaryCard({ chain: c, windowDays, copiedId, onCopy }: ChainSumma
         <div>
           <div className="queue-summary-card-stat-num">{c.uniquePainters.toLocaleString()}</div>
           <div className="queue-summary-card-stat-label">painters</div>
+        </div>
+        <div title="Wallets that earned the 5% referral split on a paint in this window">
+          <div className="queue-summary-card-stat-num">
+            {(c.uniqueReferrers ?? 0).toLocaleString()}
+          </div>
+          <div className="queue-summary-card-stat-label">refs</div>
         </div>
       </div>
 
@@ -470,7 +502,19 @@ export default function TweetsPage() {
         <p className="queue-empty">
           {hiddenCount > 0
             ? 'Everything in the queue has been marked posted.'
-            : 'No notable paints in the queue yet. Come back after the next cron tick (every 30 min).'}
+            : (
+              <>
+                No notable paints in the queue yet. Come back after the next cron tick (every 30 min).
+                {summary?.minPixels !== undefined && (
+                  <>
+                    {' '}
+                    <span className="queue-empty-threshold">
+                      Threshold: paints of <strong>≥ {summary.minPixels.toLocaleString()} pixels</strong> are queued; smaller paints are skipped.
+                    </span>
+                  </>
+                )}
+              </>
+            )}
         </p>
       )}
 
