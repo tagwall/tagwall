@@ -11,8 +11,9 @@ import {
   useWriteContract,
 } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { chunkDraft, type PaintChunk } from '../lib/chunkDraft'
+import { allocateChunkFunding, chunkCostWeights } from '../lib/chunkFunding'
 import { decodeCanvasError, type DecodedCanvasError } from '../lib/decodeCanvasError'
 import type { PaintDraft } from './usePaintDraft'
 import { TILE_SIZE } from './useTilePixels'
@@ -86,13 +87,14 @@ export interface PaintSubmitBatchArgs {
 async function maskUnchangedPixels(
   publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
   draft: PaintDraft,
+  canvasAddr: Address,
 ): Promise<{ colors: number[]; skipped: number }> {
   const { x, y, w, h, colors } = draft
   const reads = []
   for (let dy = 0; dy < h; dy++) {
     for (let dx = 0; dx < w; dx++) {
       reads.push({
-        address: CANVAS_ADDRESS,
+        address: canvasAddr,
         abi: canvasAbi,
         functionName: 'pixelAt' as const,
         args: [x + dx, y + dy] as const,
@@ -136,6 +138,9 @@ async function maskUnchangedPixels(
 
 export function usePaintSubmitBatch() {
   const { address, chainId } = useAccount()
+  // Canvas contract address for the chain we're painting on (v1 chains share
+  // one address; HyperEVM is a distinct v1.1 address). See canvas.ts.
+  const canvasAddr = canvasAddress(chainId)
   const queryClient = useQueryClient()
   const publicClient = usePublicClient()
 
@@ -336,7 +341,7 @@ export function usePaintSubmitBatch() {
       let workingDraft = args.draft
       if (args.skipUnchanged && publicClient) {
         try {
-          const { colors: masked } = await maskUnchangedPixels(publicClient, args.draft)
+          const { colors: masked } = await maskUnchangedPixels(publicClient, args.draft, canvasAddr)
           workingDraft = { ...args.draft, colors: masked }
         } catch (e) {
           // If the pre-flight fails (RPC blip, multicall not present),
@@ -347,39 +352,34 @@ export function usePaintSubmitBatch() {
       }
 
       const chunks = chunkDraft(workingDraft, args.maxPixelsPerTx)
-      const totalPixels = chunks.reduce((s, c) => s + c.pixels, 0)
       const reserveBps = args.reserveMultiplierBps ?? BPS
 
-      // Proportional allocation of max cost + msg.value per chunk. We split
-      // against the CONSTANT total pixel count (not a running remainder) so
-      // the per-chunk shares sum to the caller-supplied total within floor
-      // rounding. The last chunk gets whatever's left to absorb the few-wei
-      // rounding residue. An earlier version divided by `remainingPixels`,
-      // which produced ballooning shares on chunks 2+ and a negative
-      // residue for the last chunk in 3+-chunk paints, corrupting
-      // letterboxed uploads bigger than 2x the per-tx cap.
-      let remainingValue = args.value
-      let remainingMax = args.maxTotalCost
+      // Proportional allocation of max cost + msg.value per chunk, weighted by
+      // each chunk's LIVE on-chain quote rather than its pixel count. Pixel-
+      // count weighting under-funds bands that cover pricier (recently-painted)
+      // pixels and reverts PriceAboveMax even when the aggregate is sufficient;
+      // see chunkCostWeights for the full rationale. We split against the
+      // CONSTANT total weight (not a running remainder) so the per-chunk shares
+      // sum to the caller-supplied total within floor rounding; the last chunk
+      // gets whatever's left to absorb the few-wei rounding residue.
+      // wagmi bundles its own copy of viem, so its PublicClient is nominally a
+      // distinct type from the top-level viem one chunkCostWeights is typed
+      // against (identical shape, different module identity). Cast across that
+      // boundary; the runtime object is the same multicall-capable client.
+      const weights = await chunkCostWeights(
+        publicClient as unknown as Parameters<typeof chunkCostWeights>[0],
+        chunks,
+        canvasAddr,
+      )
+      const funding = allocateChunkFunding({
+        chunks,
+        weights,
+        value: args.value,
+        maxTotalCost: args.maxTotalCost,
+      })
 
       const chunkCalls = chunks.map((chunk, i) => {
-        const isLast = i === chunks.length - 1
-        const chunkValue = isLast
-          ? remainingValue
-          : (args.value * BigInt(chunk.pixels)) / BigInt(totalPixels)
-        const chunkMax = isLast
-          ? remainingMax
-          : (args.maxTotalCost * BigInt(chunk.pixels)) / BigInt(totalPixels)
-        // Defensive: if allocation ever goes negative we'd silently send a
-        // huge uint256 to the wallet. Fail fast with a clear error so the
-        // user retries instead of the paint corrupting.
-        if (chunkValue < 0n || chunkMax < 0n) {
-          throw new Error(
-            `Internal: chunk ${i} value allocation negative (value=${chunkValue}, max=${chunkMax}). ` +
-            'This should not happen; please re-quote and retry.',
-          )
-        }
-        remainingValue -= chunkValue
-        remainingMax -= chunkMax
+        const { value: chunkValue, maxTotalCost: chunkMax } = funding[i]
 
         const data = encodeFunctionData({
           abi: canvasAbi,
@@ -420,7 +420,7 @@ export function usePaintSubmitBatch() {
         const c = chunkCalls[0]
         try {
           await writeContractAsync({
-            address: CANVAS_ADDRESS,
+            address: canvasAddr,
             abi: canvasAbi,
             functionName: 'paint',
             args: [
@@ -454,7 +454,7 @@ export function usePaintSubmitBatch() {
         try {
           await sendCallsAsync({
             calls: chunkCalls.map((c) => ({
-              to: CANVAS_ADDRESS,
+              to: canvasAddr,
               data: c.data,
               value: c.value,
             })),
@@ -485,7 +485,7 @@ export function usePaintSubmitBatch() {
         }))
         try {
           const hash = await writeContractAsync({
-            address: CANVAS_ADDRESS,
+            address: canvasAddr,
             abi: canvasAbi,
             functionName: 'paint',
             args: [
@@ -565,7 +565,7 @@ export function usePaintSubmitBatch() {
       }
       setState((s) => ({ ...s, status: 'success' }))
     },
-    [address, canAtomicBatch, publicClient, queryClient, writeContractAsync, sendCallsAsync, resetWrite, resetSendCalls],
+    [address, canvasAddr, canAtomicBatch, publicClient, queryClient, writeContractAsync, sendCallsAsync, resetWrite, resetSendCalls],
   )
 
   const reset = useCallback(() => {

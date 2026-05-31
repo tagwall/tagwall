@@ -39,8 +39,18 @@ venv/
 coverage/
 lcov.info
 
-# Marketing renderer artifacts (regenerable from token icons + script)
-marketing-plan/.svg-cache/
+# Marketing renderer artifacts (regenerable from token icons + the renderer
+# script). The plan itself is tracked at docs/marketing-plan.md; this dir holds
+# only render output (mp4/png/html + cache), so the whole thing is regenerable.
+marketing-plan/
+
+# Claude Code worktree checkouts (internal tooling state, not project content).
+# .claude/launch.json stays tracked; only the throwaway worktrees are ignored.
+.claude/worktrees/
+
+# Design-skill handoff deliverables (jsx/html/png mockups). Kept locally as
+# reference but not tracked; the canonical design decisions live in the PRD/docs.
+docs/design_handoff_*/
 
 # Token icon source folders (operator-supplied marketing assets, may include
 # images whose redistribution rights aren't ours to grant)

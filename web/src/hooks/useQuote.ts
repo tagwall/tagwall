@@ -1,6 +1,6 @@
-import { useReadContract } from 'wagmi'
+import { useChainId, useReadContract } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 
 /**
  * Live cost quote for a rectangular region via `canvas.quote()`. Returns the
@@ -11,8 +11,9 @@ import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
  */
 export function useQuote(region: { x: number; y: number; w: number; h: number } | null) {
   const enabled = !!region
+  const address = canvasAddress(useChainId())
   const { data, isLoading, error } = useReadContract({
-    address: CANVAS_ADDRESS,
+    address,
     abi: canvasAbi,
     functionName: 'quote',
     args: enabled ? [region!.x, region!.y, region!.w, region!.h] : undefined,

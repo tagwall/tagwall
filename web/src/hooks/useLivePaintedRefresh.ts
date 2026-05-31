@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
 import { useWatchContractEvent } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { useViewerChainId } from '../lib/viewerChain'
 import { TILE_SIZE } from './useTilePixels'
 
@@ -34,7 +34,7 @@ export function useLivePaintedRefresh() {
   const chainId = useViewerChainId()
 
   useWatchContractEvent({
-    address: CANVAS_ADDRESS,
+    address: canvasAddress(chainId),
     abi: canvasAbi,
     eventName: 'Painted',
     chainId,

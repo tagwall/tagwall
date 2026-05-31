@@ -18,6 +18,8 @@ const NATIVE_USD: Record<number, number> = {
   943: 0.000008148,
   // BNB Smart Chain (BNB).
   56: 500,
+  // HyperEVM (HYPE). Fallback ~ the 2026-05-30 deploy snapshot ($66.87).
+  999: 67,
   // Anvil dev chain — uses ETH currency by default.
   31337: 2_300,
 }

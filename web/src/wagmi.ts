@@ -61,6 +61,19 @@ const BSC_RPC_URLS = [
   'https://bsc.rpc.blxrbdn.com',
   'https://bsc.drpc.org',
 ] as const
+// HyperEVM (chain 999) RPCs, both free/public (no paid service). Primary is
+// Bloxroute, the same operator we use for BSC: CORS-clean, fast, and
+// critically returns canvas-deploy-block eth_getLogs without the arbitrary
+// range caps or log pruning that hobble most free endpoints. drpc is the
+// secondary — its ~10k-block range cap sits above our 9.5k paginated chunk,
+// so it's a functional fallback for reads + write-side RPC. We deliberately
+// avoid rpc.hyperliquid.xyz/evm as a primary: the official endpoint is
+// rate-limited to 100 req/min/IP (since 2026-08), which the read-heavy canvas
+// refresh would exhaust.
+const HYPEREVM_RPC_URLS = [
+  'https://hyperliquid.rpc.blxrbdn.com',
+  'https://hyperliquid.drpc.org',
+] as const
 
 // Per-chain RPC overrides. wagmi/chains ships single-URL defaults for
 // each chain that all suffer the same single-vendor-flap fragility; we
@@ -127,6 +140,25 @@ const anvilLocal = defineChain({
   testnet: true,
 })
 
+// HyperEVM (Hyperliquid L1), chain 999. Native token HYPE. Multicall3 is
+// present at the canonical address (verified on-chain 2026-05-30), so
+// publicClient.multicall batches reads here like the other chains. The
+// Canvas deployed here is the v1.1 build at a DIFFERENT CREATE2 address
+// than the four live mainnets (the constructor gained a 999 branch, which
+// shifts the init-code hash); canvas.ts resolves the right address per chain.
+const hyperevm = defineChain({
+  id: 999,
+  name: 'HyperEVM',
+  nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 },
+  rpcUrls: { default: { http: HYPEREVM_RPC_URLS } },
+  blockExplorers: {
+    default: { name: 'HyperScan', url: 'https://www.hyperscan.com' },
+  },
+  contracts: {
+    multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' },
+  },
+})
+
 const isDev = import.meta.env.DEV
 
 // Chain order controls the default network shown to new users. PulseChain
@@ -135,8 +167,8 @@ const isDev = import.meta.env.DEV
 // in dev only, so `preview_start web` + `scripts/seed-local.sh` gives a
 // fully-working UI without touching any public chain.
 const chains = isDev
-  ? ([anvilLocal, pulsechain, mainnet, base, bsc, pulsechainV4] as const)
-  : ([pulsechain, mainnet, base, bsc, pulsechainV4] as const)
+  ? ([anvilLocal, pulsechain, mainnet, base, bsc, hyperevm, pulsechainV4] as const)
+  : ([pulsechain, mainnet, base, bsc, hyperevm, pulsechainV4] as const)
 
 export const config = createConfig({
   chains,
@@ -146,6 +178,7 @@ export const config = createConfig({
     [mainnet.id]: fallback(ETHEREUM_RPC_URLS.map((u) => http(u))),
     [base.id]: fallback(BASE_RPC_URLS.map((u) => http(u))),
     [bsc.id]: fallback(BSC_RPC_URLS.map((u) => http(u))),
+    [hyperevm.id]: fallback(HYPEREVM_RPC_URLS.map((u) => http(u))),
     [pulsechainV4.id]: fallback(PULSECHAIN_V4_RPC_URLS.map((u) => http(u))),
   },
   connectors: [

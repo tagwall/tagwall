@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:unit": "vitest run test/chunkFunding.unit.test.ts",
+    "test:anvil": "bash ../scripts/seed-local.sh; vitest run test/chunkFunding.anvil.test.ts"
   },
   "dependencies": {
     "@noble/curves": "^2.2.0",
@@ -30,6 +33,7 @@
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.9"
+    "vite": "^8.0.9",
+    "vitest": "^4.1.7"
   }
 }

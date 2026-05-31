@@ -9,6 +9,7 @@ const COINGECKO_IDS: Partial<Record<number, string>> = {
   56:    'binancecoin',
   369:   'pulsechain',
   943:   'pulsechain',  // PulseChain v4 testnet, same token
+  999:   'hyperliquid', // HyperEVM: HYPE-denominated
   31337: 'ethereum',   // Anvil dev chain
 }
 

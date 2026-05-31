@@ -1,6 +1,6 @@
-import { useReadContracts } from 'wagmi'
+import { useChainId, useReadContracts } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 
 /**
  * Canonical batched read of the Canvas's constant header state. Used by
@@ -17,16 +17,18 @@ import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
  * config which mismatched the dropdown's chain on no-wallet sessions.
  */
 export function useCanvasHeader(chainId?: number) {
+  const connected = useChainId()
+  const address = canvasAddress(chainId ?? connected)
   const calls = [
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'width' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'height' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'startingPrice' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'treasury' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'stampCount' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'freezePeriod' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'decayPerMonthBps' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'maxPixelsPerTx' as const },
-    { address: CANVAS_ADDRESS, abi: canvasAbi, functionName: 'linkCount' as const },
+    { address, abi: canvasAbi, functionName: 'width' as const },
+    { address, abi: canvasAbi, functionName: 'height' as const },
+    { address, abi: canvasAbi, functionName: 'startingPrice' as const },
+    { address, abi: canvasAbi, functionName: 'treasury' as const },
+    { address, abi: canvasAbi, functionName: 'stampCount' as const },
+    { address, abi: canvasAbi, functionName: 'freezePeriod' as const },
+    { address, abi: canvasAbi, functionName: 'decayPerMonthBps' as const },
+    { address, abi: canvasAbi, functionName: 'maxPixelsPerTx' as const },
+    { address, abi: canvasAbi, functionName: 'linkCount' as const },
   ]
   return useReadContracts(
     chainId !== undefined

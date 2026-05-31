@@ -26,6 +26,8 @@
  * | Ethereum (1) | 16,777,216     | EIP-7825 (Fusaka, 2025-12-03)             | 552             |
  * | BSC (56)     | 16,777,216     | BEP-652 (Osaka/Mendel, 2026-04-28)        | 552             |
  * | Base (8453)  | ~25,000,000    | Sequencer soft-cap (OP-Stack, May 2026)   | 1000            |
+ * | HyperEVM     | 30,000,000     | Big-block cap (small block is 3M; painters | 998             |
+ * |   (999)      |  (big block)   | must enable big blocks). 31x31 max square. |                 |
  * | PulseChain   | none (block-   | Pre-Fusaka fork; 45M block limit; paint    | 1500 (contract  |
  * |   (369)      |  limit bound)  | uses ~78% of a block — high but accepted   |  ceiling)       |
  * | PulseChain   | none           | v4 testnet, same EVM rules as mainnet      | 1500            |
@@ -49,6 +51,7 @@ const BSC = 56
 const PULSECHAIN = 369
 const PULSECHAIN_TESTNET = 943
 const BASE = 8453
+const HYPEREVM = 999
 const LOCAL_ANVIL = 31337
 const LOCAL_HARDHAT = 1337
 
@@ -58,6 +61,11 @@ const CHAIN_PIXEL_CAP: Record<number, number> = {
   [ETHEREUM]: 552,
   [BSC]: 552,
   [BASE]: 1000,
+  // HyperEVM big block is 30M gas; floor((30M*0.80 - 341,601)/23,695) = 998,
+  // which makes 31x31 the largest single-tx square (32x32 = 1024 > 998).
+  // Note: even 998px requires the painter to enable HyperEVM "big blocks";
+  // the 3M small block fits only ~128px.
+  [HYPEREVM]: 998,
   [PULSECHAIN]: 1500,
   [PULSECHAIN_TESTNET]: 1500,
   [LOCAL_ANVIL]: 1500,

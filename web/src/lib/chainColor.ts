@@ -14,6 +14,7 @@ export const CHAIN_COLORS = {
   pulse: '#FF5BD0',
   base: '#3DC9FF',
   solana: '#B47BFF',
+  hyperevm: '#50D2C1',
   // reserved — wire up when chain ships
   arbitrum: '#5BD9C5',
   optimism: '#FF5C5C',
@@ -44,6 +45,8 @@ export function chainKeyById(id: number | undefined | null): ChainKey | null {
       return 'base'
     case 56:
       return 'bnb'
+    case 999:
+      return 'hyperevm'
     // Solana isn't an EVM chain id; it would land via a separate
     // connector that hands us a `'solana'` key directly. Reserved
     // chains (arbitrum, optimism, …) wire up at chain id 42161, 10,

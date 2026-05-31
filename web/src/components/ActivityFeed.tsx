@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { formatEther } from 'viem'
-import { useReadContracts } from 'wagmi'
+import { useChainId, useReadContracts } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
 
 interface Props {
@@ -67,10 +67,11 @@ function formatRelative(seconds: number): string {
  */
 function useLinkUrls(linkIds: number[]): Map<number, string> {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
+  const address = canvasAddress(useChainId())
   const { data } = useReadContracts({
     allowFailure: true,
     contracts: unique.map((id) => ({
-      address: CANVAS_ADDRESS,
+      address,
       abi: canvasAbi,
       functionName: 'links' as const,
       args: [id],

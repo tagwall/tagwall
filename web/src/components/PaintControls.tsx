@@ -6,6 +6,12 @@ import type { PaintDraft } from '../hooks/usePaintDraft'
 import { useNativeUsdPrice } from '../hooks/useNativeUsdPrice'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
 import { formatUsd, weiToUsdRate } from '../lib/usdPrice'
+import {
+  needsBigBlocks,
+  isHyperEVM,
+  SMALL_BLOCK_PIXEL_LIMIT,
+  HYPEREVM_BIG_BLOCKS_DOC_URL,
+} from '../lib/hyperevmBigBlocks'
 import { Minimap } from './Minimap'
 
 // Slippage buffer applied to the quoted cost when building `maxTotalCost`
@@ -73,10 +79,11 @@ interface Props {
   defaultReferrer?: Address
   /**
    * Address of the connected wallet, used to block self-referral. The contract
-   * allows referrer == painter (it's a 1% self-discount, audit item I-5), but
-   * in the UX we refuse: self-referral looks like either a mistake (wrong
-   * address pasted) or an attempt to farm the referral slice off yourself.
-   * Neither case warrants submitting.
+   * strips referrer == painter (the referral slice is redirected to the
+   * treasury; see Canvas.sol _settle and test_SelfReferral_routesReferralSliceToTreasury),
+   * so a self-referral earns nothing on-chain anyway. We block it in the UX too:
+   * it looks like either a mistake (wrong address pasted) or a failed attempt to
+   * farm the referral slice. Neither case warrants submitting.
    */
   connectedAddress?: Address
   /** True while a file is being dragged anywhere on the page. Lights up the
@@ -200,8 +207,9 @@ export function PaintControls({
   const referrerFormatValid = referrerTrim === '' || isAddress(referrerTrim)
   const referrerResolved: Address | undefined =
     referrerFormatValid && referrerTrim !== '' ? getAddress(referrerTrim) : undefined
-  // Self-referral check: referrer can't be the connected wallet. Contract
-  // allows it (it's a 1% self-discount); UX refuses it.
+  // Self-referral check: referrer can't be the connected wallet. The contract
+  // strips it (slice goes to treasury, earns the painter nothing); UX refuses
+  // it outright so the user doesn't waste a paint expecting a rebate.
   const referrerIsSelf = Boolean(
     referrerResolved &&
       connectedAddress &&
@@ -662,6 +670,40 @@ export function PaintControls({
             {statusLine && (
               <div className={`pz-status pz-status-${statusLine.kind}`}>
                 {statusLine.text}
+              </div>
+            )}
+            {/* HyperEVM (chain 999): paints over the small-block limit need
+                "big blocks" enabled on the wallet (a one-time HyperCore
+                setup). Surface it proactively before the paint, and again
+                if a paint errors (a likely cause on chain 999). See
+                lib/hyperevmBigBlocks.ts. */}
+            {needsBigBlocks(chainId, pixelCount) && submitStatus === 'idle' && (
+              <div className="pz-status pz-status-info">
+                HyperEVM: paints over ~{SMALL_BLOCK_PIXEL_LIMIT} px need{' '}
+                <strong>big blocks</strong> enabled on your wallet (one-time).
+                You need a HyperCore account first — move a little HYPE to Core,
+                then enable big blocks.{' '}
+                <a
+                  href={HYPEREVM_BIG_BLOCKS_DOC_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  How to enable →
+                </a>
+              </div>
+            )}
+            {submitStatus === 'error' && isHyperEVM(chainId) && (
+              <div className="pz-status pz-status-info">
+                On HyperEVM, a paint this size won&rsquo;t go through until{' '}
+                <strong>big blocks</strong> are enabled on your wallet (one-time,
+                needs a HyperCore account).{' '}
+                <a
+                  href={HYPEREVM_BIG_BLOCKS_DOC_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  How to enable →
+                </a>
               </div>
             )}
           </div>

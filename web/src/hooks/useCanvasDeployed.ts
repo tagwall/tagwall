@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { usePublicClient } from 'wagmi'
 
-import { CANVAS_ADDRESS } from '../contracts/canvas'
+import { canvasAddress } from '../contracts/canvas'
 import { useViewerChainId } from '../lib/viewerChain'
 
 /**
@@ -9,9 +9,11 @@ import { useViewerChainId } from '../lib/viewerChain'
  * the currently-selected chain. Used to gate the paint button + show a
  * "not deployed on this chain" banner.
  *
- * Background: the Canvas address is a CREATE2-predicted address that's
- * identical on every supported chain. Identical address ≠ identical
- * deployment status — until the operator runs `forge script Deploy`
+ * Background: the Canvas address is a CREATE2-predicted address, identical
+ * across the v1 chains (PulseChain/Ethereum/Base/BSC + testnet) and a
+ * distinct v1.1 address on HyperEVM; canvasAddress(chainId) resolves it.
+ * Identical address ≠ identical deployment status — until the operator
+ * runs `forge script Deploy`
  * against a chain's RPC, that chain just has an EOA-shaped void at the
  * address. Calling `paint()` against a non-contract sends value as a
  * plain transfer; the funds go to a non-controllable address and are
@@ -37,7 +39,7 @@ export function useCanvasDeployed(): CanvasDeployedStatus {
     queryKey: ['canvas-deployed', chainId],
     queryFn: async (): Promise<boolean> => {
       if (!client) return false
-      const code = await client.getCode({ address: CANVAS_ADDRESS })
+      const code = await client.getCode({ address: canvasAddress(chainId) })
       // viem's getCode returns `undefined` for an address with no code,
       // and a hex string starting with 0x for one with code. '0x' alone
       // is empty; treat as not-deployed.

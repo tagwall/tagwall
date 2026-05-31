@@ -4,7 +4,7 @@ import { Outlet } from 'react-router-dom'
 import type * as React from 'react'
 import { useAccount, useChainId } from 'wagmi'
 
-import { CANVAS_ADDRESS } from '../contracts/canvas'
+import { canvasAddress } from '../contracts/canvas'
 import { useLivePaintedRefresh } from '../hooks/useLivePaintedRefresh'
 import { chainColorTokens } from '../lib/chainColor'
 import { TELEGRAM_URL, TWITTER_URL } from '../lib/socials'
@@ -96,7 +96,7 @@ export function AppLayout() {
         <div className="site-footer-left">
           <small>
             Tagwall is an immutable 1,000,000-pixel on-chain graffiti wall.
-            Canvas at <code>{CANVAS_ADDRESS}</code>.
+            Canvas at <code>{canvasAddress(chainId)}</code>.
           </small>
         </div>
         <div className="site-footer-socials" aria-label="Socials">

@@ -74,6 +74,8 @@ jobs:
           ETHEREUM_RPC_URL:          ${{ secrets.ETHEREUM_RPC_URL || vars.ETHEREUM_RPC_URL }}
           BASE_RPC_URL:              ${{ vars.BASE_RPC_URL }}
           BSC_RPC_URL:               ${{ vars.BSC_RPC_URL }}
+          # Optional; bot defaults to hyperliquid.rpc.blxrbdn.com if unset.
+          HYPEREVM_RPC_URL:          ${{ vars.HYPEREVM_RPC_URL }}
           TAGWALL_BASE_URL:          ${{ vars.TAGWALL_BASE_URL }}
           # Canonical names (current). The bot also accepts the
           # MANUAL_QUEUE_* names for backward compatibility with any

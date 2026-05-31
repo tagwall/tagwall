@@ -8,20 +8,50 @@
  */
 import type { Address } from 'viem'
 
-// Real-treasury + version() CREATE2 address for the 1250x800 canvas with
-// maxPixelsPerTx=1500 (PRD v3.2+, decision 50). Init code embeds the
-// operator hardware-wallet EOA as the treasury on every chain (PRD
-// decision 57, supersedes per-chain decision 53). version() view added
-// 2026-05-17 to give a future frontend a clean way to discriminate
-// this v1 from any hypothetical future v2 deployment at a different
-// CREATE2 address (returns bytes32("tagwall.canvas.v1")). The
-// version() addition shifted the init-code hash, moving the CREATE2
-// predicted address from 0xf75aA027333Af16E0210edd2d86c9b2889fE09DB
-// to the value below. evm_version pinned to shanghai (was prague) so
-// the auto-getter for the dynamic `links` array doesn't emit MCOPY,
-// which PulseChain v4 testnet rejects with `invalid opcode: MCOPY`.
-export const CANVAS_ADDRESS: Address =
+// Two Canvas builds exist, at two CREATE2 addresses:
+//
+//   v1   (0xd58D…6415) — the original 4-chain build: PulseChain, Ethereum,
+//        Base, BSC + PulseChain v4 testnet. Deployed Day-0, immutable.
+//   v1.1 (0xbe68…C5A4) — adds the HyperEVM (chain 999) branch to the
+//        constructor's chainid dispatch and bumps version() to
+//        "tagwall.canvas.v1.1". The extra branch shifts the init-code hash,
+//        so CREATE2 lands at a different address. This is the build used on
+//        HyperEVM and on any fresh local/anvil deploy (which compiles from
+//        current source).
+//
+// The salt is unchanged (keccak256("tagwall.canvas.v1")); the address moves
+// only because the init code changed. The four live mainnets + testnet stay
+// at v1 forever (immutable). Resolve the right address per connected chain
+// via canvasAddress(chainId) — there is intentionally no single CANVAS_ADDRESS
+// constant, so every on-chain call site must pass the chain it's reading.
+//
+// (evm_version stays shanghai, not prague, so the auto-getter for the dynamic
+// `links` array doesn't emit MCOPY, which PulseChain v4 testnet rejects.)
+export const CANVAS_ADDRESS_V1: Address =
   '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415'
+export const CANVAS_ADDRESS_V1_1: Address =
+  '0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4'
+
+const ADDRESS_BY_CHAIN: Record<number, Address> = {
+  369: CANVAS_ADDRESS_V1, // PulseChain mainnet
+  1: CANVAS_ADDRESS_V1, // Ethereum
+  8453: CANVAS_ADDRESS_V1, // Base
+  56: CANVAS_ADDRESS_V1, // BSC
+  943: CANVAS_ADDRESS_V1, // PulseChain v4 testnet
+  999: CANVAS_ADDRESS_V1_1, // HyperEVM
+  31337: CANVAS_ADDRESS_V1_1, // local anvil (fresh build = v1.1)
+  1337: CANVAS_ADDRESS_V1_1, // local hardhat
+}
+
+/**
+ * Canvas contract address for the connected chain. Defaults to the live v1
+ * address for unknown/undefined chains so a wallet on an unexpected network
+ * still points at the canonical deployment rather than a dead address.
+ */
+export function canvasAddress(chainId: number | undefined): Address {
+  if (chainId === undefined) return CANVAS_ADDRESS_V1
+  return ADDRESS_BY_CHAIN[chainId] ?? CANVAS_ADDRESS_V1
+}
 
 // Read-only ABI subset. Paint + write methods land in a later commit when
 // the upload/quantize/submit flow is wired up.

@@ -4,8 +4,8 @@ import type { Address, Hex } from 'viem'
 import { getAddress, parseAbiItem } from 'viem'
 import { usePublicClient } from 'wagmi'
 
-import { CANVAS_ADDRESS } from '../contracts/canvas'
-import { deployBlockFor } from '../lib/deployBlocks'
+import { canvasAddress } from '../contracts/canvas'
+import { deployBlockFor, logsChunkSizeFor } from '../lib/deployBlocks'
 import { rectsIntersect } from '../lib/filterList'
 import { getLogsPaginated } from '../lib/paginatedLogs'
 import { useViewerChainId } from '../lib/viewerChain'
@@ -66,9 +66,10 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
   const chainId = useViewerChainId()
   const publicClient = usePublicClient({ chainId })
   const fromBlock = options?.fromBlock ?? deployBlockFor(chainId)
+  const address = canvasAddress(chainId)
 
   const query = useQuery({
-    queryKey: ['painted-regions', chainId, CANVAS_ADDRESS, String(fromBlock)],
+    queryKey: ['painted-regions', chainId, address, String(fromBlock)],
     enabled: !!publicClient,
     // Regions list mutates only when a new Painted event lands, which
     // useLivePaintedRefresh invalidates explicitly. No reason to auto-
@@ -90,10 +91,14 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
       const toBlock = await publicClient.getBlockNumber()
       const logs = await getLogsPaginated({
         publicClient,
-        address: CANVAS_ADDRESS as Hex,
+        address: address as Hex,
         event: PAINTED_EVENT,
         fromBlock,
         toBlock,
+        // HyperEVM caps getLogs at 1000 blocks; pass a tighter chunk so we
+        // don't burn ~4 failed calls per chunk halving down from the 9.5k
+        // default. undefined elsewhere → paginator default.
+        chunkSize: logsChunkSizeFor(chainId),
       })
 
       return logs

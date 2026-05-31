@@ -1,6 +1,6 @@
-import { useReadContract, useReadContracts } from 'wagmi'
+import { useChainId, useReadContract, useReadContracts } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 
 export interface PixelInfo {
   x: number
@@ -27,6 +27,7 @@ export interface PixelInfo {
  */
 export function usePixelInfo(coord: { x: number; y: number } | null) {
   const enabled = coord !== null
+  const address = canvasAddress(useChainId())
 
   // Batched read: pixel state + live quote for a 1x1 region at the same
   // coordinate. One multicall hop per hover.
@@ -38,13 +39,13 @@ export function usePixelInfo(coord: { x: number; y: number } | null) {
     contracts: enabled
       ? [
           {
-            address: CANVAS_ADDRESS,
+            address,
             abi: canvasAbi,
             functionName: 'pixelAt',
             args: [coord!.x, coord!.y],
           },
           {
-            address: CANVAS_ADDRESS,
+            address,
             abi: canvasAbi,
             functionName: 'quote',
             args: [coord!.x, coord!.y, 1, 1],
@@ -70,7 +71,7 @@ export function usePixelInfo(coord: { x: number; y: number } | null) {
     data: linkUrl,
     isLoading: linkLoading,
   } = useReadContract({
-    address: CANVAS_ADDRESS,
+    address,
     abi: canvasAbi,
     functionName: 'links',
     args: [BigInt(linkId)],

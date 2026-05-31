@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { decodeFunctionData, formatEther, type Hex } from 'viem'
 import { useQuery } from '@tanstack/react-query'
-import { usePublicClient, useReadContracts } from 'wagmi'
+import { useChainId, usePublicClient, useReadContracts } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { useNativeUsdPrice } from '../hooks/useNativeUsdPrice'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
 import type { PixelState } from '../hooks/useTilePixels'
@@ -63,12 +63,13 @@ function regionKey(r: PaintedRegion): string {
  */
 export function useThumbnailPixels(regions: readonly PaintedRegion[]) {
   const publicClient = usePublicClient()
+  const address = canvasAddress(publicClient?.chain.id)
 
   return useQuery({
     queryKey: [
       'leaderboard-pixels',
       publicClient?.chain.id,
-      CANVAS_ADDRESS,
+      address,
       regions.map((r) => `${regionKey(r)}:${r.txHash}`).join(','),
     ],
     enabled: !!publicClient && regions.length > 0,
@@ -148,10 +149,11 @@ function colorToHex(c: number): string {
  *  and avoid double-fetching. */
 export function useLinkUrls(linkIds: number[]) {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
+  const address = canvasAddress(useChainId())
   const { data } = useReadContracts({
     allowFailure: true,
     contracts: unique.map((id) => ({
-      address: CANVAS_ADDRESS,
+      address,
       abi: canvasAbi,
       functionName: 'links' as const,
       args: [id],

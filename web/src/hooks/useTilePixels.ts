@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { usePublicClient } from 'wagmi'
 
-import { CANVAS_ADDRESS, canvasAbi } from '../contracts/canvas'
+import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { useViewerChainId } from '../lib/viewerChain'
 import type { PaintedRegion } from './usePaintedRegions'
 
@@ -122,6 +122,7 @@ export function useTilePixels(
   // selection even when no wallet is connected.
   const chainId = useViewerChainId()
   const publicClient = usePublicClient({ chainId })
+  const address = canvasAddress(chainId)
 
   // queryKey DOES NOT include a regions fingerprint. An earlier version
   // did, reasoning that a new region should refresh the tile — but with
@@ -147,7 +148,7 @@ export function useTilePixels(
         queryKey: [
           'tile-pixels',
           publicClient?.chain.id,
-          CANVAS_ADDRESS,
+          address,
           tx,
           ty,
         ] as const,
@@ -196,7 +197,7 @@ export function useTilePixels(
           }
 
           const calls = coords.map(({ x, y }) => ({
-            address: CANVAS_ADDRESS,
+            address,
             abi: canvasAbi,
             functionName: 'pixelAt' as const,
             args: [x, y] as const,
@@ -286,6 +287,5 @@ export function useTilePixels(
   // queries is a new array every render but its entries are stable refs
   // when unchanged. Stringifying the visible-tile list keeps the memo
   // consistent; the queries spread is intentional.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queries, visibleTiles])
 }

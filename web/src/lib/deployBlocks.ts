@@ -24,6 +24,7 @@ const BSC = 56
 const PULSECHAIN = 369
 const PULSECHAIN_TESTNET = 943
 const BASE = 8453
+const HYPEREVM = 999
 const LOCAL_ANVIL = 31337
 const LOCAL_HARDHAT = 1337
 
@@ -38,6 +39,8 @@ const CHAIN_DEPLOY_BLOCK: Record<number, bigint> = {
   // PulseChain v4 testnet has had several test deploys. Replace with the
   // current deploy block when the CANVAS_ADDRESS in canvas.ts changes.
   [PULSECHAIN_TESTNET]: 0n,
+  // HyperEVM (v1.1 build, 0xbe68…). Deployed 2026-05-31, tx 0x8b8b7f6d….
+  [HYPEREVM]: 36_585_579n,
   // Local chains: every test fixture deploys fresh, so 0n is the right
   // default. Operator's anvil runs are short-lived.
   [LOCAL_ANVIL]: 0n,
@@ -47,4 +50,27 @@ const CHAIN_DEPLOY_BLOCK: Record<number, bigint> = {
 export function deployBlockFor(chainId: number | undefined): bigint {
   if (chainId === undefined) return 0n
   return CHAIN_DEPLOY_BLOCK[chainId] ?? 0n
+}
+
+/**
+ * Per-chunk eth_getLogs block range by chain. Most public RPCs accept the
+ * paginator's ~9.5k default. HyperEVM (999) is the exception: its public
+ * RPCs cap getLogs at 1000 blocks ("query exceeds max block range 1000"),
+ * so it needs a tighter chunk. A 1000n chunk yields a 999-block span
+ * (fromBlock..fromBlock+999), which sits at/under the cap. Chains not
+ * listed return undefined → the paginator uses its default.
+ *
+ * Note: HyperEVM mints ~1 block/s, so deploy-block→head grows ~600k
+ * blocks/week. At 1000-block chunks a cold full scan costs ~600 getLogs
+ * calls/week of history. usePaintedRegions only runs on mount/invalidation
+ * (staleTime Infinity), so this is bearable while the canvas is young; a
+ * future indexer/snapshot would cap the cold-load cost if HyperEVM gets busy.
+ */
+const LOGS_CHUNK_BY_CHAIN: Record<number, bigint> = {
+  [HYPEREVM]: 1_000n,
+}
+
+export function logsChunkSizeFor(chainId: number | undefined): bigint | undefined {
+  if (chainId === undefined) return undefined
+  return LOGS_CHUNK_BY_CHAIN[chainId]
 }

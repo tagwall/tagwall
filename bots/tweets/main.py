@@ -25,11 +25,14 @@ Run on a 30-minute GitHub Actions cron. Each tick:
      watches `web/**` and rebuilds tagwall.io on the next push.
 
 Env (all optional; only CANVAS_ADDRESS is strictly required):
-  CANVAS_ADDRESS         — CREATE2 address, identical on every chain
+  CANVAS_ADDRESS         — CREATE2 address, identical on the four original
+                           mainnets. HyperEVM (999) overrides this with its
+                           own v1.1 address baked into the CHAINS table.
   PULSECHAIN_RPC_URL     — override for PulseChain (default rpc.pulsechain.com)
   ETHEREUM_RPC_URL       — override for Ethereum (default eth.drpc.org)
   BASE_RPC_URL           — override for Base (default base.publicnode.com)
   BSC_RPC_URL            — override for BSC (default bsc-dataseed.binance.org)
+  HYPEREVM_RPC_URL       — override for HyperEVM (default hyperliquid.rpc.blxrbdn.com)
   TAGWALL_BASE_URL       — defaults to https://tagwall.io
   TWEETS_MIN_PIXELS      — defaults to 100 (alias: MANUAL_QUEUE_MIN_PIXELS)
   TWEETS_MAX_PER_RUN     — defaults to 50  (alias: MANUAL_QUEUE_MAX_PER_RUN)
@@ -123,6 +126,29 @@ CHAINS = [
         "native": "BNB",
         "explorer_tx": "https://bscscan.com/tx/",
     },
+    {
+        "id": 999,
+        "name": "HyperEVM",
+        "rpc_env": "HYPEREVM_RPC_URL",
+        # Bloxroute, same endpoint the frontend + BSC use: CORS-clean,
+        # fast, and returns canvas-deploy-block logs without the range
+        # caps or pruning that hobble most public HyperEVM RPCs.
+        "rpc_default": "https://hyperliquid.rpc.blxrbdn.com",
+        "native": "HYPE",
+        "explorer_tx": "https://www.hyperscan.com/tx/",
+        # HyperEVM runs the v1.1 Canvas build at a DIFFERENT CREATE2
+        # address than the four original mainnets (the chain-999
+        # constructor branch shifts the init-code hash). Override the
+        # shared CANVAS_ADDRESS env with this chain's real address.
+        "canvas_address": "0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4",
+        # HyperEVM RPCs cap eth_getLogs at a 1000-block range ("query
+        # exceeds max block range 1000"), unlike the ~10k the others
+        # allow. 999 keeps each get_logs span safely under the cap. Note
+        # the web3 Web3RPCError for this isn't in the get_logs retry's
+        # caught set, so an over-range request crashes rather than
+        # halving — hence the hard per-chain cap here.
+        "logs_window": 999,
+    },
 ]
 
 HERE = Path(__file__).parent
@@ -157,7 +183,7 @@ SUMMARY_WINDOW_SECONDS = 7 * 24 * 60 * 60
 # silently invisible (the only existing BSC paint was missed for
 # exactly this reason; user-reported as a "BSC bug" 2026-05-28).
 # Erring small here costs more RPC chunks but never drops events.
-CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 0.5}
+CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 0.5, 999: 1}
 # Overpaint heuristic threshold: if a paint's pricePerPixel is more than
 # this multiple of the chain's startingPrice (floor), at least one
 # pixel was painted over (compounded at +10% per overwrite). 1.05 gives
@@ -509,7 +535,9 @@ def process_chain(
         print(f"[{chain['name']}] RPC unreachable: {err}", file=sys.stderr)
         return [], []
 
-    canvas_address = Web3.to_checksum_address(os.environ["CANVAS_ADDRESS"])
+    canvas_address = Web3.to_checksum_address(
+        chain.get("canvas_address") or os.environ["CANVAS_ADDRESS"]
+    )
     contract = w3.eth.contract(address=canvas_address, abi=PAINTED_EVENT_ABI)
     view_contract = w3.eth.contract(address=canvas_address, abi=CANVAS_VIEW_ABI)
     try:
@@ -548,7 +576,7 @@ def process_chain(
     json_entries: list[dict] = []
     cur = from_block
     while cur < latest and len(md_entries) < remaining_quota:
-        to_block = min(latest, cur + LOGS_WINDOW)
+        to_block = min(latest, cur + chain.get("logs_window", LOGS_WINDOW))
         try:
             events = get_logs_with_retry(
                 contract.events.Painted, cur, to_block, chain["name"],
@@ -625,7 +653,9 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
         print(f"[{chain['name']}] summary: RPC unreachable: {err}", file=sys.stderr)
         return None, {}
 
-    canvas_address = Web3.to_checksum_address(os.environ["CANVAS_ADDRESS"])
+    canvas_address = Web3.to_checksum_address(
+        chain.get("canvas_address") or os.environ["CANVAS_ADDRESS"]
+    )
     contract = w3.eth.contract(address=canvas_address, abi=PAINTED_EVENT_ABI)
     view_contract = w3.eth.contract(address=canvas_address, abi=CANVAS_VIEW_ABI)
     try:
@@ -655,7 +685,7 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
 
     cur = from_block
     while cur <= latest:
-        to = min(latest, cur + LOGS_WINDOW)
+        to = min(latest, cur + chain.get("logs_window", LOGS_WINDOW))
         try:
             events = get_logs_with_retry(
                 contract.events.Painted, cur, to, chain["name"],
