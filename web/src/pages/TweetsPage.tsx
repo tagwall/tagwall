@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { chainColorTokens } from '../lib/chainColor'
+import { LaunchShareCard, type LaunchGraphic } from '../components/LaunchShareCard'
 
 /**
  * /tweets — copy-ready tweets for @tagwall_io_bot.
@@ -381,6 +382,7 @@ interface LaunchTweet {
   id: string
   label: string
   text: string
+  graphic: LaunchGraphic
 }
 
 // One-shot founder-launch announcements. Unlike the automated queue
@@ -400,6 +402,13 @@ Only the first 100 wallets to paint on each chain become Genesis founders, ranks
 Not a mint. Not an NFT. A permanent place in the wall's history.
 
 tagwall.io/founders`,
+    graphic: {
+      slug: 'genesis-open',
+      eyebrow: 'Genesis is open',
+      hero: '100',
+      heroSub: 'founder slots per chain',
+      subline: 'Paint one pixel. Claim a number that is yours forever.',
+    },
   },
   {
     id: 'thread-2',
@@ -409,6 +418,13 @@ tagwall.io/founders`,
 Genesis #1 painted first. On-chain. Provable. Permanent.
 
 Nobody can mint ahead of you, buy your number, or delete it. Not even us.`,
+    graphic: {
+      slug: 'how-rank-works',
+      eyebrow: 'How rank works',
+      hero: '#1',
+      heroSub: 'is the first wallet to paint',
+      subline: 'On-chain. Provable. Nobody can mint ahead of you.',
+    },
   },
   {
     id: 'thread-3',
@@ -418,6 +434,13 @@ Nobody can mint ahead of you, buy your number, or delete it. Not even us.`,
 When the 100th wallet paints, Genesis closes on that chain and never reopens. No second batch, no exceptions.
 
 Right now, most of them are still unclaimed.`,
+    graphic: {
+      slug: 'no-second-batch',
+      eyebrow: 'When they are gone',
+      hero: '0',
+      heroSub: 'second chances',
+      subline: '100 Genesis slots per chain. The list never reopens.',
+    },
   },
   {
     id: 'thread-4',
@@ -431,6 +454,13 @@ Paint a single dot and you're Genesis on the wall, forever.
 Open now on PulseChain and HyperEVM.
 
 tagwall.io/founders`,
+    graphic: {
+      slug: 'cost-to-claim',
+      eyebrow: 'Cost to claim',
+      hero: '~5¢',
+      heroSub: 'one pixel, no mint',
+      subline: 'Paint a single dot and you are Genesis forever.',
+    },
   },
   {
     id: 'pulsechain',
@@ -442,6 +472,15 @@ About a nickel paints one pixel. That pixel writes your wallet into the contract
 100 slots. Then closed forever.
 
 tagwall.io/founders`,
+    graphic: {
+      slug: 'pulsechain',
+      chainId: 369,
+      chainName: 'PulseChain',
+      eyebrow: 'Genesis on PulseChain',
+      hero: '100',
+      heroSub: 'slots, then closed forever',
+      subline: 'About a nickel paints your founder number.',
+    },
   },
   {
     id: 'hyperevm',
@@ -453,6 +492,15 @@ Genesis #1 through #100: unclaimed. A few cents and one pixel locks your number 
 Be early where early still means something.
 
 tagwall.io/founders`,
+    graphic: {
+      slug: 'hyperevm',
+      chainId: 999,
+      chainName: 'HyperEVM',
+      eyebrow: 'Genesis on HyperEVM',
+      hero: '100',
+      heroSub: 'slots, all still open',
+      subline: 'Newest chain. Be early where early counts.',
+    },
   },
   {
     id: 'flex',
@@ -463,6 +511,13 @@ One of only 100 Genesis founders on a 1,000,000-pixel wall, on-chain and permane
 
 Claim yours before all 100 are gone:
 tagwall.io/founders`,
+    graphic: {
+      slug: 'flex-template',
+      eyebrow: 'Founder',
+      hero: '#[N]',
+      heroSub: 'your Genesis number',
+      subline: 'One of only 100. On-chain and permanent.',
+    },
   },
 ]
 
@@ -492,7 +547,10 @@ function LaunchTweets({ copiedId, onCopy }: LaunchTweetsProps) {
                 <span className="queue-founder-pill">launch</span>
                 <span className="queue-entry-meta-dim">{t.label}</span>
               </div>
-              <pre className="share-template-body queue-entry-tweet">{t.text}</pre>
+              <div className="queue-launch-body">
+                <pre className="share-template-body queue-entry-tweet">{t.text}</pre>
+                <LaunchShareCard graphic={t.graphic} />
+              </div>
               <div className="share-template-actions queue-entry-actions">
                 <button
                   type="button"
