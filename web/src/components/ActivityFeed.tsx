@@ -4,6 +4,8 @@ import { useChainId, useReadContracts } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
+import { founderRanksFromRegions } from '../lib/founders'
+import { FounderBadge } from './FounderBadge'
 
 interface Props {
   regions: readonly PaintedRegion[] | undefined
@@ -111,6 +113,11 @@ export function ActivityFeed({
   const [filter, setFilter] = useState('')
 
   const linkUrls = useLinkUrls(regions?.map((r) => r.linkId) ?? [])
+
+  // Founder rank by painter, derived from the full (sorted) region list so
+  // ranks reflect first-paint order across the whole chain, not just the
+  // visible page. O(n) over regions; memoised on the region list.
+  const founderRanks = useMemo(() => founderRanksFromRegions(regions), [regions])
 
   const nowSec = Math.floor(Date.now() / 1000)
 
@@ -230,7 +237,11 @@ export function ActivityFeed({
                       <code>{r.w}×{r.h}</code>
                     </td>
                     <td className="activity-td activity-td-painter" title={r.painter}>
-                      {shortenAddress(r.painter)}
+                      <span className="activity-painter-addr">{shortenAddress(r.painter)}</span>
+                      {(() => {
+                        const fr = founderRanks.get(r.painter.toLowerCase())
+                        return fr ? <FounderBadge rank={fr.rank} tier={fr.tier} size="sm" /> : null
+                      })()}
                     </td>
                     <td className="activity-td activity-td-price" title={`${formatEther(r.pricePaid)} ${nativeSymbol}`}>
                       <code>{formatActivityPrice(r.pricePaid)} <span className="token">{nativeSymbol}</span></code>

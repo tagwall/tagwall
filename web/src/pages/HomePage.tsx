@@ -14,6 +14,7 @@ import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 import { MinimapOverlay } from '../components/MinimapOverlay'
 import { StatsCards } from '../components/StatsCards'
 import { OutboundLinkModal } from '../components/OutboundLinkModal'
+import { FounderClaimPrompt } from '../components/FounderClaimPrompt'
 import { PaintControls } from '../components/PaintControls'
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
 import { useCanvasHeader } from '../hooks/useCanvasHeader'
@@ -1055,6 +1056,8 @@ function CanvasView({
           </button>
         </div>
       )}
+
+      <FounderClaimPrompt painter={connectedAddress} triggerKey={successToast} />
     </section>
   )
 }

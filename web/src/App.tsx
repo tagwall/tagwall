@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppLayout } from './components/AppLayout'
 import EmbedPage from './pages/EmbedPage'
+import FoundersPage from './pages/FoundersPage'
 import HoldingPage from './pages/HoldingPage'
 import HomePage from './pages/HomePage'
 import SharePage from './pages/SharePage'
@@ -38,6 +39,10 @@ export default function App() {
               stats content now lives inline below the canvas. */}
           <Route path="/stats" element={<HomePage />} />
           <Route path="/share" element={<SharePage />} />
+          {/* /founders — per-chain founder leaderboard + live "spots
+              left" scarcity counter. Derived from on-chain paint order;
+              no contract coupling. Linked from the top bar. */}
+          <Route path="/founders" element={<FoundersPage />} />
           {/* /tweets is an operator tool surfacing copy-ready tweets:
               cross-chain 7-day summary, per-chain weekly recaps, and
               individual notable-paint announcements. Public route

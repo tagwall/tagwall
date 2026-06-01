@@ -3,6 +3,7 @@ import { formatEther } from 'viem'
 
 import { useCanvasHeader } from '../hooks/useCanvasHeader'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
+import { founderStatsFromCount } from '../lib/founders'
 
 interface Props {
   /** Regions from usePaintedRegions, passed in so HomePage's existing query
@@ -64,6 +65,13 @@ export function StatsCards({ regions }: Props) {
     return derived.uniquePixels / totalPixels
   }, [derived, totalPixels])
 
+  // Founder window: unique painters == claimed founder slots (capped at
+  // 1000). Surface whichever scarcity is currently biting as the value.
+  const founder = useMemo(
+    () => (derived ? founderStatsFromCount(derived.uniquePainters) : null),
+    [derived],
+  )
+
   if (headerLoading) return null
   if (header?.some((r) => r.status === 'failure')) return null
 
@@ -82,6 +90,16 @@ export function StatsCards({ regions }: Props) {
 
       <StatCard label="Total stamps" value={stampCount?.toString() ?? '—'} emphasis />
       <StatCard label="Unique painters" value={derived?.uniquePainters?.toString() ?? '—'} emphasis />
+      <StatCard
+        label={founder && founder.genesisLeft > 0 ? 'Genesis spots left' : 'Founder spots left'}
+        value={
+          founder
+            ? (founder.genesisLeft > 0 ? founder.genesisLeft : founder.totalLeft).toLocaleString()
+            : '—'
+        }
+        hint="Founder rank = your position in the chain's paint order, recorded on-chain. See the Founders page."
+        emphasis
+      />
       <StatCard
         label="Gross pixels painted"
         value={derived ? derived.grossPixels.toLocaleString() : '—'}

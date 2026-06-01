@@ -218,6 +218,13 @@ export function ConnectBar() {
           links to /share where users paste an address manually. */}
       <ShareReferralButton address={address} />
 
+      {/* Founders link: the per-chain "be early, provably" surface. Kept
+          in the primary nav (not the footer) because the scarcity counter
+          there is a core acquisition hook, not a secondary page. */}
+      <Link to="/founders" className="nav-link nav-link-founders">
+        Founders
+      </Link>
+
       <div className="connect-bar-right">
         {/* Canvas metrics live in the nav bar (left of chain) so the
             canvas itself can claim the vertical space the old metric

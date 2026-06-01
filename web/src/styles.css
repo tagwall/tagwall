@@ -3901,3 +3901,361 @@ a.lb-ticker-link:focus-visible {
   border-color: var(--accent-2);
   color: var(--bg);
 }
+
+/* ============================================================
+   Founders — badges, board, page, nav link.
+   Founder status is a frontend construct derived from on-chain
+   paint order (lib/founders.ts). Genesis (first 100) reads as a
+   rarer gold tier; Founder (101-1000) rides the chain accent.
+   ============================================================ */
+
+/* Top-bar nav link (Founders). Sits in the connect-bar flow between the
+   Share CTA and the right-hand cluster. Pill-style to match chrome. */
+.nav-link {
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-radius: 7px;
+  border: 1px solid var(--border-control);
+  background: var(--bg-panel);
+  line-height: 1.2;
+  flex: 0 0 auto;
+  transition: color 120ms, border-color 120ms, background-color 120ms;
+}
+.nav-link:hover {
+  color: var(--text-bright);
+  border-color: var(--tw-accent);
+  background: var(--bg-panel-hi);
+}
+
+/* --- Founder badge pill --- */
+.founder-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  border-radius: 999px;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+  line-height: 1;
+}
+.founder-badge-tier { letter-spacing: 0.02em; }
+.founder-badge-rank { font-family: ui-monospace, Menlo, Monaco, monospace; opacity: 0.85; }
+
+.founder-badge-sm {
+  padding: 2px 7px;
+  font-size: 10px;
+  border: 1px solid transparent;
+}
+.founder-badge-md {
+  padding: 5px 11px;
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+
+/* Genesis: gold. Rarer tier, deliberately distinct from the chain accent. */
+.founder-badge-genesis {
+  color: #ffd66b;
+  background: rgba(255, 197, 74, 0.12);
+  border-color: rgba(255, 197, 74, 0.45);
+}
+/* Founder: chain accent (lime pre-connect, chain colour when connected). */
+.founder-badge-founder {
+  color: var(--tw-accent);
+  background: color-mix(in srgb, var(--tw-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tw-accent) 42%, transparent);
+}
+
+/* Activity-feed painter cell: address + optional badge on one line. */
+.activity-td-painter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.activity-painter-addr { font-variant-numeric: tabular-nums; }
+
+/* --- Founders page shell --- */
+.founders-page-header h1 { margin: 0 0 8px; font-size: 26px; color: var(--text-bright); }
+.founders-page-header p {
+  margin: 0 0 6px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 720px;
+}
+.founders-page-cta { margin-top: 12px; }
+.founders-page-cta-link {
+  color: var(--tw-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.founders-page-cta-link:hover { text-decoration: underline; }
+
+/* --- Board --- */
+.founders-board {
+  margin-top: 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  padding: 18px;
+}
+.founders-board-header { margin-bottom: 18px; }
+
+/* The scarcity counter — the acquisition hook. Big number, plain label. */
+.founders-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.founders-headline-num {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.founders-headline-genesis { color: #ffd66b; }
+.founders-headline-founder { color: var(--tw-accent); }
+.founders-headline-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-bright);
+}
+.founders-board-sub {
+  margin: 10px 0 16px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 760px;
+  font-size: 13px;
+}
+
+/* Tier progress bars */
+.founders-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 560px) {
+  .founders-progress-grid { grid-template-columns: 1fr; }
+}
+.founders-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+.founders-progress-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.founders-progress-count {
+  font-size: 12px;
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+  color: var(--text);
+}
+.founders-progress-track {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.founders-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 300ms ease;
+}
+.founders-progress-genesis .founders-progress-fill { background: #ffd66b; }
+.founders-progress-founder .founders-progress-fill { background: var(--tw-accent); }
+
+.founders-empty {
+  color: var(--text-dim);
+  padding: 14px 4px;
+  line-height: 1.5;
+}
+.founders-empty strong { color: #ffd66b; }
+
+/* Ranked founder list */
+.founders-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.founders-row {
+  display: grid;
+  grid-template-columns: auto 38px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.founders-row-genesis { border-color: rgba(255, 197, 74, 0.35); }
+.founders-row .leaderboard-thumb { width: 38px; height: 38px; }
+.founders-row-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.founders-row-painter {
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+.founders-row-link {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+  color: var(--tw-accent);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.founders-row-link:hover { text-decoration: underline; }
+.founders-row-link-empty { font-size: 12px; color: var(--text-dim); }
+.founders-row-coord {
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Founder share card — the artefact a connected founder posts. The
+   canvas renders at 1200×675 and scales down responsively; actions sit
+   beside it on wide screens, stack below on narrow. */
+.founder-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+  gap: 20px;
+  align-items: center;
+  margin: 4px 0 22px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.founder-card-canvas-wrap {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0;
+}
+.founder-card-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.founder-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.founder-card-btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--tw-accent);
+  color: #07070b;
+  transition: filter 0.15s ease;
+}
+.founder-card-btn:hover { filter: brightness(1.08); }
+.founder-card-btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.founder-card-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+@media (max-width: 720px) {
+  .founder-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.founder-claim-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 200;
+  animation: founder-claim-fade 0.18s ease;
+}
+@keyframes founder-claim-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.founder-claim-modal {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--bg-panel, #0e0e16);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+.founder-claim-modal .founder-card {
+  margin: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.founder-claim-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.founder-claim-close:hover { color: var(--text); }
+.founder-claim-eyebrow {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tw-accent);
+}
+.founder-claim-board-link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.founder-claim-board-link:hover { color: var(--tw-accent); }
