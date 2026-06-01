@@ -133,6 +133,55 @@ function formatQueuedAt(iso: string): string {
 }
 
 /**
+ * Branded graphic for a founder candidate (scarcity / milestone). Reuses
+ * the launch card's Genesis-grid motif since these are the same founder
+ * scarcity story. Hero is the leading number from the bot's label
+ * ("37 of 100 Genesis left" -> hero "37"); "Founder window closed" has no
+ * number, so it falls back to "Full".
+ */
+function founderGraphic(e: QueueEntry): LaunchGraphic {
+  const isGenesis = e.tier === 'genesis'
+  const num = e.label?.match(/\d[\d,]*/)?.[0]
+  const tierWord = isGenesis ? 'Genesis' : 'Founder'
+  return {
+    slug: `founder-${e.chainId}`,
+    chainId: e.chainId,
+    chainName: e.chain,
+    eyebrow: `${tierWord} on ${e.chain}`,
+    hero: num ?? 'Full',
+    heroSub: num
+      ? (isGenesis ? 'of 100 Genesis slots left' : 'Founder slots left')
+      : 'every slot claimed',
+    subline: 'Paint one pixel. Claim a permanent on-chain number.',
+  }
+}
+
+/**
+ * Branded graphic for a per-paint notable-paint entry. Hero is the pixel
+ * count; the region motif plots where on the 1250×800 wall it landed.
+ */
+function paintGraphic(e: QueueEntry): LaunchGraphic {
+  const px = e.pixels ?? (e.w ?? 0) * (e.h ?? 0)
+  const hasRegion =
+    e.x !== undefined && e.y !== undefined && e.w !== undefined && e.h !== undefined
+  return {
+    slug: `paint-${e.chainId}-${e.id.slice(2, 8)}`,
+    chainId: e.chainId,
+    chainName: e.chain,
+    eyebrow: `${e.wasOverpaint ? 'Overpaint' : 'Fresh paint'} on ${e.chain}`,
+    hero: px.toLocaleString(),
+    heroSub: e.w && e.h ? `pixels · ${e.w}×${e.h}` : 'pixels',
+    subline: e.priceFormatted
+      ? `${e.priceFormatted} laid on the wall, on-chain forever.`
+      : 'Painted on-chain, forever.',
+    footer: 'Immutable on tagwall.io · 1,000,000 pixels',
+    motif: hasRegion
+      ? { kind: 'region', x: e.x!, y: e.y!, w: e.w!, h: e.h! }
+      : { kind: 'none' },
+  }
+}
+
+/**
  * Build the per-chain weekly recap tweet body. ~180-280 chars depending
  * on activity. Skips the "biggest" line for 1-pixel paints (they're
  * test/reservation paints, not impressive recap content). When the
@@ -779,7 +828,10 @@ export default function TweetsPage() {
               </div>
 
               {!isPosted && (
-                <pre className="share-template-body queue-entry-tweet">{e.tweet}</pre>
+                <div className="queue-launch-body">
+                  <pre className="share-template-body queue-entry-tweet">{e.tweet}</pre>
+                  <LaunchShareCard graphic={isFounder ? founderGraphic(e) : paintGraphic(e)} />
+                </div>
               )}
 
               <div className="share-template-actions queue-entry-actions">
