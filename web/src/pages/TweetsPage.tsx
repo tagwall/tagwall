@@ -33,20 +33,30 @@ interface QueueEntry {
   chain: string             // 'PulseChain' | 'Ethereum' | 'Base' | 'BSC' | 'HyperEVM'
   chainId: number
   queuedAt: string          // ISO timestamp from the bot run
-  painter: string           // full 0x address
-  painterShort: string      // '0x1bBe…685B'
-  x: number
-  y: number
-  w: number
-  h: number
-  pixels: number
-  priceFormatted: string    // e.g. '7,500 PLS'
-  pricePerPixelFormatted?: string  // e.g. '5.00 PLS'; old entries may lack
-  native: string            // 'PLS' | 'ETH' | 'BNB'
-  wasOverpaint?: boolean    // true when at least one pixel was overwritten
   tweet: string             // ready-to-paste tweet text
-  txUrl: string             // block explorer link
-  pixelUrl: string          // tagwall.io/pixel/X,Y
+
+  // Founder candidates (W1 scarcity pulse, W2 milestones) set `kind`;
+  // per-paint entries leave it undefined. When `kind` is set the paint
+  // fields below are absent, so the render branches on it.
+  kind?: 'scarcity' | 'milestone'
+  tier?: string             // 'Genesis' | 'Founder' | '101-1000' etc.
+  label?: string            // headline line, e.g. '99 of 100 Genesis slots left'
+  foundersUrl?: string      // tagwall.io/founders
+
+  // Per-paint fields (absent on founder candidates).
+  painter?: string          // full 0x address
+  painterShort?: string     // '0x1bBe…685B'
+  x?: number
+  y?: number
+  w?: number
+  h?: number
+  pixels?: number
+  priceFormatted?: string   // e.g. '7,500 PLS'
+  pricePerPixelFormatted?: string  // e.g. '5.00 PLS'; old entries may lack
+  native?: string           // 'PLS' | 'ETH' | 'BNB'
+  wasOverpaint?: boolean    // true when at least one pixel was overwritten
+  txUrl?: string            // block explorer link
+  pixelUrl?: string         // tagwall.io/pixel/X,Y
 }
 
 interface QueuePayload {
@@ -521,10 +531,11 @@ export default function TweetsPage() {
       <section className="queue-list" aria-label="Queued paints">
         {visible.map((e) => {
           const isPosted = posted.has(e.id)
+          const isFounder = e.kind === 'scarcity' || e.kind === 'milestone'
           return (
             <article
               key={e.id}
-              className={`share-template queue-entry ${isPosted ? 'queue-entry-posted' : ''}`}
+              className={`share-template queue-entry ${isFounder ? 'queue-entry-founder' : ''} ${isPosted ? 'queue-entry-posted' : ''}`}
             >
               <div className="queue-entry-meta">
                 <span
@@ -533,25 +544,45 @@ export default function TweetsPage() {
                 >
                   {e.chain}
                 </span>
-                {e.wasOverpaint && (
-                  <span
-                    className="queue-overpaint-pill"
-                    title="At least one pixel was painted over (price > floor × 1.05)"
-                  >
-                    overpaint
-                  </span>
-                )}
-                <span>
-                  {e.w}×{e.h} · {e.pixels.toLocaleString()} px · {e.priceFormatted}
-                  {e.pricePerPixelFormatted && (
-                    <span className="queue-entry-meta-dim">
-                      {' '}({e.pricePerPixelFormatted}/px)
+                {isFounder ? (
+                  <>
+                    <span
+                      className="queue-founder-pill"
+                      title={e.kind === 'milestone' ? 'Founder supply milestone' : 'Daily founder scarcity pulse'}
+                    >
+                      {e.kind === 'milestone' ? 'milestone' : 'scarcity'}
                     </span>
-                  )}
-                </span>
-                <span className="queue-entry-meta-dim">
-                  by {e.painterShort} · queued {formatQueuedAt(e.queuedAt)}
-                </span>
+                    {e.tier && (
+                      <span className="queue-entry-meta-dim">{e.tier}</span>
+                    )}
+                    {e.label && <span>{e.label}</span>}
+                    <span className="queue-entry-meta-dim">
+                      queued {formatQueuedAt(e.queuedAt)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {e.wasOverpaint && (
+                      <span
+                        className="queue-overpaint-pill"
+                        title="At least one pixel was painted over (price > floor × 1.05)"
+                      >
+                        overpaint
+                      </span>
+                    )}
+                    <span>
+                      {e.w}×{e.h} · {e.pixels?.toLocaleString()} px · {e.priceFormatted}
+                      {e.pricePerPixelFormatted && (
+                        <span className="queue-entry-meta-dim">
+                          {' '}({e.pricePerPixelFormatted}/px)
+                        </span>
+                      )}
+                    </span>
+                    <span className="queue-entry-meta-dim">
+                      by {e.painterShort} · queued {formatQueuedAt(e.queuedAt)}
+                    </span>
+                  </>
+                )}
               </div>
 
               {!isPosted && (
@@ -568,22 +599,35 @@ export default function TweetsPage() {
                     {copiedId === e.id ? 'Copied ✓' : 'Copy tweet'}
                   </button>
                 )}
-                <a
-                  className="share-btn share-btn-secondary"
-                  href={e.pixelUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View pixel
-                </a>
-                <a
-                  className="share-btn share-btn-secondary"
-                  href={e.txUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Tx
-                </a>
+                {isFounder ? (
+                  <a
+                    className="share-btn share-btn-secondary"
+                    href={e.foundersUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View founders
+                  </a>
+                ) : (
+                  <>
+                    <a
+                      className="share-btn share-btn-secondary"
+                      href={e.pixelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View pixel
+                    </a>
+                    <a
+                      className="share-btn share-btn-secondary"
+                      href={e.txUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Tx
+                    </a>
+                  </>
+                )}
                 {isPosted ? (
                   <button
                     type="button"

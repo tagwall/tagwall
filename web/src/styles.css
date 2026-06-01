@@ -779,6 +779,23 @@ a.lb-ticker-link:focus-visible {
 
 .queue-entry { gap: 10px; }
 .queue-entry-posted { opacity: 0.55; }
+/* Founder candidates (scarcity pulse + supply milestones) get a faint
+   accent edge so they stand out from per-paint entries in the list. */
+.queue-entry-founder {
+  border-left: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.queue-founder-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 4px;
+}
 .queue-entry-meta {
   display: flex;
   flex-wrap: wrap;

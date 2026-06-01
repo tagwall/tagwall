@@ -21,7 +21,10 @@ Run on a 30-minute GitHub Actions cron. Each tick:
      frontend).
   4. Computes a trailing-7-day per-chain summary into
      web/public/summary.json.
-  5. Commits any changed files back to the public repo. CF Worker
+  5. Tracks distinct painters per chain from the deploy block (in
+     founders_state.json) and emits founder scarcity + milestone tweet
+     candidates into the same queue (W1/W2 marketing automation).
+  6. Commits any changed files back to the public repo. CF Worker
      watches `web/**` and rebuilds tagwall.io on the next push.
 
 Env (all optional; only CANVAS_ADDRESS is strictly required):
@@ -37,6 +40,7 @@ Env (all optional; only CANVAS_ADDRESS is strictly required):
   TWEETS_MIN_PIXELS      — defaults to 100 (alias: MANUAL_QUEUE_MIN_PIXELS)
   TWEETS_MAX_PER_RUN     — defaults to 50  (alias: MANUAL_QUEUE_MAX_PER_RUN)
   SKIP_SUMMARY           — '1' to skip the weekly summary scan
+  SKIP_FOUNDERS          — '1' to skip the founder scarcity/milestone scan
   DRY_RUN                — '1' to scan-and-print without writing or pushing
 """
 import json
@@ -83,6 +87,10 @@ CHAINS = [
         "rpc_default": "https://rpc.pulsechain.com",
         "native": "PLS",
         "explorer_tx": "https://otter.pulsechain.com/tx/",
+        # Canvas deploy block (Day-0 launch 2026-05-24). Lower bound for the
+        # founder-count scan so it never walks from genesis-of-chain.
+        # Mirrors web/src/lib/deployBlocks.ts; keep the two in sync.
+        "deploy_block": 26_606_708,
     },
     {
         "id": 1,
@@ -96,6 +104,7 @@ CHAINS = [
         "rpc_default": "https://eth.drpc.org",
         "native": "ETH",
         "explorer_tx": "https://etherscan.io/tx/",
+        "deploy_block": 25_161_961,
     },
     {
         "id": 8453,
@@ -110,6 +119,7 @@ CHAINS = [
         "rpc_default": "https://base.publicnode.com",
         "native": "ETH",
         "explorer_tx": "https://basescan.org/tx/",
+        "deploy_block": 46_399_049,
     },
     {
         "id": 56,
@@ -125,6 +135,7 @@ CHAINS = [
         "rpc_default": "https://bsc.rpc.blxrbdn.com",
         "native": "BNB",
         "explorer_tx": "https://bscscan.com/tx/",
+        "deploy_block": 100_071_283,
     },
     {
         "id": 999,
@@ -141,6 +152,8 @@ CHAINS = [
         # constructor branch shifts the init-code hash). Override the
         # shared CANVAS_ADDRESS env with this chain's real address.
         "canvas_address": "0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4",
+        # v1.1 deploy block (2026-05-31, tx 0x8b8b7f6d…).
+        "deploy_block": 36_585_579,
         # HyperEVM RPCs cap eth_getLogs at a 1000-block range, unlike the
         # ~10k the others allow. A span of [cur, cur+999] is 1000 blocks
         # inclusive, which the blxrbdn node rejects as "invalid block
@@ -220,6 +233,28 @@ RETRY_MAX_ATTEMPTS = 5    # for transient HTTP errors (429, 503)
 RETRY_INITIAL_DELAY_S = 1.0
 RETRY_MAX_DELAY_S = 30.0
 TAGWALL_BASE_URL = (os.environ.get("TAGWALL_BASE_URL") or "https://tagwall.io").rstrip("/")
+
+# --- Founder status (W1 scarcity pulse + W2 milestones) -------------------
+# Founder rank = 1-indexed order of an address's FIRST paint on a chain,
+# derived from the immutable Painted log. Two tiers per chain: Genesis is
+# the first GENESIS_CAP painters, Founder is the next slice up to
+# FOUNDER_CAP. These caps MUST match web/src/lib/founders.ts — the window
+# closing is the scarcity, so they cannot drift between bot and frontend.
+GENESIS_CAP = 100
+FOUNDER_CAP = 1000
+# Per-chain distinct-painter set + milestone bookkeeping. Bot-written
+# operational state, authoritative on GitHub like state.json (excluded
+# from publish-public.sh so an operator publish never clobbers it).
+FOUNDERS_STATE_FILE = HERE / "founders_state.json"
+# Founders board the scarcity/milestone tweets link to.
+FOUNDERS_URL = f"{TAGWALL_BASE_URL}/founders"
+# The founder scan walks deploy-block→head the first time it runs for a
+# chain, which is a large one-off backfill on a fast chain like HyperEVM
+# (~1 block/s). Cap chunks per chain per run so a cold backfill spans
+# several runs instead of risking the 30-min scheduled-run cancel window;
+# the per-chain lastBlock advances each run so it resumes cleanly. Steady
+# state (30 min of new blocks) is a handful of chunks, far under this.
+FOUNDERS_MAX_CHUNKS_PER_RUN = 200
 
 
 # Header injected at the top of QUEUE.md the first time the file is
@@ -930,8 +965,279 @@ def write_leaderboard(leaderboard: list[dict], now_iso: str) -> None:
         f.write("\n")
 
 
+# --- Founder scarcity (W1) + milestones (W2) ------------------------------
+#
+# Founder rank is the order of an address's FIRST paint on a chain. To turn
+# that into "N of 100 Genesis slots left" copy, the bot needs the count of
+# DISTINCT painters from the contract's deploy block to head — every paint,
+# any size (a 1-pixel paint claims a slot). That's a different scan than the
+# 7-day summary, so it gets its own incremental state in founders_state.json:
+# we persist the distinct-painter set per chain and only scan new blocks
+# each run. Once a chain hits FOUNDER_CAP the window is closed, so we drop
+# the set and stop scanning that chain entirely.
+
+
+def load_founders_state() -> dict:
+    if not FOUNDERS_STATE_FILE.exists():
+        return {}
+    with FOUNDERS_STATE_FILE.open() as f:
+        return json.load(f)
+
+
+def save_founders_state(fstate: dict) -> None:
+    with FOUNDERS_STATE_FILE.open("w") as f:
+        json.dump(fstate, f, indent=2, sort_keys=True)
+        f.write("\n")
+
+
+def compute_founder_stats(count: int) -> dict:
+    """Mirror of web/src/lib/founders.ts founderStatsFromCount. Keep the
+    two in lockstep so bot copy and the on-site board never disagree."""
+    capped = min(count, FOUNDER_CAP)
+    genesis_claimed = min(capped, GENESIS_CAP)
+    founder_claimed = max(0, capped - GENESIS_CAP)
+    return {
+        "claimed": capped,
+        "genesisClaimed": genesis_claimed,
+        "founderClaimed": founder_claimed,
+        "genesisLeft": max(0, GENESIS_CAP - capped),
+        "founderLeft": max(0, FOUNDER_CAP - GENESIS_CAP - founder_claimed),
+        "totalLeft": max(0, FOUNDER_CAP - capped),
+    }
+
+
+def scan_founders(chain: dict, fstate: dict) -> bool:
+    """Advance this chain's distinct-painter count toward head, persisting
+    progress in fstate. Returns True when the count is current to head (so
+    candidate copy can trust it), False when a cold backfill is still
+    catching up (chunk budget exhausted this run; resumes next run).
+
+    Mutates fstate[str(chain_id)] in place: lastBlock, painters, count, done.
+    """
+    cid = str(chain["id"])
+    slot = fstate.setdefault(cid, {})
+    if slot.get("done"):
+        return True  # window closed; stored count is final, no scan needed
+
+    rpc = os.environ.get(chain["rpc_env"]) or chain["rpc_default"]
+    if not rpc:
+        print(f"[{chain['name']}] founders: no RPC configured")
+        return False
+
+    w3 = Web3(Web3.HTTPProvider(rpc))
+    try:
+        latest = w3.eth.block_number
+    except Exception as err:
+        print(f"[{chain['name']}] founders: RPC unreachable: {err}", file=sys.stderr)
+        return False
+
+    canvas_address = Web3.to_checksum_address(
+        chain.get("canvas_address") or os.environ["CANVAS_ADDRESS"]
+    )
+    contract = w3.eth.contract(address=canvas_address, abi=PAINTED_EVENT_ABI)
+
+    last = slot.get("lastBlock")
+    from_block = chain.get("deploy_block", 0) if last is None else last + 1
+    if from_block > latest:
+        return True  # already current
+
+    painters = set(slot.get("painters", []))
+    window = chain.get("logs_window", LOGS_WINDOW)
+    cur = from_block
+    chunks = 0
+    while cur <= latest:
+        if chunks >= FOUNDERS_MAX_CHUNKS_PER_RUN:
+            break  # budget spent; remaining blocks resume next run
+        to = min(latest, cur + window)
+        try:
+            events = get_logs_with_retry(
+                contract.events.Painted, cur, to, chain["name"],
+            )
+        except (ContractLogicError, ValueError, Web3RPCError, requests.exceptions.RequestException) as err:
+            print(f"[{chain['name']}] founders chunk [{cur},{to}] failed: {err}", file=sys.stderr)
+            cur = to + 1
+            chunks += 1
+            time.sleep(INTER_CHUNK_SLEEP_S)
+            continue
+        for ev in events:
+            painters.add(ev["args"]["painter"].lower())
+        slot["lastBlock"] = to  # persist progress per chunk so we resume cleanly
+        cur = to + 1
+        chunks += 1
+        if len(painters) >= FOUNDER_CAP:
+            break  # window full; count can't climb past the cap
+        if cur <= latest:
+            time.sleep(INTER_CHUNK_SLEEP_S)
+
+    count = min(len(painters), FOUNDER_CAP)
+    slot["count"] = count
+    caught_up = cur > latest
+    if count >= FOUNDER_CAP:
+        slot["done"] = True
+        slot["painters"] = []  # set no longer needed once the window is closed
+        caught_up = True
+    else:
+        slot["painters"] = sorted(painters)
+    print(
+        f"[{chain['name']}] founders: {count} claimed, scanned to block "
+        f"{slot.get('lastBlock', from_block)}, caughtUp={caught_up}"
+    )
+    return caught_up
+
+
+# Milestone ladder, ascending significance. `reached` is monotonic in the
+# claimed count, so once a threshold fires it stays fired. We mark every
+# newly-crossed milestone as fired but only post the single most-significant
+# one per chain per run, so a burst of paints never dumps a backlog of posts.
+FOUNDER_MILESTONES = [
+    {"key": "genesis-75",  "reached": lambda s: s["genesisClaimed"] >= 75},
+    {"key": "genesis-90",  "reached": lambda s: s["genesisClaimed"] >= 90},
+    {"key": "genesis-95",  "reached": lambda s: s["genesisClaimed"] >= 95},
+    {"key": "genesis-full", "reached": lambda s: s["claimed"] >= GENESIS_CAP},
+    {"key": "founder-50",  "reached": lambda s: s["founderClaimed"] >= 450},
+    {"key": "founder-90",  "reached": lambda s: s["founderClaimed"] >= 810},
+    {"key": "founder-full", "reached": lambda s: s["claimed"] >= FOUNDER_CAP},
+]
+
+_FOUNDER_TIER_RANGE = f"{GENESIS_CAP + 1}-{FOUNDER_CAP}"
+
+
+def milestone_tweet(key: str, chain: dict, stats: dict) -> str:
+    name = chain["name"]
+    g_left = stats["genesisLeft"]
+    f_left = stats["founderLeft"]
+    pct = stats["genesisClaimed"]  # Genesis cap is 100, so claimed == percent
+    if key in ("genesis-75", "genesis-90", "genesis-95"):
+        return (
+            f"Genesis is {pct}% claimed on {name}. Only {g_left} of {GENESIS_CAP} "
+            f"founder slots left. Paint one pixel to claim a permanent on-chain "
+            f"number. {FOUNDERS_URL}"
+        )
+    if key == "genesis-full":
+        return (
+            f"Genesis is FULL on {name}. All {GENESIS_CAP} founding slots are "
+            f"claimed and permanent on-chain. Founder tier (ranks "
+            f"{_FOUNDER_TIER_RANGE}) is now open. {FOUNDERS_URL}"
+        )
+    if key == "founder-50":
+        return (
+            f"The Founder window on {name} is half claimed. {f_left} of "
+            f"{FOUNDER_CAP - GENESIS_CAP} Founder slots remain. {FOUNDERS_URL}"
+        )
+    if key == "founder-90":
+        return (
+            f"Only {f_left} Founder slots left on {name} before the window "
+            f"closes for good. {FOUNDERS_URL}"
+        )
+    # founder-full
+    return (
+        f"The founder window has closed on {name}. All {FOUNDER_CAP} slots are "
+        f"claimed, permanent and verifiable on-chain. {FOUNDERS_URL}"
+    )
+
+
+def scarcity_tweet(chain: dict, stats: dict) -> str | None:
+    """Daily-pulse copy. None once the window is fully closed."""
+    name = chain["name"]
+    if stats["genesisLeft"] > 0:
+        return (
+            f"{stats['genesisLeft']} of {GENESIS_CAP} Genesis founder slots left "
+            f"on {name}. Paint one pixel, claim a permanent on-chain founder "
+            f"number. {FOUNDERS_URL}"
+        )
+    if stats["founderLeft"] > 0:
+        return (
+            f"Genesis is full on {name}. {stats['founderLeft']} Founder slots "
+            f"remain (ranks {_FOUNDER_TIER_RANGE}). Paint a pixel to claim "
+            f"yours, forever on-chain. {FOUNDERS_URL}"
+        )
+    return None
+
+
+def founder_label(stats: dict) -> str:
+    if stats["genesisLeft"] > 0:
+        return f"{stats['genesisLeft']} of {GENESIS_CAP} Genesis left"
+    if stats["founderLeft"] > 0:
+        return f"{stats['founderLeft']} Founder slots left"
+    return "Founder window closed"
+
+
+def format_founder_md(chain: dict, kind: str, tweet: str) -> str:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return (
+        f"- [ ] **{chain['name']}** · {now} · founder {kind} · "
+        f"[founders]({FOUNDERS_URL})\n"
+        f"\n"
+        f"  ```text\n"
+        f"  {tweet}\n"
+        f"  ```\n"
+    )
+
+
+def format_founder_json(
+    eid: str, kind: str, chain: dict, stats: dict, tweet: str, now_iso: str,
+) -> dict:
+    return {
+        "id": eid,
+        "kind": kind,  # 'scarcity' | 'milestone'; paint entries omit this
+        "chain": chain["name"],
+        "chainId": chain["id"],
+        "queuedAt": now_iso,
+        "tier": "genesis" if stats["genesisLeft"] > 0 else "founder",
+        "label": founder_label(stats),
+        "tweet": tweet,
+        "foundersUrl": FOUNDERS_URL,
+    }
+
+
+def generate_founder_candidates(
+    chain: dict, fstate: dict, now_iso: str,
+) -> tuple[list[str], list[dict]]:
+    """At most one milestone (W2) and/or one daily scarcity pulse (W1) per
+    chain per run. A milestone suppresses that run's scarcity pulse so the
+    same chain isn't tweeted about twice in one tick.
+    """
+    cid = str(chain["id"])
+    slot = fstate.get(cid, {})
+    count = slot.get("count", 0)
+    md: list[str] = []
+    js: list[dict] = []
+    # Need a real number to show. count == 0 means nobody's painted yet;
+    # "be the first" launch copy is a manual/launch push, not the auto pulse.
+    if count < 1:
+        return md, js
+
+    stats = compute_founder_stats(count)
+    today = now_iso[:10]
+    fired = set(slot.setdefault("milestonesFired", []))
+
+    newly = [m for m in FOUNDER_MILESTONES if m["reached"](stats) and m["key"] not in fired]
+    emitted_milestone = False
+    if newly:
+        for m in newly:
+            fired.add(m["key"])
+        slot["milestonesFired"] = sorted(fired)
+        top = newly[-1]  # most significant crossed this run
+        tweet = milestone_tweet(top["key"], chain, stats)
+        eid = f"milestone-{chain['id']}-{top['key']}"
+        md.append(format_founder_md(chain, "milestone", tweet))
+        js.append(format_founder_json(eid, "milestone", chain, stats, tweet, now_iso))
+        emitted_milestone = True
+
+    if not emitted_milestone and slot.get("lastScarcityDate") != today:
+        tweet = scarcity_tweet(chain, stats)
+        if tweet:
+            slot["lastScarcityDate"] = today
+            eid = f"scarcity-{chain['id']}-{today}"
+            md.append(format_founder_md(chain, "scarcity", tweet))
+            js.append(format_founder_json(eid, "scarcity", chain, stats, tweet, now_iso))
+
+    return md, js
+
+
 def main() -> int:
     state = load_state()
+    founders_state = load_founders_state()
     dry_run = os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"}
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -993,6 +1299,38 @@ def main() -> int:
         with_names = sum(1 for r in leaderboard if r.get("name"))
         print(f"  {with_names}/{len(leaderboard)} resolved to a primary ENS name")
 
+    # Founder scarcity (W1) + milestones (W2). Each chain's distinct-painter
+    # count is advanced incrementally (resumable cold backfill), then turned
+    # into at most one milestone and/or one daily scarcity candidate. These
+    # land at the TOP of the queue (prepended after the paint reverse) so the
+    # operator sees the timely founder copy first. Isolated per chain like
+    # the summary scan so one chain's RPC can't sink the rest.
+    founder_md: list[str] = []
+    founder_json: list[dict] = []
+    if os.environ.get("SKIP_FOUNDERS") not in {"1", "true", "yes"}:
+        for chain in CHAINS:
+            try:
+                caught_up = scan_founders(chain, founders_state)
+            except Exception as err:
+                print(f"[{chain['name']}] founder scan crashed, skipping: {err}", file=sys.stderr)
+                continue
+            if not caught_up:
+                continue  # cold backfill still catching up; don't post a partial count
+            try:
+                fmd, fjs = generate_founder_candidates(chain, founders_state, now_iso)
+            except Exception as err:
+                print(f"[{chain['name']}] founder candidate gen failed: {err}", file=sys.stderr)
+                continue
+            founder_md.extend(fmd)
+            founder_json.extend(fjs)
+    else:
+        print("SKIP_FOUNDERS set; skipping founder scan")
+
+    # Prepend so founder candidates sit above paints in the freshly-reversed
+    # (newest-first) queue.
+    md_entries = founder_md + md_entries
+    json_entries = founder_json + json_entries
+
     if dry_run:
         for entry in md_entries:
             print("---")
@@ -1010,9 +1348,11 @@ def main() -> int:
             write_summary(summaries, now_iso)
         write_leaderboard(leaderboard, now_iso)
         save_state(state)
+        save_founders_state(founders_state)
 
     print(
-        f"queued {len(md_entries)} paint(s) this run; "
+        f"queued {len(md_entries) - len(founder_md)} paint(s) + "
+        f"{len(founder_md)} founder candidate(s) this run; "
         f"summarised {len(summaries)} chain(s); "
         f"leaderboard has {len(leaderboard)} referrer(s)"
     )
