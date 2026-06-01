@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-31T13:03:07Z",
+  "generatedAt": "2026-06-01T14:27:13Z",
   "windowDays": 7,
   "minPixels": 100,
   "chains": [
@@ -7,8 +7,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26608273,
-      "windowEndBlock": 26668753,
+      "windowStartBlock": 26617043,
+      "windowEndBlock": 26677523,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -21,8 +21,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25165125,
-      "windowEndBlock": 25215525,
+      "windowStartBlock": 25172739,
+      "windowEndBlock": 25223139,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -35,8 +35,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 46419232,
-      "windowEndBlock": 46721632,
+      "windowStartBlock": 46465085,
+      "windowEndBlock": 46767485,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -49,8 +49,8 @@
       "chain": "BSC",
       "chainId": 56,
       "native": "BNB",
-      "windowStartBlock": 100293150,
-      "windowEndBlock": 101502750,
+      "windowStartBlock": 100496632,
+      "windowEndBlock": 101706232,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -58,6 +58,42 @@
       "totalVolumeFormatted": "0.000000 BNB",
       "biggestByPixels": null,
       "biggestByPrice": null
+    },
+    {
+      "chain": "HyperEVM",
+      "chainId": 999,
+      "native": "HYPE",
+      "windowStartBlock": 36065633,
+      "windowEndBlock": 36670433,
+      "paintCount": 1,
+      "overpaintCount": 0,
+      "uniquePainters": 1,
+      "uniqueReferrers": 0,
+      "totalVolumeFormatted": "0.0005 HYPE",
+      "biggestByPixels": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.0005 HYPE",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://www.hyperscan.com/tx/0xadb8566d5c88f906e8d4c5d68613bcfae97ed6bd415f10b009ed5943e9fc562b"
+      },
+      "biggestByPrice": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "pixels": 1,
+        "priceFormatted": "0.0005 HYPE",
+        "painter": "0xF42d6249E370DBc647AB33d68b15aECA47bE0FE9",
+        "painterShort": "0xF42d\u20260FE9",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://www.hyperscan.com/tx/0xadb8566d5c88f906e8d4c5d68613bcfae97ed6bd415f10b009ed5943e9fc562b"
+      }
     }
   ]
 }
