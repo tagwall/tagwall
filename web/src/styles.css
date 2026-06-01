@@ -1781,7 +1781,11 @@ a.lb-ticker-link:focus-visible {
      than the canvas and visibly indented. */
   max-width: none;
   border-radius: 0;
-  border-bottom: none;
+  /* Transparent wrapper: the visible card is `.paint-bar` / `.paint-bar-empty`
+     inside, which carries its own rounded border. Dropping the base 1px
+     border here removes the square outer corner that used to poke out 1px
+     beyond the inner card's rounded corner (the "square + rounded" overlap). */
+  border: none;
   padding: 0;
   background: transparent;
   /* Strip the rounded-corner overflow clip from the default
@@ -2450,6 +2454,7 @@ a.lb-ticker-link:focus-visible {
   gap: 12px;
   padding: 10px;
   border: 1px dashed var(--tw-line-2);
+  border-radius: 10px;
   background: var(--tw-panel);
   cursor: pointer;
   transition:
@@ -2479,6 +2484,7 @@ a.lb-ticker-link:focus-visible {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--tw-line-2);
+  border-radius: 10px;
   background: #000;
   color: var(--tw-accent);
   font-family: var(--tw-mono);
@@ -2560,6 +2566,7 @@ a.lb-ticker-link:focus-visible {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--tw-accent);
+  border-radius: 8px;
   color: var(--tw-accent);
   font-family: var(--tw-mono);
   font-size: 11px;
@@ -2605,6 +2612,7 @@ a.lb-ticker-link:focus-visible {
   background: var(--tw-panel);
   color: var(--tw-dim);
   border: 1px dashed var(--tw-line-2);
+  border-radius: 10px;
   font-family: var(--tw-mono);
   font-size: 12px;
   font-weight: 600;
