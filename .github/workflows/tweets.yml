@@ -1,6 +1,6 @@
 name: Tweets bot
 
-# Scans all four EVM chains every 30 min for new Painted events,
+# Scans all five EVM chains every 30 min for new Painted events,
 # writes per-paint tweet candidates to bots/tweets/QUEUE.md +
 # web/public/queue.json, and writes a trailing-7-day per-chain
 # summary to web/public/summary.json. Both JSON files are rendered

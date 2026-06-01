@@ -15,7 +15,7 @@ import { chainColorTokens } from '../lib/chainColor'
  *
  * Reads /queue.json (per-paint candidates) and /summary.json (7-day
  * aggregates), both written every 30 min by the tweets-bot GitHub
- * Actions workflow scanning all four EVM chains. The page renders
+ * Actions workflow scanning all five EVM chains. The page renders
  * everything client-side with Copy buttons; per-paint entries can be
  * marked "posted" (localStorage; doesn't sync across devices).
  *
@@ -30,7 +30,7 @@ import { chainColorTokens } from '../lib/chainColor'
 
 interface QueueEntry {
   id: string                // tx hash, unique per paint
-  chain: string             // 'PulseChain' | 'Ethereum' | 'Base' | 'BSC'
+  chain: string             // 'PulseChain' | 'Ethereum' | 'Base' | 'BSC' | 'HyperEVM'
   chainId: number
   queuedAt: string          // ISO timestamp from the bot run
   painter: string           // full 0x address
@@ -451,7 +451,7 @@ export default function TweetsPage() {
         <p>
           Copy-ready tweets for <code>@tagwall_io_bot</code>. Includes a cross-chain
           7-day summary, per-chain weekly recaps, and individual notable-paint
-          announcements. Refreshes every 30 min via a cron job that scans all four
+          announcements. Refreshes every 30 min via a cron job that scans all five
           EVM chains for new <code>Painted</code> events.
         </p>
         <p className="share-page-note">

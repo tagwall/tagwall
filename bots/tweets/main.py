@@ -49,7 +49,7 @@ from pathlib import Path
 import requests
 
 from web3 import Web3
-from web3.exceptions import ContractLogicError
+from web3.exceptions import ContractLogicError, Web3RPCError
 
 PAINTED_EVENT_ABI = [{
     "type": "event",
@@ -141,13 +141,14 @@ CHAINS = [
         # constructor branch shifts the init-code hash). Override the
         # shared CANVAS_ADDRESS env with this chain's real address.
         "canvas_address": "0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4",
-        # HyperEVM RPCs cap eth_getLogs at a 1000-block range ("query
-        # exceeds max block range 1000"), unlike the ~10k the others
-        # allow. 999 keeps each get_logs span safely under the cap. Note
-        # the web3 Web3RPCError for this isn't in the get_logs retry's
-        # caught set, so an over-range request crashes rather than
-        # halving — hence the hard per-chain cap here.
-        "logs_window": 999,
+        # HyperEVM RPCs cap eth_getLogs at a 1000-block range, unlike the
+        # ~10k the others allow. A span of [cur, cur+999] is 1000 blocks
+        # inclusive, which the blxrbdn node rejects as "invalid block
+        # range" (-32602) at the boundary, so we leave headroom at 900.
+        # Web3RPCError is now in both scan loops' caught set, so even an
+        # over-range chunk skips instead of crashing the whole run (which
+        # used to freeze every chain's data, not just HyperEVM's).
+        "logs_window": 900,
     },
 ]
 
@@ -235,7 +236,7 @@ commits the change) or delete the entry to keep this file short. The
 bot only ever prepends; it never edits or deletes existing entries.
 
 The queue is generated every 30 min by `.github/workflows/tweets.yml`
-scanning all four EVM chains for `Painted` events at or above
+scanning all five EVM chains for `Painted` events at or above
 `TWEETS_MIN_PIXELS` pixels.
 
 <!-- queue:start -->
@@ -581,7 +582,7 @@ def process_chain(
             events = get_logs_with_retry(
                 contract.events.Painted, cur, to_block, chain["name"],
             )
-        except (ContractLogicError, ValueError, requests.exceptions.RequestException) as err:
+        except (ContractLogicError, ValueError, Web3RPCError, requests.exceptions.RequestException) as err:
             print(
                 f"[{chain['name']}] get_logs failed in [{cur},{to_block}]: {err}",
                 file=sys.stderr,
@@ -690,7 +691,7 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
             events = get_logs_with_retry(
                 contract.events.Painted, cur, to, chain["name"],
             )
-        except (ContractLogicError, ValueError, requests.exceptions.RequestException) as err:
+        except (ContractLogicError, ValueError, Web3RPCError, requests.exceptions.RequestException) as err:
             print(
                 f"[{chain['name']}] summary chunk [{cur},{to}] failed: {err}",
                 file=sys.stderr,
@@ -965,7 +966,15 @@ def main() -> int:
     per_chain_referrers: list[dict[str, dict]] = []
     if os.environ.get("SKIP_SUMMARY") not in {"1", "true", "yes"}:
         for chain in CHAINS:
-            s, referrers = compute_weekly_summary(chain)
+            # One chain's RPC blowing up (e.g. HyperEVM's eth_getLogs
+            # range cap) must never sink the whole run: a crash here
+            # would skip write_summary entirely and freeze every chain's
+            # data. Isolate each chain so the others still publish.
+            try:
+                s, referrers = compute_weekly_summary(chain)
+            except Exception as err:
+                print(f"[{chain['name']}] summary scan crashed, skipping: {err}", file=sys.stderr)
+                continue
             if s is not None:
                 summaries.append(s)
                 per_chain_referrers.append(referrers)
