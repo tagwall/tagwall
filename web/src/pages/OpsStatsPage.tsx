@@ -4,7 +4,6 @@ import { formatEther } from 'viem'
 import { chainColorTokens } from '../lib/chainColor'
 import { useViewerChainId } from '../lib/viewerChain'
 import { usePaintedRegions } from '../hooks/usePaintedRegions'
-import { useFounders } from '../hooks/useFounders'
 import { GENESIS_CAP, FOUNDER_CAP } from '../lib/founders'
 import { OPS_CHAINS, useCrossChainLive, type ChainLive } from '../hooks/useCrossChainLive'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
@@ -27,15 +26,20 @@ import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
  *      concentration, overpaint counts, and the daily-activity trend
  *      series. The bot does the scan server-side; the browser reads the
  *      rollup.
- *   3. usePaintedRegions()/useFounders(): VIEWER-CHAIN-ONLY coverage,
- *      overwrite, and founder fill, computed client-side for free because
- *      the regions are already loaded for the canvas on that chain.
+ *   3. summary.founders[] (tweets bot): per-chain Genesis/Founder fill for
+ *      EVERY chain, so the operator sees founder scarcity on one page
+ *      without switching wallets. The bot already tracks distinct painters
+ *      incrementally (founders_state.json) for the scarcity tweets, so this
+ *      rollup is free; a chain still cold-scanning is flagged "scanning".
+ *   4. usePaintedRegions(): VIEWER-CHAIN-ONLY canvas coverage, computed
+ *      client-side for free because the regions are already loaded for the
+ *      canvas on that chain.
  *
- * The one metric deliberately NOT here is all-time cross-chain coverage.
- * That needs a full multi-chain log scan the browser shouldn't do on load,
- * and the founders scanner caps at 1000 painters without geometry. Coverage
- * is shown live for the viewer's chain only, and the 7-day trend stands in
- * for cross-chain momentum.
+ * The one metric deliberately NOT cross-chain is all-time coverage. That
+ * needs a full multi-chain log scan the browser shouldn't do on load, and
+ * the founders scanner caps at 1000 painters without geometry. Coverage is
+ * shown live for the viewer's chain only; the 7-day trend stands in for
+ * cross-chain momentum.
  */
 
 const WALL_W = 1250
@@ -71,10 +75,32 @@ interface ChainSummary {
   dailyActivity?: DailyPoint[]
 }
 
+/**
+ * Per-chain founder fill, as emitted by the bot's build_founders_rollup.
+ * Field names mirror compute_founder_stats / founderStatsFromCount exactly,
+ * so the board, the tweets, and the on-canvas badge can never disagree.
+ * `caughtUp` is false while a cold backfill is still walking history (the
+ * count is a lower bound until it flips true), which the board surfaces as
+ * a "scanning" tag rather than implying a final figure.
+ */
+interface FounderRollupEntry {
+  chainId: number
+  chain: string
+  native: string
+  caughtUp: boolean
+  claimed: number
+  genesisClaimed: number
+  founderClaimed: number
+  genesisLeft: number
+  founderLeft: number
+  totalLeft: number
+}
+
 interface SummaryPayload {
   generatedAt: string
   windowDays: number
   allChains?: AllChainsRollup
+  founders?: FounderRollupEntry[]
   chains: ChainSummary[]
 }
 
@@ -276,7 +302,6 @@ export default function OpsStatsPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const viewerChainId = useViewerChainId()
-  const founders = useFounders()
   const coverage = useViewerCoverage()
   const viewerChain = OPS_CHAINS.find((c) => c.id === viewerChainId)
 
@@ -348,9 +373,7 @@ export default function OpsStatsPage() {
   const okCount = live.chains.filter((c) => c.ok).length
   const gLabel = roll ? giniLabel(roll.gini) : null
 
-  const fStats = founders.stats
-  const genesisPct = Math.round((fStats.genesisClaimed / GENESIS_CAP) * 100)
-  const founderPct = Math.round((fStats.claimed / FOUNDER_CAP) * 100)
+  const founderBoard = summary?.founders ?? []
   const coveragePct = (coverage.covered / TOTAL_PIXELS) * 100
 
   return (
@@ -472,32 +495,37 @@ export default function OpsStatsPage() {
         </p>
       </section>
 
-      {/* Founder scarcity: viewer chain only (exact, client-side). */}
+      {/* Founder scarcity across EVERY chain on one page, from the bot's
+          per-chain rollup (no wallet switching). Counts are exact; a chain
+          still cold-scanning history shows a "scanning" tag. */}
       <section className="ops-section ops-founders" aria-label="Founder scarcity">
         <header className="ops-section-head">
-          <h2>Founder scarcity</h2>
+          <h2>Founder scarcity · all chains</h2>
           <span className="ops-section-sub">
-            live for {viewerChain?.name ?? 'your chain'} · switch chains to compare
+            Genesis = first {GENESIS_CAP} painters · Founder = first {FOUNDER_CAP} · from the bot, every 30 min
           </span>
         </header>
-        <div className="ops-founder-bars">
-          <FounderBar
-            label="Genesis (1–100)"
-            claimed={fStats.genesisClaimed}
-            cap={GENESIS_CAP}
-            pct={genesisPct}
-            left={fStats.genesisLeft}
-            tint={chainColorTokens(viewerChainId).hex}
-          />
-          <FounderBar
-            label="Founder window (1–1000)"
-            claimed={fStats.claimed}
-            cap={FOUNDER_CAP}
-            pct={founderPct}
-            left={fStats.totalLeft}
-            tint={chainColorTokens(viewerChainId).hex}
-          />
-        </div>
+        {founderBoard.length > 0 ? (
+          <div className="ops-founder-board">
+            {founderBoard.map((f) => (
+              <ChainFounderRow key={f.chainId} entry={f} />
+            ))}
+          </div>
+        ) : (
+          <p className="ops-trend-empty">Waiting on summary.json for founder counts.</p>
+        )}
+      </section>
+
+      {/* Canvas coverage stays viewer-chain-only: an exact cross-chain
+          figure needs a full multi-chain log scan the browser shouldn't run
+          on load, so this reflects the chain you're connected to. */}
+      <section className="ops-section ops-founders" aria-label="Canvas coverage">
+        <header className="ops-section-head">
+          <h2>Canvas coverage</h2>
+          <span className="ops-section-sub">
+            live for {viewerChain?.name ?? 'your chain'} only · exact, client-side
+          </span>
+        </header>
         <div className="ops-coverage">
           <div className="ops-coverage-stat">
             <span className="ops-coverage-num">
@@ -554,30 +582,53 @@ function SortableTh({ label, col, sortKey, sortDir, toggleSort, align = 'right' 
   )
 }
 
-interface FounderBarProps {
-  label: string
-  claimed: number
-  cap: number
-  pct: number
-  left: number
-  tint: string
-}
-
-function FounderBar({ label, claimed, cap, pct, left, tint }: FounderBarProps) {
+/**
+ * One chain's founder fill: a single 0..FOUNDER_CAP bar with the Genesis
+ * threshold marked, plus "N Genesis left / N Founder spots left" footnotes.
+ * Drawn from the bot rollup so every chain renders without a wallet switch.
+ */
+function ChainFounderRow({ entry }: { entry: FounderRollupEntry }) {
+  const tint = chainColorTokens(entry.chainId).hex
+  const pct = Math.min((entry.claimed / FOUNDER_CAP) * 100, 100)
+  // Genesis cap as a fraction of the founder window, for the marker line.
+  const genesisMark = (GENESIS_CAP / FOUNDER_CAP) * 100
+  const genesisFull = entry.genesisLeft === 0
+  const founderFull = entry.totalLeft === 0
   return (
-    <div className="ops-founder-bar">
-      <div className="ops-founder-bar-head">
-        <span className="ops-founder-bar-label">{label}</span>
-        <span className="ops-founder-bar-count">
-          {claimed.toLocaleString()} / {cap.toLocaleString()}
-          <span className="ops-founder-bar-left"> · {left.toLocaleString()} left</span>
+    <div className="ops-founder-row">
+      <div className="ops-founder-row-head">
+        <span className="ops-founder-row-name">
+          <span className="ops-chain-dot" style={{ background: tint }} />
+          {entry.chain}
+          {!entry.caughtUp && (
+            <span className="ops-chain-down" title="cold backfill still walking history; count is a lower bound">
+              scanning
+            </span>
+          )}
+        </span>
+        <span className="ops-founder-row-count">
+          {entry.claimed.toLocaleString()} / {FOUNDER_CAP.toLocaleString()}
         </span>
       </div>
       <div className="ops-founder-bar-track">
-        <div
-          className="ops-founder-bar-fill"
-          style={{ width: `${Math.min(pct, 100)}%`, background: tint }}
-        />
+        <div className="ops-founder-bar-fill" style={{ width: `${pct}%`, background: tint }} />
+        {!founderFull && (
+          <span
+            className="ops-founder-genesis-mark"
+            style={{ left: `${genesisMark}%` }}
+            title={`Genesis cap (${GENESIS_CAP})`}
+          />
+        )}
+      </div>
+      <div className="ops-founder-row-foot">
+        <span className={genesisFull ? 'ops-founder-foot-full' : ''}>
+          {genesisFull ? 'Genesis full' : `${entry.genesisLeft.toLocaleString()} Genesis left`}
+        </span>
+        <span className={founderFull ? 'ops-founder-foot-full' : ''}>
+          {founderFull
+            ? 'Founder window closed'
+            : `${entry.totalLeft.toLocaleString()} Founder spots left`}
+        </span>
       </div>
     </div>
   )

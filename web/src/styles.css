@@ -4427,23 +4427,37 @@ a.lb-ticker-link:focus-visible {
 .ops-row-down { opacity: 0.55; }
 .ops-table-foot { margin: 12px 0 0; font-size: 12px; color: var(--text-dim); }
 
-/* Founder bars + coverage */
-.ops-founder-bars { display: flex; flex-direction: column; gap: 14px; }
-.ops-founder-bar-head {
+/* All-chains founder board */
+.ops-founder-board {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 28px;
+}
+@media (max-width: 720px) {
+  .ops-founder-board { grid-template-columns: 1fr; }
+}
+.ops-founder-row { display: flex; flex-direction: column; gap: 6px; }
+.ops-founder-row-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 6px;
 }
-.ops-founder-bar-label { font-size: 13px; font-weight: 600; color: var(--text); }
-.ops-founder-bar-count {
+.ops-founder-row-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ops-founder-row-count {
   font-size: 13px;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.ops-founder-bar-left { color: var(--text-dim); }
 .ops-founder-bar-track {
+  position: relative;
   height: 10px;
   background: var(--bg-panel-hi);
   border: 1px solid var(--border);
@@ -4451,13 +4465,27 @@ a.lb-ticker-link:focus-visible {
   overflow: hidden;
 }
 .ops-founder-bar-fill { height: 100%; border-radius: 6px 0 0 6px; transition: width 0.3s ease; }
+.ops-founder-genesis-mark {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.45;
+}
+.ops-founder-row-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.ops-founder-foot-full { color: var(--tw-accent); font-weight: 600; }
 .ops-coverage {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
 }
 @media (max-width: 720px) {
   .ops-coverage { grid-template-columns: repeat(2, 1fr); }

@@ -892,7 +892,36 @@ def build_all_chains_rollup(
     }
 
 
-def write_summary(summaries: list[dict], all_chains: dict, now_iso: str) -> None:
+def build_founders_rollup(founders_state: dict, caught_up: dict[str, bool]) -> list[dict]:
+    """Per-chain founder fill for the /ops dashboard, one entry per chain
+    in CHAINS order. Lets the operator see every chain's Genesis/Founder
+    progress on a single page without switching wallets.
+
+    Counts come from the same founders_state the scarcity tweets read, so
+    the board and the tweet copy can never disagree. `caughtUp` is False
+    while a cold backfill is still walking history (the count is a lower
+    bound until it flips True or the window closes), so the frontend can
+    mark a chain as still scanning rather than imply a final figure.
+    """
+    out: list[dict] = []
+    for chain in CHAINS:
+        cid = str(chain["id"])
+        slot = founders_state.get(cid) or {}
+        count = int(slot.get("count", 0))
+        done = bool(slot.get("done"))
+        out.append({
+            "chainId": chain["id"],
+            "chain": chain["name"],
+            "native": chain["native"],
+            "caughtUp": done or caught_up.get(cid, False),
+            **compute_founder_stats(count),
+        })
+    return out
+
+
+def write_summary(
+    summaries: list[dict], all_chains: dict, founders: list[dict], now_iso: str,
+) -> None:
     """Always overwrite summary.json with the current snapshot. Unlike
     queue.json, summary stats are stateless: every run recomputes from
     scratch, so a no-op run still produces a fresh `generatedAt` but
@@ -908,6 +937,7 @@ def write_summary(summaries: list[dict], all_chains: dict, now_iso: str) -> None
         "windowDays": SUMMARY_WINDOW_SECONDS // 86400,
         "minPixels": MIN_PIXELS,
         "allChains": all_chains,
+        "founders": founders,
         "chains": summaries,
     }
     SUMMARY_JSON_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -1392,6 +1422,7 @@ def main() -> int:
     # the summary scan so one chain's RPC can't sink the rest.
     founder_md: list[str] = []
     founder_json: list[dict] = []
+    founder_caught_up: dict[str, bool] = {}
     if os.environ.get("SKIP_FOUNDERS") not in {"1", "true", "yes"}:
         for chain in CHAINS:
             try:
@@ -1399,6 +1430,7 @@ def main() -> int:
             except Exception as err:
                 print(f"[{chain['name']}] founder scan crashed, skipping: {err}", file=sys.stderr)
                 continue
+            founder_caught_up[str(chain["id"])] = caught_up
             if not caught_up:
                 continue  # cold backfill still catching up; don't post a partial count
             try:
@@ -1418,6 +1450,7 @@ def main() -> int:
 
     summary_window_days = SUMMARY_WINDOW_SECONDS // 86400
     all_chains = build_all_chains_rollup(summaries, rollup_parts, summary_window_days)
+    founders_rollup = build_founders_rollup(founders_state, founder_caught_up)
 
     if dry_run:
         for entry in md_entries:
@@ -1428,13 +1461,14 @@ def main() -> int:
         for s in summaries:
             print("[summary] " + json.dumps(s))
         print("[allChains] " + json.dumps(all_chains))
+        print("[founders] " + json.dumps(founders_rollup))
         for row in leaderboard:
             print("[leaderboard] " + json.dumps(row))
     else:
         write_queue(md_entries)
         write_queue_json(json_entries, now_iso)
         if summaries:
-            write_summary(summaries, all_chains, now_iso)
+            write_summary(summaries, all_chains, founders_rollup, now_iso)
         write_leaderboard(leaderboard, now_iso)
         save_state(state)
         save_founders_state(founders_state)
