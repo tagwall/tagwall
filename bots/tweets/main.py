@@ -47,7 +47,8 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -656,7 +657,37 @@ def process_chain(
     return md_entries, json_entries
 
 
-def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
+def gini_coefficient(values: list[int]) -> float:
+    """Gini of a paints-per-painter distribution. 0 = everyone painted
+    equally; 1 = one wallet did everything. Secondary north-star metric
+    (PRD council refinement #4): a high Gini means activity is
+    whale-driven, so a rising paint count with a rising Gini is a vanity
+    signal, not real breadth. Returns 0.0 for an empty/zero distribution.
+    """
+    vals = sorted(v for v in values if v > 0)
+    n = len(vals)
+    total = sum(vals)
+    if n == 0 or total == 0:
+        return 0.0
+    # Mean-absolute-difference form: sum_i (2*(i+1) - n - 1) * x_i over n*total.
+    weighted = sum((2 * (i + 1) - n - 1) * v for i, v in enumerate(vals))
+    return round(weighted / (n * total), 4)
+
+
+def daily_buckets(
+    counts_by_date: dict[str, int], window_days: int, end_date: datetime,
+) -> list[dict]:
+    """Dense per-day series ending at `end_date` (UTC), zero-filled so the
+    frontend sparkline has one bucket per day even on quiet days.
+    """
+    series: list[dict] = []
+    for back in range(window_days - 1, -1, -1):
+        day = (end_date - timedelta(days=back)).strftime("%Y-%m-%d")
+        series.append({"date": day, "paints": counts_by_date.get(day, 0)})
+    return series
+
+
+def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict], dict]:
     """Scan the trailing SUMMARY_WINDOW_SECONDS of Painted events on
     this chain and return (summary_stats, referrer_earnings) where:
 
@@ -680,14 +711,16 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
     rpc = os.environ.get(chain["rpc_env"]) or chain["rpc_default"]
     if not rpc:
         print(f"[{chain['name']}] summary: no RPC configured")
-        return None, {}
+        return None, {}, {}
 
     w3 = Web3(Web3.HTTPProvider(rpc))
     try:
-        latest = w3.eth.block_number
+        latest_block = w3.eth.get_block("latest")
+        latest = latest_block["number"]
+        latest_ts = latest_block["timestamp"]
     except Exception as err:
         print(f"[{chain['name']}] summary: RPC unreachable: {err}", file=sys.stderr)
-        return None, {}
+        return None, {}, {}
 
     canvas_address = Web3.to_checksum_address(
         chain.get("canvas_address") or os.environ["CANVAS_ADDRESS"]
@@ -706,7 +739,12 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
     paint_count = 0
     overpaint_count = 0
     total_volume_wei = 0
-    unique_painters: set[str] = set()
+    # Paints per painter (for the unique count + Gini distribution) and
+    # paints per calendar day (for the activity sparkline). The block
+    # timestamp is approximated from the block number to avoid an extra
+    # getBlock per event: ts ~= latest_ts - (latest - block) * block_time.
+    painter_counts: Counter = Counter()
+    daily_counts: dict[str, int] = {}
     unique_referrers: set[str] = set()
     # Per-referrer aggregates on THIS chain. Keyed lowercased so the
     # cross-chain rollup in main() can merge without case mismatches.
@@ -738,7 +776,10 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
             args = ev["args"]
             paint_count += 1
             total_volume_wei += args["pricePaid"]
-            unique_painters.add(args["painter"].lower())
+            painter_counts[args["painter"].lower()] += 1
+            approx_ts = latest_ts - (latest - ev["blockNumber"]) * block_time
+            day = datetime.fromtimestamp(approx_ts, timezone.utc).strftime("%Y-%m-%d")
+            daily_counts[day] = daily_counts.get(day, 0) + 1
             if is_overpaint(args["pricePaid"], args["pixelsPainted"], floor_wei):
                 overpaint_count += 1
 
@@ -787,10 +828,13 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
             "txUrl": f"{chain['explorer_tx']}{tx_hash_hex}",
         }
 
+    window_days = SUMMARY_WINDOW_SECONDS // 86400
+    gini = gini_coefficient(list(painter_counts.values()))
+
     print(
         f"[{chain['name']}] summary: {paint_count} paints, "
-        f"{overpaint_count} overpaints, {len(unique_painters)} unique painters, "
-        f"{len(unique_referrers)} unique referrers"
+        f"{overpaint_count} overpaints, {len(painter_counts)} unique painters, "
+        f"{len(unique_referrers)} unique referrers, gini {gini}"
     )
 
     summary_stats = {
@@ -801,16 +845,54 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict]]:
         "windowEndBlock": latest,
         "paintCount": paint_count,
         "overpaintCount": overpaint_count,
-        "uniquePainters": len(unique_painters),
+        "uniquePainters": len(painter_counts),
         "uniqueReferrers": len(unique_referrers),
+        "gini": gini,
         "totalVolumeFormatted": format_price(total_volume_wei, chain["native"]),
+        "dailyActivity": daily_buckets(daily_counts, window_days, datetime.now(timezone.utc)),
         "biggestByPixels": fmt_peak(biggest_by_pixels),
         "biggestByPrice": fmt_peak(biggest_by_price),
     }
-    return summary_stats, referrer_data
+    # Third element feeds the cross-chain roll-up in main(): the painter
+    # distribution (for a true dedup union + combined Gini) and the raw
+    # per-day counts (for a combined sparkline). Not serialised per chain.
+    rollup_parts = {"painterCounts": painter_counts, "dailyCounts": daily_counts}
+    return summary_stats, referrer_data, rollup_parts
 
 
-def write_summary(summaries: list[dict], now_iso: str) -> None:
+def build_all_chains_rollup(
+    summaries: list[dict], rollup_parts: list[dict], window_days: int,
+) -> dict:
+    """Cross-chain roll-up for the /ops headline strip. Unique painters is
+    a TRUE union (a wallet active on PulseChain and HyperEVM counts once),
+    which can't be derived from the per-chain counts alone. Gini is on the
+    combined paints-per-painter distribution. Daily activity sums each
+    chain's per-day counts so the sparkline reflects all chains at once.
+    """
+    combined_counts: Counter = Counter()
+    combined_daily: dict[str, int] = {}
+    for parts in rollup_parts:
+        combined_counts.update(parts.get("painterCounts", {}))
+        for day, n in parts.get("dailyCounts", {}).items():
+            combined_daily[day] = combined_daily.get(day, 0) + n
+    total_paints = sum(s["paintCount"] for s in summaries)
+    total_overpaints = sum(s["overpaintCount"] for s in summaries)
+    return {
+        "chainCount": len(summaries),
+        "totalPaints": total_paints,
+        "totalOverpaints": total_overpaints,
+        # Window is 7 days, so "unique painters" == "weekly-active painters".
+        # Surfaced under both names so the frontend can label either way.
+        "uniquePainters": len(combined_counts),
+        "weeklyActivePainters": len(combined_counts),
+        "gini": gini_coefficient(list(combined_counts.values())),
+        "dailyActivity": daily_buckets(
+            combined_daily, window_days, datetime.now(timezone.utc)
+        ),
+    }
+
+
+def write_summary(summaries: list[dict], all_chains: dict, now_iso: str) -> None:
     """Always overwrite summary.json with the current snapshot. Unlike
     queue.json, summary stats are stateless: every run recomputes from
     scratch, so a no-op run still produces a fresh `generatedAt` but
@@ -825,6 +907,7 @@ def write_summary(summaries: list[dict], now_iso: str) -> None:
         "generatedAt": now_iso,
         "windowDays": SUMMARY_WINDOW_SECONDS // 86400,
         "minPixels": MIN_PIXELS,
+        "allChains": all_chains,
         "chains": summaries,
     }
     SUMMARY_JSON_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -1270,6 +1353,7 @@ def main() -> int:
     # summary cards + the cross-chain referrer leaderboard.
     summaries: list[dict] = []
     per_chain_referrers: list[dict[str, dict]] = []
+    rollup_parts: list[dict] = []
     if os.environ.get("SKIP_SUMMARY") not in {"1", "true", "yes"}:
         for chain in CHAINS:
             # One chain's RPC blowing up (e.g. HyperEVM's eth_getLogs
@@ -1277,13 +1361,14 @@ def main() -> int:
             # would skip write_summary entirely and freeze every chain's
             # data. Isolate each chain so the others still publish.
             try:
-                s, referrers = compute_weekly_summary(chain)
+                s, referrers, parts = compute_weekly_summary(chain)
             except Exception as err:
                 print(f"[{chain['name']}] summary scan crashed, skipping: {err}", file=sys.stderr)
                 continue
             if s is not None:
                 summaries.append(s)
                 per_chain_referrers.append(referrers)
+                rollup_parts.append(parts)
     else:
         print("SKIP_SUMMARY set; skipping weekly summary scan")
 
@@ -1331,6 +1416,9 @@ def main() -> int:
     md_entries = founder_md + md_entries
     json_entries = founder_json + json_entries
 
+    summary_window_days = SUMMARY_WINDOW_SECONDS // 86400
+    all_chains = build_all_chains_rollup(summaries, rollup_parts, summary_window_days)
+
     if dry_run:
         for entry in md_entries:
             print("---")
@@ -1339,13 +1427,14 @@ def main() -> int:
             print("[json] " + json.dumps(entry))
         for s in summaries:
             print("[summary] " + json.dumps(s))
+        print("[allChains] " + json.dumps(all_chains))
         for row in leaderboard:
             print("[leaderboard] " + json.dumps(row))
     else:
         write_queue(md_entries)
         write_queue_json(json_entries, now_iso)
         if summaries:
-            write_summary(summaries, now_iso)
+            write_summary(summaries, all_chains, now_iso)
         write_leaderboard(leaderboard, now_iso)
         save_state(state)
         save_founders_state(founders_state)
