@@ -60,6 +60,10 @@ export default function App() {
           {/* Backward-compat: the page used to live at /queue. Keep
               the redirect so any operator bookmarks still resolve. */}
           <Route path="/queue" element={<Navigate to="/tweets" replace />} />
+          {/* Catch-all: any unknown path lands on the canvas rather than a
+              blank screen. A mistyped URL or a stale deep link should never
+              dead-end. Kept last so it only matches when nothing else did. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

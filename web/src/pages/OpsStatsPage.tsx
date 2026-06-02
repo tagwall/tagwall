@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { formatEther } from 'viem'
 
 import { chainColorTokens } from '../lib/chainColor'
-import { useViewerChainId } from '../lib/viewerChain'
-import { usePaintedRegions } from '../hooks/usePaintedRegions'
 import { GENESIS_CAP, FOUNDER_CAP } from '../lib/founders'
 import { OPS_CHAINS, useCrossChainLive, type ChainLive } from '../hooks/useCrossChainLive'
+import { useAllChainsCoverage, type ChainCoverage } from '../hooks/useAllChainsCoverage'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 
 /**
@@ -31,20 +30,14 @@ import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
  *      without switching wallets. The bot already tracks distinct painters
  *      incrementally (founders_state.json) for the scarcity tweets, so this
  *      rollup is free; a chain still cold-scanning is flagged "scanning".
- *   4. usePaintedRegions(): VIEWER-CHAIN-ONLY canvas coverage, computed
- *      client-side for free because the regions are already loaded for the
- *      canvas on that chain.
+ *   4. useAllChainsCoverage(): all-time canvas coverage for EVERY chain,
+ *      computed client-side by scanning each chain's Painted log. This is
+ *      the expensive metric (one eth_call can't return distinct pixels), so
+ *      it lives only on this operator page, runs once per session, and each
+ *      chain fails soft to an offline row. See the hook for the rationale.
  *
- * The one metric deliberately NOT cross-chain is all-time coverage. That
- * needs a full multi-chain log scan the browser shouldn't do on load, and
- * the founders scanner caps at 1000 painters without geometry. Coverage is
- * shown live for the viewer's chain only; the 7-day trend stands in for
- * cross-chain momentum.
+ * The 7-day trend stands in for cross-chain momentum.
  */
-
-const WALL_W = 1250
-const WALL_H = 800
-const TOTAL_PIXELS = WALL_W * WALL_H
 
 /** Daily-activity point as written by the bot's rollup. */
 interface DailyPoint {
@@ -182,46 +175,6 @@ function compareRows(a: OpsRow, b: OpsRow, key: SortKey): number {
   }
 }
 
-/**
- * Viewer-chain coverage, computed from the regions already loaded for the
- * canvas. Walks each stamp's cells into a Map<cell, paintCount> so we can
- * report both unique covered pixels and pixels painted 2+ times (the PRD's
- * "overwritten at least once" co-primary metric).
- *
- * Guarded by a cell budget: if the summed stamp area is implausibly large
- * (a chain with millions of painted cells), we bail rather than allocate a
- * huge Map, and the UI falls back to the cheap summed figure. At launch
- * stage this guard never trips.
- */
-function useViewerCoverage() {
-  const { data: regions } = usePaintedRegions()
-  return useMemo(() => {
-    if (!regions || regions.length === 0) {
-      return { covered: 0, overwritten: 0, stamps: 0, exact: true }
-    }
-    const budget = 400_000
-    let area = 0
-    for (const r of regions) area += r.w * r.h
-    if (area > budget) {
-      // Too large to grid exactly; report the summed area as an upper bound.
-      return { covered: area, overwritten: 0, stamps: regions.length, exact: false }
-    }
-    const cells = new Map<number, number>()
-    for (const r of regions) {
-      for (let dy = 0; dy < r.h; dy++) {
-        const row = (r.y + dy) * WALL_W
-        for (let dx = 0; dx < r.w; dx++) {
-          const key = row + (r.x + dx)
-          cells.set(key, (cells.get(key) ?? 0) + 1)
-        }
-      }
-    }
-    let overwritten = 0
-    for (const count of cells.values()) if (count >= 2) overwritten++
-    return { covered: cells.size, overwritten, stamps: regions.length, exact: true }
-  }, [regions])
-}
-
 interface KpiProps {
   label: string
   value: string
@@ -301,9 +254,7 @@ export default function OpsStatsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('stampCount')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  const viewerChainId = useViewerChainId()
-  const coverage = useViewerCoverage()
-  const viewerChain = OPS_CHAINS.find((c) => c.id === viewerChainId)
+  const coverage = useAllChainsCoverage()
 
   // Fetch /summary.json on mount (cache-bust to the minute, matching the
   // bot cadence and the other pages). Missing/stale summary is non-fatal:
@@ -374,7 +325,6 @@ export default function OpsStatsPage() {
   const gLabel = roll ? giniLabel(roll.gini) : null
 
   const founderBoard = summary?.founders ?? []
-  const coveragePct = (coverage.covered / TOTAL_PIXELS) * 100
 
   return (
     <div className="shell-measure share-page ops-page">
@@ -516,38 +466,47 @@ export default function OpsStatsPage() {
         )}
       </section>
 
-      {/* Canvas coverage stays viewer-chain-only: an exact cross-chain
-          figure needs a full multi-chain log scan the browser shouldn't run
-          on load, so this reflects the chain you're connected to. */}
-      <section className="ops-section ops-founders" aria-label="Canvas coverage">
+      {/* Canvas coverage for EVERY chain, scanned client-side on this
+          operator page (one Painted-log walk per chain, cached for the
+          session). Each chain fails soft to an "offline" row. */}
+      <section className="ops-section" aria-label="Canvas coverage">
         <header className="ops-section-head">
-          <h2>Canvas coverage</h2>
+          <h2>Canvas coverage · all chains</h2>
           <span className="ops-section-sub">
-            live for {viewerChain?.name ?? 'your chain'} only · exact, client-side
+            {coverage.isLoading
+              ? 'scanning every chain…'
+              : `${(coverage.totalCovered ?? 0).toLocaleString()} pixels painted across chains · exact, client-side`}
           </span>
         </header>
-        <div className="ops-coverage">
-          <div className="ops-coverage-stat">
-            <span className="ops-coverage-num">
-              {coverage.exact ? `${coveragePct.toFixed(coveragePct < 1 ? 3 : 1)}%` : '—'}
-            </span>
-            <span className="ops-coverage-label">
-              canvas coverage{coverage.exact ? '' : ' (too large to grid)'}
-            </span>
-          </div>
-          <div className="ops-coverage-stat">
-            <span className="ops-coverage-num">{coverage.covered.toLocaleString()}</span>
-            <span className="ops-coverage-label">pixels painted</span>
-          </div>
-          <div className="ops-coverage-stat">
-            <span className="ops-coverage-num">{coverage.overwritten.toLocaleString()}</span>
-            <span className="ops-coverage-label">overwritten ≥ once</span>
-          </div>
-          <div className="ops-coverage-stat">
-            <span className="ops-coverage-num">{coverage.stamps.toLocaleString()}</span>
-            <span className="ops-coverage-label">stamps</span>
-          </div>
+        <div className="ops-table-wrap">
+          <table className="ops-table">
+            <thead>
+              <tr>
+                <th className="ops-th ops-th-left">Chain</th>
+                <th className="ops-th ops-th-right">Coverage</th>
+                <th className="ops-th ops-th-right">Pixels painted</th>
+                <th className="ops-th ops-th-right">Overwritten ≥ once</th>
+                <th className="ops-th ops-th-right">Stamps</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coverage.chains.length === 0 && coverage.isLoading ? (
+                <tr>
+                  <td className="ops-td-chain" colSpan={5}>
+                    Scanning each chain's paint history…
+                  </td>
+                </tr>
+              ) : (
+                coverage.chains.map((c) => <CoverageRow key={c.chainId} row={c} />)
+              )}
+            </tbody>
+          </table>
         </div>
+        <p className="ops-table-foot">
+          Coverage is the share of the 1,000,000-pixel wall touched at least once.
+          Overwrite counts pixels painted two or more times (the PRD's "overwritten at
+          least once" co-primary metric). Figures are raw on-chain geometry, unfiltered.
+        </p>
       </section>
 
       {/* Reuse the cross-chain referrer board verbatim. */}
@@ -579,6 +538,36 @@ function SortableTh({ label, col, sortKey, sortDir, toggleSort, align = 'right' 
         <span className="ops-th-caret">{active ? (sortDir === 'asc' ? '▲' : '▼') : ''}</span>
       </button>
     </th>
+  )
+}
+
+/** One chain's coverage row in the all-chains coverage table. */
+function CoverageRow({ row }: { row: ChainCoverage }) {
+  const tint = chainColorTokens(row.chainId).hex
+  const pct = row.coveragePct
+  const pctText = !row.ok
+    ? '—'
+    : row.exact
+      ? `${pct.toFixed(pct < 1 ? 3 : 1)}%`
+      : `~${pct.toFixed(1)}%`
+  return (
+    <tr className={row.ok ? '' : 'ops-row-down'}>
+      <td className="ops-td-chain">
+        <span className="ops-chain-dot" style={{ background: tint }} />
+        {row.name}
+        {!row.ok && (
+          <span className="ops-chain-down" title="RPC didn't respond">
+            offline
+          </span>
+        )}
+      </td>
+      <td className="ops-td-num" title={row.exact ? '' : 'stamp area too large to grid exactly; upper bound'}>
+        {pctText}
+      </td>
+      <td className="ops-td-num">{row.ok ? row.covered.toLocaleString() : '—'}</td>
+      <td className="ops-td-num">{row.ok ? row.overwritten.toLocaleString() : '—'}</td>
+      <td className="ops-td-num">{row.ok ? row.stamps.toLocaleString() : '—'}</td>
+    </tr>
   )
 }
 

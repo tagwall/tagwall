@@ -7,6 +7,7 @@ import { useAccount, useChainId } from 'wagmi'
 import { canvasAddress } from '../contracts/canvas'
 import { useLivePaintedRefresh } from '../hooks/useLivePaintedRefresh'
 import { chainColorTokens } from '../lib/chainColor'
+import { shortenAddress } from '../lib/format'
 import { TELEGRAM_URL, TWITTER_URL } from '../lib/socials'
 import { ConnectBar } from './ConnectBar'
 import { SprayTrail } from './SprayTrail'
@@ -96,7 +97,8 @@ export function AppLayout() {
         <div className="site-footer-left">
           <small>
             Tagwall is an immutable 1,000,000-pixel on-chain graffiti wall.
-            Canvas at <code>{canvasAddress(chainId)}</code>.
+            Canvas at{' '}
+            <code title={canvasAddress(chainId)}>{shortenAddress(canvasAddress(chainId))}</code>.
           </small>
         </div>
         <div className="site-footer-socials" aria-label="Socials">
