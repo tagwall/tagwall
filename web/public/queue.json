@@ -1,6 +1,17 @@
 {
-  "generatedAt": "2026-06-01T19:14:33Z",
+  "generatedAt": "2026-06-01T23:59:32Z",
   "entries": [
+    {
+      "id": "scarcity-56-2026-06-01",
+      "kind": "scarcity",
+      "chain": "BSC",
+      "chainId": 56,
+      "queuedAt": "2026-06-01T23:59:32Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
     {
       "id": "scarcity-369-2026-06-01",
       "kind": "scarcity",

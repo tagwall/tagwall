@@ -13,6 +13,12 @@ scanning all four EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **BSC** · 2026-06-02 00:08 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
 - [ ] **PulseChain** · 2026-06-01 19:21 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text
