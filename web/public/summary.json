@@ -1,19 +1,150 @@
 {
-  "generatedAt": "2026-06-02T04:54:56Z",
+  "generatedAt": "2026-06-02T09:05:37Z",
   "windowDays": 7,
   "minPixels": 100,
+  "allChains": {
+    "chainCount": 4,
+    "totalPaints": 1,
+    "totalOverpaints": 0,
+    "uniquePainters": 1,
+    "weeklyActivePainters": 1,
+    "gini": 0.0,
+    "dailyActivity": [
+      {
+        "date": "2026-05-27",
+        "paints": 0
+      },
+      {
+        "date": "2026-05-28",
+        "paints": 0
+      },
+      {
+        "date": "2026-05-29",
+        "paints": 0
+      },
+      {
+        "date": "2026-05-30",
+        "paints": 0
+      },
+      {
+        "date": "2026-05-31",
+        "paints": 1
+      },
+      {
+        "date": "2026-06-01",
+        "paints": 0
+      },
+      {
+        "date": "2026-06-02",
+        "paints": 0
+      }
+    ]
+  },
+  "founders": [
+    {
+      "chainId": 369,
+      "chain": "PulseChain",
+      "native": "PLS",
+      "caughtUp": true,
+      "claimed": 1,
+      "genesisClaimed": 1,
+      "founderClaimed": 0,
+      "genesisLeft": 99,
+      "founderLeft": 900,
+      "totalLeft": 999
+    },
+    {
+      "chainId": 1,
+      "chain": "Ethereum",
+      "native": "ETH",
+      "caughtUp": true,
+      "claimed": 1,
+      "genesisClaimed": 1,
+      "founderClaimed": 0,
+      "genesisLeft": 99,
+      "founderLeft": 900,
+      "totalLeft": 999
+    },
+    {
+      "chainId": 8453,
+      "chain": "Base",
+      "native": "ETH",
+      "caughtUp": true,
+      "claimed": 1,
+      "genesisClaimed": 1,
+      "founderClaimed": 0,
+      "genesisLeft": 99,
+      "founderLeft": 900,
+      "totalLeft": 999
+    },
+    {
+      "chainId": 56,
+      "chain": "BSC",
+      "native": "BNB",
+      "caughtUp": true,
+      "claimed": 1,
+      "genesisClaimed": 1,
+      "founderClaimed": 0,
+      "genesisLeft": 99,
+      "founderLeft": 900,
+      "totalLeft": 999
+    },
+    {
+      "chainId": 999,
+      "chain": "HyperEVM",
+      "native": "HYPE",
+      "caughtUp": true,
+      "claimed": 1,
+      "genesisClaimed": 1,
+      "founderClaimed": 0,
+      "genesisLeft": 99,
+      "founderLeft": 900,
+      "totalLeft": 999
+    }
+  ],
   "chains": [
     {
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26621995,
-      "windowEndBlock": 26682475,
+      "windowStartBlock": 26623420,
+      "windowEndBlock": 26683900,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
       "uniqueReferrers": 0,
+      "gini": 0.0,
       "totalVolumeFormatted": "0.000000 PLS",
+      "dailyActivity": [
+        {
+          "date": "2026-05-27",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-28",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-29",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-30",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-31",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-01",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-02",
+          "paints": 0
+        }
+      ],
       "biggestByPixels": null,
       "biggestByPrice": null
     },
@@ -21,13 +152,44 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25177042,
-      "windowEndBlock": 25227442,
+      "windowStartBlock": 25178292,
+      "windowEndBlock": 25228692,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
       "uniqueReferrers": 0,
+      "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
+      "dailyActivity": [
+        {
+          "date": "2026-05-27",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-28",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-29",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-30",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-31",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-01",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-02",
+          "paints": 0
+        }
+      ],
       "biggestByPixels": null,
       "biggestByPrice": null
     },
@@ -35,27 +197,44 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 46490992,
-      "windowEndBlock": 46793392,
+      "windowStartBlock": 46498509,
+      "windowEndBlock": 46800909,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
       "uniqueReferrers": 0,
+      "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
-      "biggestByPixels": null,
-      "biggestByPrice": null
-    },
-    {
-      "chain": "BSC",
-      "chainId": 56,
-      "native": "BNB",
-      "windowStartBlock": 100611170,
-      "windowEndBlock": 101820770,
-      "paintCount": 0,
-      "overpaintCount": 0,
-      "uniquePainters": 0,
-      "uniqueReferrers": 0,
-      "totalVolumeFormatted": "0.000000 BNB",
+      "dailyActivity": [
+        {
+          "date": "2026-05-27",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-28",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-29",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-30",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-31",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-01",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-02",
+          "paints": 0
+        }
+      ],
       "biggestByPixels": null,
       "biggestByPrice": null
     },
@@ -63,13 +242,44 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 36118286,
-      "windowEndBlock": 36723086,
+      "windowStartBlock": 36133437,
+      "windowEndBlock": 36738237,
       "paintCount": 1,
       "overpaintCount": 0,
       "uniquePainters": 1,
       "uniqueReferrers": 0,
+      "gini": 0.0,
       "totalVolumeFormatted": "0.0005 HYPE",
+      "dailyActivity": [
+        {
+          "date": "2026-05-27",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-28",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-29",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-30",
+          "paints": 0
+        },
+        {
+          "date": "2026-05-31",
+          "paints": 1
+        },
+        {
+          "date": "2026-06-01",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-02",
+          "paints": 0
+        }
+      ],
       "biggestByPixels": {
         "x": 0,
         "y": 0,
