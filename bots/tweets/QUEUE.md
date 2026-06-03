@@ -13,6 +13,12 @@ scanning all four EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **HyperEVM** · 2026-06-03 05:34 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on HyperEVM. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
 - [ ] **PulseChain** · 2026-06-03 00:27 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text

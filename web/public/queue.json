@@ -1,6 +1,17 @@
 {
-  "generatedAt": "2026-06-03T00:26:55Z",
+  "generatedAt": "2026-06-03T05:28:00Z",
   "entries": [
+    {
+      "id": "scarcity-999-2026-06-03",
+      "kind": "scarcity",
+      "chain": "HyperEVM",
+      "chainId": 999,
+      "queuedAt": "2026-06-03T05:28:00Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on HyperEVM. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
     {
       "id": "scarcity-369-2026-06-03",
       "kind": "scarcity",
