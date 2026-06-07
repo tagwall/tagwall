@@ -201,6 +201,30 @@ function CanvasView({
   useEffect(() => {
     if (initialHover) setHover(initialHover)
   }, [initialHover?.x, initialHover?.y])
+
+  // Deep link (/pixel/x-y): zoom in and scroll so the linked tag is
+  // centred in the viewport. Previously the route only set an off-screen
+  // hover, so the link appeared to "do nothing". The timeout lets the
+  // zoom re-render settle before we read the post-zoom stack size for the
+  // scroll math.
+  useEffect(() => {
+    if (!initialHover) return
+    setZoom((z) => (z < 3 ? 3 : z))
+    const id = window.setTimeout(() => {
+      const scroller = canvasScrollRef.current
+      const stack = canvasStackRef.current
+      if (!scroller || !stack) return
+      const sr = stack.getBoundingClientRect()
+      if (!sr.width || !sr.height) return
+      const left =
+        ((initialHover.x + 16) / canvasWidth) * sr.width - scroller.clientWidth / 2
+      const top =
+        ((initialHover.y + 16) / canvasHeight) * sr.height - scroller.clientHeight / 2
+      scroller.scrollTo({ left: Math.max(0, left), top: Math.max(0, top), behavior: 'smooth' })
+    }, 150)
+    return () => window.clearTimeout(id)
+  }, [initialHover?.x, initialHover?.y, canvasWidth, canvasHeight])
+
   const debouncedHover = useDebounced(hover, HOVER_DEBOUNCE_MS)
   const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null)
   // Once the user has touched the draft (clicked / dragged / resized
@@ -599,6 +623,14 @@ function CanvasView({
     const ctx = el.getContext('2d')
     if (!ctx) return
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+    // Deep-link marker: frame the linked tag in lime so a /pixel/x-y
+    // visitor sees exactly which tag they were sent to (drawn even with no
+    // draft loaded). Seed tags are 32×32 from the linked top-left.
+    if (initialHover) {
+      ctx.strokeStyle = '#A8FF2E'
+      ctx.lineWidth = 2
+      ctx.strokeRect(initialHover.x - 1, initialHover.y - 1, 34, 34)
+    }
     if (!paint.draft) return
     const d = paint.draft
     for (let dy = 0; dy < d.h; dy++) {
@@ -629,7 +661,7 @@ function CanvasView({
         ctx.fillRect(cx - hs, cy - hs, hs * 2, hs * 2)
       }
     }
-  }, [paint.draft, canvasWidth, canvasHeight])
+  }, [paint.draft, canvasWidth, canvasHeight, initialHover?.x, initialHover?.y])
 
   /** Hit-test: is the canvas-space point (cx, cy) on one of the stamp's corners? */
   function hitCornerHandle(cx: number, cy: number): {
@@ -1021,14 +1053,6 @@ function CanvasView({
           chainId={chainId}
           onRequestOutbound={setOutboundUrl}
         />
-        {/* Sibling to the per-paint Leaderboard above. Data source is
-            entirely independent — the tweets bot computes it server-
-            side from cross-chain Painted events and ENS reverse
-            lookups, so this component has zero RPC / wagmi coupling
-            and renders the same way regardless of the connected
-            chain. Lives in the activity-dock so it shares the same
-            "scores" mobile tab as the per-paint board. */}
-        <ReferrersLeaderboard />
         <ActivityFeed
           regions={regions}
           isLoading={regionsLoading}
@@ -1036,6 +1060,13 @@ function CanvasView({
           nativeSymbol={nativeSymbol}
           onRequestOutbound={setOutboundUrl}
         />
+        {/* Sibling to the per-paint Leaderboard. Data source is entirely
+            independent — the tweets bot computes it server-side from
+            cross-chain Painted events and ENS reverse lookups, so this
+            component has zero RPC / wagmi coupling and renders the same
+            regardless of the connected chain. Third column of the dock row;
+            shares the "scores" mobile tab as the per-paint board. */}
+        <ReferrersLeaderboard />
         <StatsCards regions={regions} />
       </div>
       <OutboundLinkModal url={outboundUrl} onClose={() => setOutboundUrl(null)} />
@@ -1081,16 +1112,21 @@ const DEFAULT_CANVAS_WIDTH = 1250
 const DEFAULT_CANVAS_HEIGHT = 800
 
 /**
- * Read the `/pixel/x,y` route param into a coord, if the current route
+ * Read the `/pixel/x-y` route param into a coord, if the current route
  * matches. Returns null when not on that route or when the param is
- * malformed. Deep-link entry point: https://tagwall.io/pixel/123,456
+ * malformed. Deep-link entry point: https://tagwall.io/pixel/123-456
  * opens the canvas with the info panel focused on pixel (123, 456).
+ *
+ * Accepts either a hyphen (`123-456`, preferred — survives tweet/DM URL
+ * auto-linking) or a comma (`123,456`, legacy — clients truncate the link
+ * at the comma, so don't share these). Coords are non-negative, so the
+ * hyphen is unambiguous.
  */
 function useDeepLinkedPixel(): { x: number; y: number } | null {
   const { coord } = useParams()
   return useMemo(() => {
     if (!coord) return null
-    const [xs, ys] = coord.split(',')
+    const [xs, ys] = coord.split(/[,-]/)
     const x = Number(xs)
     const y = Number(ys)
     if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0) return null

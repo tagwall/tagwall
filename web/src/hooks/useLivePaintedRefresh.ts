@@ -1,10 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useWatchContractEvent } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { useViewerChainId } from '../lib/viewerChain'
 import { TILE_SIZE } from './useTilePixels'
+
+// Periodic backstop re-scan interval. The event watcher below catches new
+// paints in ~real time; this only covers the case where the RPC drops a log.
+// Gentle on purpose, and guarded so it never overlaps an in-flight scan.
+const PERIODIC_REFRESH_MS = 90_000
 
 /**
  * Subscribes to the Canvas `Painted` event and invalidates TanStack Query
@@ -32,6 +37,23 @@ export function useLivePaintedRefresh() {
   // only refreshes on hard reload. Passing chainId here makes the watcher
   // re-subscribe whenever the dropdown switches chains.
   const chainId = useViewerChainId()
+
+  // Guarded periodic backstop: re-scan painted-regions on an interval, but
+  // SKIP the tick if a scan (regions or any tile) is still in flight. Once
+  // the wall is busy a scan can take a while; this guarantees we never pile
+  // a fresh refresh on top of a slow one. Only invalidates the lightweight
+  // regions + leaderboard queries (not every tile) so it stays cheap.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const inFlight =
+        queryClient.isFetching({ queryKey: ['painted-regions'] }) +
+        queryClient.isFetching({ queryKey: ['tile-pixels'] })
+      if (inFlight > 0) return
+      queryClient.invalidateQueries({ queryKey: ['painted-regions'] })
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] })
+    }, PERIODIC_REFRESH_MS)
+    return () => window.clearInterval(id)
+  }, [queryClient])
 
   useWatchContractEvent({
     address: canvasAddress(chainId),
