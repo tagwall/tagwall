@@ -1312,6 +1312,12 @@ a.lb-ticker-link:focus-visible {
   .canvas-col .paint-bar .pz {
     border-right: none;
     border-bottom: 1px solid var(--tw-line);
+    /* Reset the explicit grid-column/grid-row placements set by the
+       max-width:1100 block. In this single-column rail (980-1100px
+       viewport) those leak through and stack zones on top of each
+       other (Image/Metadata/Pricing overlap). Force auto-flow. */
+    grid-column: auto !important;
+    grid-row: auto !important;
   }
   .canvas-col .paint-bar .pz:last-child {
     border-bottom: none;
@@ -1896,7 +1902,7 @@ a.lb-ticker-link:focus-visible {
   .paint-bar {
     grid-template-columns: 1fr;
   }
-  .paint-bar .pz { grid-column: 1 !important; border-right: none !important; border-bottom: 1px solid var(--tw-line); }
+  .paint-bar .pz { grid-column: 1 !important; grid-row: auto !important; border-right: none !important; border-bottom: 1px solid var(--tw-line); }
   .paint-bar .pz:last-child { border-bottom: none; }
 }
 .pz {
@@ -2330,6 +2336,37 @@ a.lb-ticker-link:focus-visible {
 }
 .pz-status-err { color: var(--warn); }
 .pz-status-info { color: var(--tw-fg); }
+/* In-flight paint: the CTA is disabled while pending, but it should read as
+   "working", not dead. Accent-tint it and show a spinner so the user can see
+   the paint is actually in progress. */
+.pz-tag-btn-busy,
+.pz-tag-btn-busy:disabled {
+  background: color-mix(in srgb, var(--tw-accent) 22%, var(--tw-panel-2));
+  color: var(--tw-fg);
+  box-shadow: none;
+  cursor: progress;
+}
+.pz-tag-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid color-mix(in srgb, var(--tw-accent) 35%, transparent);
+  border-top-color: var(--tw-accent);
+  border-radius: 50%;
+  animation: pz-zoom-spin 0.7s linear infinite;
+}
+/* Pulse the "broadcast; waiting for a block" line so it reads as live. */
+.pz-status-busy { animation: pz-status-pulse 1.2s ease-in-out infinite; }
+@keyframes pz-status-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-tag-spinner { animation: none; }
+  .pz-status-busy { animation: none; }
+}
 
 /* ======================================================================
    Metric strip — sits between the paint bar and the canvas. Replaces

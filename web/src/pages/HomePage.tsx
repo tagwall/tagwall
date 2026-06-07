@@ -317,6 +317,18 @@ function CanvasView({
   // even after usePaintSubmit's state rolls forward.
   const [successToast, setSuccessToast] = useState<`0x${string}` | null>(null)
 
+  // Dismissing the success toast (manual × or the 6s auto-timeout) also
+  // re-scans painted regions. By the time the toast clears the RPC has
+  // almost always indexed the paint, so this is a reliable refresh point
+  // that complements the post-submit retry invalidations. Light touch
+  // (regions + leaderboard, not every tile) to avoid the all-tiles
+  // refetch cost on each paint.
+  const dismissSuccessToast = useCallback(() => {
+    setSuccessToast(null)
+    queryClient.invalidateQueries({ queryKey: ['painted-regions'] })
+    queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] })
+  }, [queryClient])
+
   // On successful submit, surface a popover + clear the draft (removes
   // the overlay preview + resize handles).
   useEffect(() => {
@@ -324,9 +336,9 @@ function CanvasView({
     setSuccessToast(submit.hash)
     paint.clear()
     submit.reset()
-    const timer = setTimeout(() => setSuccessToast(null), 6000)
+    const timer = setTimeout(dismissSuccessToast, 6000)
     return () => clearTimeout(timer)
-  }, [submit.status, submit.hash])
+  }, [submit.status, submit.hash, dismissSuccessToast])
 
   // Remember which pixels we've already revealed this session so the canvas
   // accumulates painted state. Previously this was a Map<string, number>
@@ -1048,7 +1060,7 @@ function CanvasView({
           <span>Tag painted.</span>
           <code>{successToast.slice(0, 10)}…{successToast.slice(-6)}</code>
           <button
-            onClick={() => setSuccessToast(null)}
+            onClick={dismissSuccessToast}
             aria-label="Dismiss"
             title="Dismiss"
           >

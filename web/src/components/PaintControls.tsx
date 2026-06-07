@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatEther, isAddress, getAddress } from 'viem'
 import type { Address } from 'viem'
 
@@ -235,8 +235,30 @@ export function PaintControls({
   // Summing scalar-multiplies, so the batch calculation collapses to
   // `quoteTotal * reserveMultiplierBps / BPS`.
   const reserveBpsBig = BigInt(reserveBps)
+
+  // Transparent pixels (the 0xFFFFFFFF sentinel) are skipped by the contract
+  // with no charge, but quote(rect) prices the whole rectangle — so a logo
+  // with transparency over-quotes (e.g. a 32×32 logo that's mostly
+  // transparent quotes 1024 px but only pays for ~250). Scale the quote by
+  // the opaque fraction so the displayed cost AND the maxTotalCost we
+  // send/hold match what paint() actually charges. Exact on a virgin area
+  // (uniform floor price), a close approximation over mixed/overwrite areas.
+  // Skipped entirely for fully-opaque drafts (opaqueCount === pixelCount).
+  const opaqueCount = useMemo(() => {
+    if (!draft) return 0
+    let n = 0
+    for (let i = 0; i < draft.colors.length; i++) {
+      if ((draft.colors[i] >>> 0) !== 0xffffffff) n++
+    }
+    return n
+  }, [draft])
+  const effectiveQuoteTotal =
+    quoteTotal !== null && pixelCount > 0 && opaqueCount < pixelCount
+      ? (quoteTotal * BigInt(opaqueCount)) / BigInt(pixelCount)
+      : quoteTotal
+
   const liveScaledCost =
-    quoteTotal !== null ? (quoteTotal * reserveBpsBig) / BPS : null
+    effectiveQuoteTotal !== null ? (effectiveQuoteTotal * reserveBpsBig) / BPS : null
 
   // Stable display value: keep the last successful quote on screen during
   // re-fetches so dragging the stamp around doesn't make the price column
@@ -290,6 +312,12 @@ export function PaintControls({
   if (submitStatus === 'pending') submitLabel = 'Confirm in wallet…'
   else if (submitStatus === 'confirming') submitLabel = 'Pending transaction…'
   else if (submitStatus === 'success') submitLabel = 'Tagged. Go again?'
+
+  // Busy = paint in flight (awaiting wallet confirm, or broadcast and
+  // waiting for a block). The button is disabled in these states, so it
+  // gets a spinner + "working" styling rather than reading as a dead,
+  // greyed-out box.
+  const isBusy = submitStatus === 'pending' || submitStatus === 'confirming'
 
   // Priority ordering for the single inline status line. "Painted." success
   // is intentionally NOT handled here; it's surfaced via a toast popover
@@ -630,10 +658,12 @@ export function PaintControls({
               + smart-retry option. */}
           <div className="pz pz-cta">
             <button
-              className="pz-tag-btn"
+              className={`pz-tag-btn${isBusy ? ' pz-tag-btn-busy' : ''}`}
               disabled={submitDisabled}
               onClick={() => handleSubmit()}
+              aria-busy={isBusy}
             >
+              {isBusy && <span className="pz-tag-spinner" aria-hidden="true" />}
               {submitLabel}
               {!submitDisabled && submitStatus === 'idle' && ' →'}
             </button>
@@ -664,11 +694,16 @@ export function PaintControls({
                 onClick={() => handleSubmit({ skipUnchanged: true })}
                 title="Re-reads pixel state from the chain and only pays for pixels that don't already match your draft."
               >
-                Retry without re-paying
+                Finish paint
               </button>
             )}
             {statusLine && (
-              <div className={`pz-status pz-status-${statusLine.kind}`}>
+              <div
+                className={`pz-status pz-status-${statusLine.kind}${
+                  isBusy && statusLine.kind === 'info' ? ' pz-status-busy' : ''
+                }`}
+                aria-live="polite"
+              >
                 {statusLine.text}
               </div>
             )}

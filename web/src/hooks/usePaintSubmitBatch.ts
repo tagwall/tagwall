@@ -295,30 +295,46 @@ export function usePaintSubmitBatch() {
   // the tab past 4 GB every time a paint landed.
   useEffect(() => {
     if (state.status !== 'success') return
-    queryClient.invalidateQueries({ queryKey: ['painted-regions'] })
-    queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] })
 
     const rect = lastSubmittedRect.current
-    if (rect) {
-      const tx0 = Math.floor(rect.x / TILE_SIZE)
-      const ty0 = Math.floor(rect.y / TILE_SIZE)
-      const tx1 = Math.ceil((rect.x + rect.w) / TILE_SIZE)
-      const ty1 = Math.ceil((rect.y + rect.h) / TILE_SIZE)
-      const pending = new Set<string>()
-      for (let ty = ty0; ty < ty1; ty++) {
-        for (let tx = tx0; tx < tx1; tx++) pending.add(`${tx},${ty}`)
+
+    // One invalidation pass: canvas regions, leaderboard, and (if known)
+    // only the tiles the paint touched.
+    const runInvalidation = () => {
+      queryClient.invalidateQueries({ queryKey: ['painted-regions'] })
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] })
+      if (rect) {
+        const tx0 = Math.floor(rect.x / TILE_SIZE)
+        const ty0 = Math.floor(rect.y / TILE_SIZE)
+        const tx1 = Math.ceil((rect.x + rect.w) / TILE_SIZE)
+        const ty1 = Math.ceil((rect.y + rect.h) / TILE_SIZE)
+        const pending = new Set<string>()
+        for (let ty = ty0; ty < ty1; ty++) {
+          for (let tx = tx0; tx < tx1; tx++) pending.add(`${tx},${ty}`)
+        }
+        queryClient.invalidateQueries({
+          predicate: (q) => {
+            const k = q.queryKey
+            if (!Array.isArray(k) || k[0] !== 'tile-pixels') return false
+            const tx = k[3]
+            const ty = k[4]
+            if (typeof tx !== 'number' || typeof ty !== 'number') return false
+            return pending.has(`${tx},${ty}`)
+          },
+        })
       }
-      queryClient.invalidateQueries({
-        predicate: (q) => {
-          const k = q.queryKey
-          if (!Array.isArray(k) || k[0] !== 'tile-pixels') return false
-          const tx = k[3]
-          const ty = k[4]
-          if (typeof tx !== 'number' || typeof ty !== 'number') return false
-          return pending.has(`${tx},${ty}`)
-        },
-      })
     }
+
+    // Fire immediately, then re-run a few times. The just-mined block is
+    // often not yet queryable on the load-balanced public RPC, so the
+    // first eth_getLogs scan can miss the new paint — this is why a manual
+    // refresh "fixed" it. The retries ride out that indexing lag so the
+    // paint appears on its own within a few seconds, no manual refresh.
+    runInvalidation()
+    const timers = [2500, 6000, 12000].map((ms) =>
+      window.setTimeout(runInvalidation, ms),
+    )
+    return () => timers.forEach((t) => window.clearTimeout(t))
   }, [state.status, queryClient])
 
   const submit = useCallback(

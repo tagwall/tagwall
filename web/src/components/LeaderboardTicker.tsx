@@ -45,7 +45,7 @@ function formatNative(wei: bigint): string {
   return ether.toExponential(2)
 }
 
-const MAX_TICKER_ITEMS = 12
+const MAX_TICKER_ITEMS = 10
 
 interface Props {
   regions: readonly PaintedRegion[] | undefined
