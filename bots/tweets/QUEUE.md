@@ -13,6 +13,72 @@ scanning all four EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 184 px · 1,356,080 PLS · [tx](https://otter.pulsechain.com/tx/0x8004b96910beed14a32d4108809d4c29aab1b69c9ec1e8807a8638a9deb3ff91) · [pixel](https://tagwall.io/pixel/501,402)
+
+  ```text
+  🟦 PulseChain: 32×32 by 0x4279…5514, 184 px for 1,356,080 PLS. https://tagwall.io/pixel/501,402
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 412 px · 2,760,400 PLS · [tx](https://otter.pulsechain.com/tx/0x4d0f08a73e1c1b8936937f11d1553687dc733d16f0fea8a3d3fdeff8aa16c07d) · [pixel](https://tagwall.io/pixel/93,228)
+
+  ```text
+  🟦 PulseChain: 32×32 by 0x4279…5514, 412 px for 2,760,400 PLS. https://tagwall.io/pixel/93,228
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 184 px · 1,232,800 PLS · [tx](https://otter.pulsechain.com/tx/0x1ce7012cbc9b1a3625f9d1f5d5cd29feb1d96f2cba72140808e3399883b7a7e9) · [pixel](https://tagwall.io/pixel/501,402)
+
+  ```text
+  🟦 PulseChain: 32×32 by 0x4279…5514, 184 px for 1,232,800 PLS. https://tagwall.io/pixel/501,402
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 308 px · 2,269,960 PLS · [tx](https://otter.pulsechain.com/tx/0x3757ef271c87d5fd7ce0666ef28b376fde13168c13127617ccc5b745853f45ac) · [pixel](https://tagwall.io/pixel/674,35)
+
+  ```text
+  🎨 0x4279…5514 painted 32×32 on PulseChain for 2,269,960 PLS (308 px). https://tagwall.io/pixel/674,35
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 308 px · 2,063,600 PLS · [tx](https://otter.pulsechain.com/tx/0x1bb3ece67a96acf4f40842cbb7480af85414033f7856985c8f5c257a5b3b323b) · [pixel](https://tagwall.io/pixel/674,35)
+
+  ```text
+  💸 2,063,600 PLS on PulseChain for a 32×32 region by 0x4279…5514, 308 px. https://tagwall.io/pixel/674,35
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 244 px · 1,634,800 PLS · [tx](https://otter.pulsechain.com/tx/0x36a58fa48beb5eca56b79013e35d173a024f11431bae3a5d0f58403d2d535d73) · [pixel](https://tagwall.io/pixel/151,321)
+
+  ```text
+  💸 1,634,800 PLS on PulseChain for a 32×32 region by 0x4279…5514, 244 px. https://tagwall.io/pixel/151,321
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 812 px · 5,440,400 PLS · [tx](https://otter.pulsechain.com/tx/0xccc2b4f123115f0ca59465a502143db73f9030b842681968a04e1ed66d00e03e) · [pixel](https://tagwall.io/pixel/319,179)
+
+  ```text
+  📍 paint drop on PulseChain: 0x4279…5514 took 32×32 for 5,440,400 PLS (812 px). https://tagwall.io/pixel/319,179
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 1,024 px · 6,860,800 PLS · [tx](https://otter.pulsechain.com/tx/0x492170e2a09a05a240b183ab614da70ea057e174c56382e7c00cf8de6ae084d1) · [pixel](https://tagwall.io/pixel/59,131)
+
+  ```text
+  🟦 PulseChain: 32×32 by 0x4279…5514, 1,024 px for 6,860,800 PLS. https://tagwall.io/pixel/59,131
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 156 px · 1,149,720 PLS · [tx](https://otter.pulsechain.com/tx/0xa1f1263196a6b8203ad0b4847cb116ba3219990d2b3921c68d5fe3921d6b6aa1) · [pixel](https://tagwall.io/pixel/561,56)
+
+  ```text
+  🟦 PulseChain: 32×32 by 0x4279…5514, 156 px for 1,149,720 PLS. https://tagwall.io/pixel/561,56
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 156 px · 1,045,200 PLS · [tx](https://otter.pulsechain.com/tx/0xed005b3c2fe00c6b499f5ceba3921f37feb26f8a72d4ce8449675be575f7ebd1) · [pixel](https://tagwall.io/pixel/561,56)
+
+  ```text
+  🟦 PulseChain: 32×32 by 0x4279…5514, 156 px for 1,045,200 PLS. https://tagwall.io/pixel/561,56
+  ```
+
+- [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 811 px · 5,433,700 PLS · [tx](https://otter.pulsechain.com/tx/0x3a2b533ce4b8b49e98b5f499df3164d1262ea44a5aa38e3dae92d76f6b7cdc50) · [pixel](https://tagwall.io/pixel/390,324)
+
+  ```text
+  🎨 0x4279…5514 painted 32×32 on PulseChain for 5,433,700 PLS (811 px). https://tagwall.io/pixel/390,324
+  ```
+
 - [ ] **PulseChain** · 2026-06-07 13:01 UTC · 32×32 · 812 px · 5,440,400 PLS · [tx](https://otter.pulsechain.com/tx/0x2603383eafd7f64e9e2b9a231f4879a515445d334138d9dd2c12eea9b1c56770) · [pixel](https://tagwall.io/pixel/358,324)
 
   ```text
