@@ -4526,3 +4526,57 @@ a.lb-ticker-link:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .ops-founder-foot-full { color: var(--tw-accent); font-weight: 600; }
+
+/* ======================================================================
+   /competition  referral-contest page
+   ====================================================================== */
+.comp-page { padding: 24px 0 64px; }
+.comp-header h1 { font-family: var(--tw-mono); font-size: 28px; margin: 0 0 8px; }
+.comp-header p { color: var(--tw-fg); max-width: 60ch; line-height: 1.5; }
+.comp-window { color: var(--tw-dim); font-family: var(--tw-mono); font-size: 13px; margin-top: 8px; }
+.comp-pool {
+  margin: 24px 0; padding: 24px; border: 1px solid var(--tw-line); border-radius: 10px;
+  background: var(--tw-panel); text-align: center;
+}
+.comp-pool-label { font-family: var(--tw-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--tw-dim); font-size: 12px; }
+.comp-pool-value { font-family: var(--tw-mono); font-weight: 800; font-size: 56px; line-height: 1.1; color: var(--tw-accent); margin: 6px 0; }
+.comp-pool-unit { font-size: 24px; color: var(--tw-dim); }
+.comp-status { font-family: var(--tw-mono); color: var(--tw-fg); font-size: 14px; }
+.comp-countdown { color: var(--tw-accent); }
+.comp-payouts { display: flex; justify-content: center; gap: 24px; margin-top: 18px; flex-wrap: wrap; }
+.comp-payout { display: flex; flex-direction: column; align-items: center; min-width: 90px; }
+.comp-rank { font-family: var(--tw-mono); color: var(--tw-dim); font-size: 12px; }
+.comp-payout-amt { font-family: var(--tw-mono); font-weight: 700; color: var(--tw-fg); font-size: 18px; }
+.comp-payout-pct { color: var(--tw-dim); font-size: 12px; }
+.comp-board { margin: 28px 0; }
+.comp-board h2, .comp-rules h2 { font-family: var(--tw-mono); font-size: 18px; margin: 0 0 12px; }
+.comp-muted { color: var(--tw-dim); }
+.comp-list { list-style: none; margin: 0; padding: 0; }
+.comp-row {
+  display: grid; grid-template-columns: 44px 1fr auto auto auto; gap: 12px; align-items: center;
+  padding: 10px 12px; border-bottom: 1px solid var(--tw-line); font-family: var(--tw-mono); font-size: 13px;
+}
+.comp-row-top { background: color-mix(in srgb, var(--tw-accent) 8%, transparent); }
+.comp-row-rank { color: var(--tw-dim); }
+.comp-row-addr { color: var(--tw-fg); }
+.comp-row-vol { color: var(--tw-accent); }
+.comp-row-count { color: var(--tw-dim); }
+.comp-row-prize { color: var(--tw-fg); font-weight: 700; }
+.comp-rules { margin-top: 28px; }
+.comp-rules ol { color: var(--tw-fg); line-height: 1.6; padding-left: 20px; }
+.comp-fine { color: var(--tw-dim); font-size: 12px; margin-top: 12px; max-width: 60ch; }
+.comp-cta-link { color: var(--tw-accent); font-family: var(--tw-mono); }
+@media (max-width: 640px) {
+  .comp-row { grid-template-columns: 32px 1fr auto; }
+  .comp-row-count, .comp-row-prize { display: none; }
+  .comp-pool-value { font-size: 40px; }
+}
+
+/* competition: coming-soon badge + pool subtitle + nav link accent */
+.comp-soon {
+  display: inline-block; font-family: var(--tw-mono); font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: #0a0b0a; background: var(--tw-accent); padding: 4px 10px;
+  border-radius: 4px; margin-bottom: 12px; font-weight: 700;
+}
+.comp-pool-sub { color: var(--tw-dim); font-size: 13px; max-width: 52ch; margin: 6px auto 0; line-height: 1.45; }
+.nav-link-competition { color: var(--tw-accent); }

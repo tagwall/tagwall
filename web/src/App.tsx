@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppLayout } from './components/AppLayout'
+import CompetitionPage from './pages/CompetitionPage'
 import EmbedPage from './pages/EmbedPage'
 import FoundersPage from './pages/FoundersPage'
 import HoldingPage from './pages/HoldingPage'
@@ -44,6 +45,10 @@ export default function App() {
               left" scarcity counter. Derived from on-chain paint order;
               no contract coupling. Linked from the top bar. */}
           <Route path="/founders" element={<FoundersPage />} />
+          {/* /competition: live referral-contest page. Prize pool (80% of
+              referred-paint volume, 5M PLS floor) + Top Referrers board,
+              both read live from on-chain Painted events. */}
+          <Route path="/competition" element={<CompetitionPage />} />
           {/* /tweets is an operator tool surfacing copy-ready tweets:
               cross-chain 7-day summary, per-chain weekly recaps, and
               individual notable-paint announcements. Public route
