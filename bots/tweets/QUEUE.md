@@ -13,6 +13,36 @@ scanning all four EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **PulseChain** · 2026-06-08 00:15 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  98 of 100 Genesis founder slots left on PulseChain. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **Ethereum** · 2026-06-08 00:16 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on Ethereum. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **Base** · 2026-06-08 00:16 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on Base. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **BSC** · 2026-06-08 00:16 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **HyperEVM** · 2026-06-08 00:17 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on HyperEVM. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
 - [ ] **PulseChain** · 2026-06-07 16:51 UTC · 32×32 · 184 px · 1,356,080 PLS · [tx](https://otter.pulsechain.com/tx/0x8004b96910beed14a32d4108809d4c29aab1b69c9ec1e8807a8638a9deb3ff91) · [pixel](https://tagwall.io/pixel/501,402)
 
   ```text
