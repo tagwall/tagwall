@@ -6,17 +6,21 @@ import { formatEther, getAddress, parseAbiItem, zeroAddress } from 'viem'
 import { usePublicClient } from 'wagmi'
 
 import { canvasAddress } from '../contracts/canvas'
+import {
+  CONTEST_CHAIN,
+  CONTEST_END_MS as END_MS,
+  CONTEST_FLOOR_PLS,
+  CONTEST_START_MS as START_MS,
+} from '../lib/contest'
 import { deployBlockFor, logsChunkSizeFor } from '../lib/deployBlocks'
 import { getLogsPaginated } from '../lib/paginatedLogs'
 
 /* ------------------------------------------------------------------ *
- * Contest config. Edit these to retune; nothing else needs touching.
+ * Page-specific contest config (the window + chain + floor live in
+ * lib/contest.ts so the banner stays in sync). Retune split here.
  * ------------------------------------------------------------------ */
-const CONTEST_CHAIN = 369 // PulseChain
-const START_MS = Date.parse('2026-06-22T00:00:00Z')
-const END_MS = Date.parse('2026-06-29T00:00:00Z') // exactly 7 days
 const POOL_BPS = 8000n // 80% of referred-paint revenue
-const FLOOR_WEI = 5_000_000n * 10n ** 18n // 5,000,000 PLS floor
+const FLOOR_WEI = BigInt(CONTEST_FLOOR_PLS) * 10n ** 18n // 5,000,000 PLS floor
 const SPLIT = [50, 30, 20] // % of pool to ranks 1/2/3
 
 const PAINTED_EVENT = parseAbiItem(
@@ -108,7 +112,7 @@ export default function CompetitionPage() {
         return { status, poolWei: FLOOR_WEI, revenueWei: 0n, board: [] }
       }
 
-      const logs = await getLogsPaginated({
+      const { logs } = await getLogsPaginated({
         publicClient: client,
         address: canvasAddress(CONTEST_CHAIN) as Hex,
         event: PAINTED_EVENT,

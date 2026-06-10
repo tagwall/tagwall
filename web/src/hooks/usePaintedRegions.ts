@@ -7,7 +7,7 @@ import { usePublicClient } from 'wagmi'
 import { canvasAddress } from '../contracts/canvas'
 import { deployBlockFor, logsChunkSizeFor } from '../lib/deployBlocks'
 import { rectsIntersect } from '../lib/filterList'
-import { getLogsPaginated } from '../lib/paginatedLogs'
+import { getLogsPaginated, type DroppedRange } from '../lib/paginatedLogs'
 import { useViewerChainId } from '../lib/viewerChain'
 import { useOfacSanctioned } from './useOfacSanctioned'
 import { useStaticFilterList } from './useStaticFilterList'
@@ -38,6 +38,13 @@ export interface PaintedRegion {
 const PAINTED_EVENT = parseAbiItem(
   'event Painted(address indexed painter, address indexed referrer, bytes32 indexed metadataHash, uint32 x, uint32 y, uint32 w, uint32 h, uint32 pixelsPainted, uint256 pricePaid, uint32 linkId)',
 )
+
+// Ranges getLogsPaginated dropped on an earlier scan, keyed by chainId.
+// The 90s backstop in useLivePaintedRefresh invalidates this query, which
+// re-runs queryFn; each pass retries what's queued here so a transient
+// RPC failure can't permanently hide a slice of paint history. Module
+// level (not hook state) so every mounted instance shares one queue.
+const droppedRangesByChain = new Map<number, DroppedRange[]>()
 
 /**
  * Fetches historical Painted events from the current chain and returns them
@@ -70,7 +77,7 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
 
   const query = useQuery({
     queryKey: ['painted-regions', chainId, address, String(fromBlock)],
-    enabled: !!publicClient,
+    enabled: !!publicClient && !!address,
     // Regions list mutates only when a new Painted event lands, which
     // useLivePaintedRefresh invalidates explicitly. No reason to auto-
     // refetch on window focus (a common UX pattern that was churning
@@ -84,12 +91,12 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
     refetchOnReconnect: false,
     gcTime: 60_000,
     queryFn: async (): Promise<PaintedRegion[]> => {
-      if (!publicClient) return []
+      if (!publicClient || !address) return []
       // Resolve toBlock once to keep all chunks anchored to the same
       // head and avoid duplicate events that could land if `latest`
       // advances mid-scan.
       const toBlock = await publicClient.getBlockNumber()
-      const logs = await getLogsPaginated({
+      const { logs, droppedRanges } = await getLogsPaginated({
         publicClient,
         address: address as Hex,
         event: PAINTED_EVENT,
@@ -101,7 +108,29 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
         chunkSize: logsChunkSizeFor(chainId),
       })
 
-      return logs
+      // Drain ranges dropped on earlier passes. The main scan above
+      // already re-covers anything inside [fromBlock, toBlock], so only
+      // ranges outside that window (e.g. queued under a caller override)
+      // need an explicit retry; everything still failing re-queues for
+      // the next backstop pass.
+      const allLogs = [...logs]
+      const stillDropped = [...droppedRanges]
+      for (const range of droppedRangesByChain.get(chainId) ?? []) {
+        if (range.fromBlock >= fromBlock && range.toBlock <= toBlock) continue
+        const retry = await getLogsPaginated({
+          publicClient,
+          address: address as Hex,
+          event: PAINTED_EVENT,
+          fromBlock: range.fromBlock,
+          toBlock: range.toBlock,
+          chunkSize: logsChunkSizeFor(chainId),
+        })
+        allLogs.push(...retry.logs)
+        stillDropped.push(...retry.droppedRanges)
+      }
+      droppedRangesByChain.set(chainId, stillDropped)
+
+      return allLogs
         .map((log): PaintedRegion => ({
           blockNumber: log.blockNumber!,
           logIndex: log.logIndex!,
@@ -177,5 +206,9 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
     })
   }, [query.data, sanctioned, staticList])
 
-  return { ...query, data: filtered }
+  // `rawData` is the unfiltered chain order (same array reference as the
+  // query result, no duplication). Founder ranks are computed from it so
+  // a filter-list change can't shift anyone's "Genesis #N"; everything
+  // user-facing should keep consuming the filtered `data`.
+  return { ...query, data: filtered, rawData: query.data }
 }

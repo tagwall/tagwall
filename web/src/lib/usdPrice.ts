@@ -56,7 +56,10 @@ export function formatUsd(usd: number): string {
 export function weiToUsd(wei: bigint, chainId: number | undefined | null): number {
   const rate = nativeUsdPrice(chainId)
   if (rate === 0) return 0
+  // `wei` can be attacker-controlled (pricePaid from event logs); a value
+  // past float range would otherwise propagate Infinity into the UI.
   const ether = Number(wei) / 1e18
+  if (!Number.isFinite(ether)) return 0
   return ether * rate
 }
 
@@ -67,6 +70,9 @@ export function weiToUsd(wei: bigint, chainId: number | undefined | null): numbe
  */
 export function weiToUsdRate(wei: bigint, usdPerNative: number): number {
   if (usdPerNative <= 0) return 0
+  // Same attacker-controlled-bigint guard as weiToUsd; formatUsd hides
+  // the readout when this returns 0.
   const ether = Number(wei) / 1e18
+  if (!Number.isFinite(ether)) return 0
   return ether * usdPerNative
 }

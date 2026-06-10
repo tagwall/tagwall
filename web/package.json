@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:unit": "vitest run test/chunkFunding.unit.test.ts",
-    "test:anvil": "bash ../scripts/seed-local.sh; vitest run test/chunkFunding.anvil.test.ts"
+    "test:anvil": "bash ../scripts/seed-local.sh && vitest run test/chunkFunding.anvil.test.ts"
   },
   "dependencies": {
     "@noble/curves": "^2.2.0",

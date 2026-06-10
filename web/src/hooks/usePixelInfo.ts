@@ -1,6 +1,7 @@
-import { useChainId, useReadContract, useReadContracts } from 'wagmi'
+import { useReadContract, useReadContracts } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
+import { useViewerChainId } from '../lib/viewerChain'
 
 export interface PixelInfo {
   x: number
@@ -26,8 +27,11 @@ export interface PixelInfo {
  * bubble up through `error`.
  */
 export function usePixelInfo(coord: { x: number; y: number } | null) {
-  const enabled = coord !== null
-  const address = canvasAddress(useChainId())
+  // Read on the viewer chain (matches usePaintedRegions/useTilePixels) so
+  // hover info reflects the canvas being looked at, not the wallet chain.
+  const chainId = useViewerChainId()
+  const address = canvasAddress(chainId)
+  const enabled = coord !== null && !!address
 
   // Batched read: pixel state + live quote for a 1x1 region at the same
   // coordinate. One multicall hop per hover.
@@ -41,12 +45,14 @@ export function usePixelInfo(coord: { x: number; y: number } | null) {
           {
             address,
             abi: canvasAbi,
+            chainId,
             functionName: 'pixelAt',
             args: [coord!.x, coord!.y],
           },
           {
             address,
             abi: canvasAbi,
+            chainId,
             functionName: 'quote',
             args: [coord!.x, coord!.y, 1, 1],
           },
@@ -73,6 +79,7 @@ export function usePixelInfo(coord: { x: number; y: number } | null) {
   } = useReadContract({
     address,
     abi: canvasAbi,
+    chainId,
     functionName: 'links',
     args: [BigInt(linkId)],
     // Link URLs are small, but same gcTime applies: one entry per unique

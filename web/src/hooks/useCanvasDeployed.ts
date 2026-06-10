@@ -35,11 +35,14 @@ export function useCanvasDeployed(): CanvasDeployedStatus {
   // when no wallet is connected (a passer-by browsing tagwall.io/?chain=base
   // should see Base's deployment status, not the default-chain fallback).
   const client = usePublicClient({ chainId })
+  const address = canvasAddress(chainId)
   const { data, isLoading, isError } = useQuery({
     queryKey: ['canvas-deployed', chainId],
     queryFn: async (): Promise<boolean> => {
-      if (!client) return false
-      const code = await client.getCode({ address: canvasAddress(chainId) })
+      // No address registered for this chain = not deployed, by
+      // definition; don't bother the RPC.
+      if (!client || !address) return false
+      const code = await client.getCode({ address })
       // viem's getCode returns `undefined` for an address with no code,
       // and a hex string starting with 0x for one with code. '0x' alone
       // is empty; treat as not-deployed.

@@ -126,7 +126,9 @@ export default function SharePage() {
     }
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored && isAddress(stored)) setInput(stored)
+      // Non-strict + getAddress so an older lowercase-stored value still
+      // restores; matches the live input validation below.
+      if (stored && isAddress(stored, { strict: false })) setInput(getAddress(stored))
     } catch {
       // localStorage can be disabled; safe to ignore.
     }

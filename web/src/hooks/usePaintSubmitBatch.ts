@@ -15,6 +15,7 @@ import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { chunkDraft, type PaintChunk } from '../lib/chunkDraft'
 import { allocateChunkFunding, chunkCostWeights } from '../lib/chunkFunding'
 import { decodeCanvasError, type DecodedCanvasError } from '../lib/decodeCanvasError'
+import { useViewerChainId } from '../lib/viewerChain'
 import type { PaintDraft } from './usePaintDraft'
 import { TILE_SIZE } from './useTilePixels'
 
@@ -137,12 +138,20 @@ async function maskUnchangedPixels(
 }
 
 export function usePaintSubmitBatch() {
-  const { address, chainId } = useAccount()
+  // Intended chain = the viewer chain (what the user is looking at and was
+  // quoted on). The wallet's actual chain (`useAccount().chainId`, NOT
+  // wagmi's clamped useChainId) must match at submit time, and every tx is
+  // pinned to the intended chain explicitly, so a wallet sitting on an
+  // unsupported network can never fire a value transfer at a codeless
+  // address.
+  const { address, chainId: walletChainId } = useAccount()
+  const chainId = useViewerChainId()
   // Canvas contract address for the chain we're painting on (v1 chains share
   // one address; HyperEVM is a distinct v1.1 address). See canvas.ts.
+  // Undefined when the chain has no canvas deployment.
   const canvasAddr = canvasAddress(chainId)
   const queryClient = useQueryClient()
-  const publicClient = usePublicClient()
+  const publicClient = usePublicClient({ chainId })
 
   // Single-tx path (always available).
   const {
@@ -341,6 +350,38 @@ export function usePaintSubmitBatch() {
     async (args: PaintSubmitBatchArgs) => {
       if (!address) throw new Error('Wallet not connected')
 
+      // Hard pre-send guards. Both `writeContractAsync` and
+      // `sendCallsAsync` below also pin the chain, but the wallet's REAL
+      // chain (useAccount().chainId) can sit on a network wagmi never
+      // configured; abort with a clear error instead of letting any
+      // wallet-side fallback broadcast on the wrong chain.
+      if (!canvasAddr) {
+        setState({
+          status: 'error',
+          progress: null,
+          hash: null,
+          decodedError: {
+            friendly: 'Tagwall has no canvas deployment on this chain. Switch chains to paint.',
+            raw: `no canvas address for chain ${chainId}`,
+          },
+        })
+        return
+      }
+      if (walletChainId !== chainId) {
+        setState({
+          status: 'error',
+          progress: null,
+          hash: null,
+          decodedError: {
+            friendly:
+              `Your wallet is on chain ${walletChainId ?? 'unknown'} but this canvas is on chain ${chainId}. ` +
+              'Switch your wallet to the matching chain and re-quote.',
+            raw: `wallet chain ${walletChainId} != viewer chain ${chainId}`,
+          },
+        })
+        return
+      }
+
       // Stash the draft rect so the success effect can scope its tile
       // invalidation to only the tiles this paint touches.
       lastSubmittedRect.current = {
@@ -438,6 +479,7 @@ export function usePaintSubmitBatch() {
           await writeContractAsync({
             address: canvasAddr,
             abi: canvasAbi,
+            chainId,
             functionName: 'paint',
             args: [
               c.chunk.x,
@@ -469,6 +511,7 @@ export function usePaintSubmitBatch() {
       if (canAtomicBatch) {
         try {
           await sendCallsAsync({
+            chainId,
             calls: chunkCalls.map((c) => ({
               to: canvasAddr,
               data: c.data,
@@ -503,6 +546,7 @@ export function usePaintSubmitBatch() {
           const hash = await writeContractAsync({
             address: canvasAddr,
             abi: canvasAbi,
+            chainId,
             functionName: 'paint',
             args: [
               c.chunk.x,
@@ -581,7 +625,7 @@ export function usePaintSubmitBatch() {
       }
       setState((s) => ({ ...s, status: 'success' }))
     },
-    [address, canvasAddr, canAtomicBatch, publicClient, queryClient, writeContractAsync, sendCallsAsync, resetWrite, resetSendCalls],
+    [address, walletChainId, chainId, canvasAddr, canAtomicBatch, publicClient, queryClient, writeContractAsync, sendCallsAsync, resetWrite, resetSendCalls],
   )
 
   const reset = useCallback(() => {

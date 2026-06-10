@@ -152,7 +152,7 @@ export function useTilePixels(
           tx,
           ty,
         ] as const,
-        enabled: !!publicClient && !!regions,
+        enabled: !!publicClient && !!regions && !!address,
         // Same reasoning as usePaintedRegions: tile data only changes
         // when a Painted event intersects the tile, which is handled by
         // the targeted invalidation in useLivePaintedRefresh. Auto-
@@ -167,7 +167,7 @@ export function useTilePixels(
         gcTime: 15_000,
         queryFn: async ({ signal }: { signal: AbortSignal }): Promise<TilePixelData> => {
           const colors = new Uint32Array(tileW * tileH)
-          if (!publicClient || !regions || regions.length === 0) {
+          if (!publicClient || !address || !regions || regions.length === 0) {
             return { x: x0, y: y0, w: tileW, h: tileH, colors }
           }
 

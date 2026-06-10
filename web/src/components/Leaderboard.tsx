@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { decodeFunctionData, formatEther, type Hex } from 'viem'
 import { useQuery } from '@tanstack/react-query'
-import { useChainId, usePublicClient, useReadContracts } from 'wagmi'
+import { usePublicClient, useReadContracts } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { useNativeUsdPrice } from '../hooks/useNativeUsdPrice'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
 import type { PixelState } from '../hooks/useTilePixels'
 import { formatUsd, weiToUsdRate } from '../lib/usdPrice'
+import { useViewerChainId } from '../lib/viewerChain'
 
 interface Props {
   regions: readonly PaintedRegion[] | undefined
@@ -149,16 +150,20 @@ function colorToHex(c: number): string {
  *  and avoid double-fetching. */
 export function useLinkUrls(linkIds: number[]) {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
-  const address = canvasAddress(useChainId())
+  // Viewer chain, not wallet chain: linkIds index a per-chain registry,
+  // so they must resolve against the chain the regions came from.
+  const chainId = useViewerChainId()
+  const address = canvasAddress(chainId)
   const { data } = useReadContracts({
     allowFailure: true,
     contracts: unique.map((id) => ({
       address,
       abi: canvasAbi,
+      chainId,
       functionName: 'links' as const,
       args: [id],
     })),
-    query: { enabled: unique.length > 0, staleTime: 60_000 },
+    query: { enabled: unique.length > 0 && !!address, staleTime: 60_000 },
   })
   const map = useMemo(() => {
     const out = new Map<number, string>()
@@ -244,22 +249,19 @@ export function Leaderboard({ regions, nativeSymbol = 'native', chainId = null, 
               <Thumbnail region={r} pixels={thumbPixels?.get(regionKey(r))} />
               <div className="leaderboard-meta">
                 {link ? (
-                  <a
+                  // Real <button>, not an <a href>: a raw href lets
+                  // middle-click / cmd-click / "open in new tab" bypass
+                  // the outbound interstitial modal (PRD §6) and its
+                  // blocklist checks entirely. The modal re-validates
+                  // that the URL is https:// before opening.
+                  <button
+                    type="button"
                     className="leaderboard-link"
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     title={link}
-                    onClick={(e) => {
-                      // Route through the outbound interstitial modal
-                      // (PRD §6). Defense-in-depth: the modal re-validates
-                      // that the URL is https:// before opening.
-                      e.preventDefault()
-                      onRequestOutbound(link)
-                    }}
+                    onClick={() => onRequestOutbound(link)}
                   >
                     {link.replace(/^https?:\/\//, '').slice(0, 30)}
-                  </a>
+                  </button>
                 ) : (
                   <span className="leaderboard-link-empty">— no link —</span>
                 )}

@@ -10,7 +10,7 @@ import {
   useDisconnect,
   useSwitchChain,
 } from 'wagmi'
-import { Link } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
 import { shortenAddress } from '../lib/format'
@@ -45,7 +45,7 @@ function formatNativeBalance(value: bigint, decimals: number): string {
  * chain state.
  */
 export function ConnectBar() {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected, chainId: walletChainId } = useAccount()
   const { connectAsync, connectors, error, isPending } = useConnect()
   // Suppress noisy non-fatal connect errors that confuse users:
   //   - "already pending"   → wallet_requestPermissions race when the
@@ -141,9 +141,12 @@ export function ConnectBar() {
   // Wrong-chain detection. Canvas is the same CREATE2 address on every
   // supported chain (PulseChain, Ethereum, Base, plus testnets), so users
   // can paint on whichever chain their wallet is on; what we DON'T support
-  // is a chain we never deployed to (e.g. wallet on Polygon). Without this
-  // banner, the next paint reverts deep in viem with an opaque error.
-  const onUnsupportedChain = isConnected && !currentChain
+  // is a chain we never deployed to (e.g. wallet on Polygon). Detection
+  // must use the wallet's REAL chain from useAccount(): wagmi's
+  // useChainId() clamps to configured chains, so the old `!currentChain`
+  // check could never fire and paints could target a codeless address.
+  const onUnsupportedChain =
+    isConnected && !chains.some((c) => c.id === walletChainId)
   const recoveryChain = chains[0]
 
   // Not-deployed-on-this-chain detection. Distinct from wrong-chain: the
@@ -180,7 +183,7 @@ export function ConnectBar() {
       {onUnsupportedChain && recoveryChain && (
         <div className="wrong-chain-banner" role="status">
           <span>
-            Your wallet is on chain {chainId}, which Tagwall does not deploy to.
+            Your wallet is on chain {walletChainId ?? 'unknown'}, which Tagwall does not deploy to.
             Switch to {recoveryChain.name} to paint.
           </span>
           <button
@@ -220,16 +223,17 @@ export function ConnectBar() {
 
       {/* Founders link: the per-chain "be early, provably" surface. Kept
           in the primary nav (not the footer) because the scarcity counter
-          there is a core acquisition hook, not a secondary page. */}
-      <Link to="/founders" className="nav-link nav-link-founders">
+          there is a core acquisition hook, not a secondary page. NavLink
+          so the current page gets the `.active` highlight. */}
+      <NavLink to="/founders" className="nav-link">
         Founders
-      </Link>
+      </NavLink>
 
       {/* Competition link: live referral contest. Shows "coming soon" until
           the window opens (22 Jun), then the live pool + standings. */}
-      <Link to="/competition" className="nav-link nav-link-competition">
+      <NavLink to="/competition" className="nav-link">
         Competition
-      </Link>
+      </NavLink>
 
       <div className="connect-bar-right">
         {/* Canvas metrics live in the nav bar (left of chain) so the

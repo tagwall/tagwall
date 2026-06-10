@@ -1,20 +1,26 @@
-import { useChainId, useReadContract } from 'wagmi'
+import { useReadContract } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
+import { useViewerChainId } from '../lib/viewerChain'
 
 /**
  * Live cost quote for a rectangular region via `canvas.quote()`. Returns the
  * total native-wei cost and pixel count; refetches when the region changes
  * and when any paint lands (TanStack Query invalidates by staleTime).
  *
- * Disabled when no region is provided.
+ * Priced on the viewer chain: usePaintSubmitBatch forces wallet == viewer
+ * before any tx goes out, so this is the chain the user will actually pay on.
+ *
+ * Disabled when no region is provided or the chain has no canvas.
  */
 export function useQuote(region: { x: number; y: number; w: number; h: number } | null) {
-  const enabled = !!region
-  const address = canvasAddress(useChainId())
+  const chainId = useViewerChainId()
+  const address = canvasAddress(chainId)
+  const enabled = !!region && !!address
   const { data, isLoading, error } = useReadContract({
     address,
     abi: canvasAbi,
+    chainId,
     functionName: 'quote',
     args: enabled ? [region!.x, region!.y, region!.w, region!.h] : undefined,
     query: {

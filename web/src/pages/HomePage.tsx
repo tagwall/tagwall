@@ -9,6 +9,7 @@ import { useViewerChainId } from '../lib/viewerChain'
 
 import { ActivityFeed } from '../components/ActivityFeed'
 import { Leaderboard } from '../components/Leaderboard'
+import { CompetitionBanner } from '../components/CompetitionBanner'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 import { MinimapOverlay } from '../components/MinimapOverlay'
@@ -281,7 +282,7 @@ function CanvasView({
   }, [draftName])
   const quote = useQuote(paint.draft)
   const submit = usePaintSubmitBatch()
-  const { isConnected, address: connectedAddress } = useAccount()
+  const { isConnected, address: connectedAddress, chainId: walletChainId } = useAccount()
   const isDeployed = useCanvasDeployed() === 'deployed'
   // OwnedByYou now lives in the NavMetrics component (top bar). The
   // hook is mounted there and shares the same react-query cache as
@@ -301,6 +302,12 @@ function CanvasView({
   const chains = useChains()
   const activeChain = chains.find((c) => c.id === chainId)
   const nativeSymbol = activeChain?.nativeCurrency.symbol ?? 'native'
+  // Painting requires the wallet's REAL chain (useAccount().chainId, not
+  // wagmi's clamped useChainId) to be a configured chain AND to match the
+  // viewer chain the quote was priced on. usePaintSubmitBatch re-asserts
+  // this at submit time; gating here keeps the button honest.
+  const walletChainSupported = chains.some((c) => c.id === walletChainId)
+  const walletMatchesViewer = walletChainId === chainId
   // Per-paint chunk cap for the active chain. Tighter than the on-chain
   // ceiling on chains that have adopted a per-tx gas cap (Ethereum
   // EIP-7825, BSC BEP-652) — the contract would accept a 1500-pixel
@@ -794,6 +801,9 @@ function CanvasView({
 
   return (
     <section className="canvas-section" data-mobile-tab={mobileTab}>
+      {/* Referral-contest promo bar. Sits above the ticker; self-hides
+          once the contest is over (see CompetitionBanner). */}
+      <CompetitionBanner />
       {/* Stock-ticker-style scroller of the top leaderboard entries.
           Rendered here (not in AppLayout) so it can receive the
           `regions` prop that HomePage already owns from its single
@@ -820,7 +830,7 @@ function CanvasView({
             quoteTotal={quote.total}
             quoteLoading={quote.isLoading}
             quoteError={quote.error ? quote.error.message : null}
-            canSubmit={isConnected && isDeployed}
+            canSubmit={isConnected && isDeployed && walletChainSupported && walletMatchesViewer}
             submitStatus={submit.status}
             submitError={submit.decodedError?.friendly ?? null}
             txHash={submit.hash ?? undefined}
@@ -846,9 +856,13 @@ function CanvasView({
             disabledReason={
               !isConnected
                 ? 'Connect your wallet to paint.'
-                : !isDeployed
-                  ? 'Tagwall is not yet deployed on this chain. Switch to PulseChain v4 testnet to paint.'
-                  : undefined
+                : !walletChainSupported
+                  ? `Your wallet is on chain ${walletChainId ?? 'unknown'}, which Tagwall does not deploy to. Switch chains to paint.`
+                  : !walletMatchesViewer
+                    ? 'Your wallet chain does not match the canvas you are viewing. Switch your wallet to this chain to paint.'
+                    : !isDeployed
+                      ? 'Tagwall is not yet deployed on this chain. Switch to PulseChain v4 testnet to paint.'
+                      : undefined
             }
             defaultReferrer={sharedReferrer}
             nativeSymbol={nativeSymbol}
@@ -1138,8 +1152,15 @@ function useSharedReferrer(): Address | undefined {
   return useMemo(() => {
     if (typeof window === 'undefined') return undefined
     const v = new URLSearchParams(window.location.search).get('ref')
-    if (!v || !isAddress(v)) return undefined
-    return getAddress(v)
+    // Non-strict so lowercase and wrong-checksum mixed-case ?ref= values
+    // are accepted; getAddress() re-checksums. Matches the share-side
+    // validation in SharePage so a link it produces is never dropped.
+    if (!v || !isAddress(v, { strict: false })) return undefined
+    try {
+      return getAddress(v)
+    } catch {
+      return undefined
+    }
   }, [])
 }
 

@@ -17,6 +17,26 @@ CREATE2 deploy, identical bytecode, same address on every chain:
 
 Per-pixel overwrite premium: 1.10× the last paid price. After 90 days, painted pixels decay 10% per month back toward the floor.
 
+### Contract source notes
+
+The contract is immutable, so two stale comments in the explorer-verified
+source can never be fixed on-chain. The code is authoritative; the
+comments are wrong:
+
+- Some NatSpec lines say the referral fee is "1%". The actual split is
+  `splitBps()` = 0% burn / **5% referral** / 95% treasury
+  (`REF_BPS = 500`).
+- Comments mention a "10k-gas stipend" for referral sends; the deployed
+  constant is `REF_GAS_STIPEND = 50_000` (and `TREASURY_GAS_BUDGET` is
+  also 50k).
+
+Also note for integrators: the contract's `maxPixelsPerTx` (1,500) is not
+the binding limit on chains with a per-transaction gas cap. On Ethereum
+and BSC (EIP-7825 / BEP-652, ~16.78M gas per tx) the effective ceiling is
+roughly 550 pixels per tx; the official frontend chunks stamps per chain.
+See `web/src/lib/chainCaps.ts` for the per-chain table.
+
+
 ## What's in this repo
 
 This is the public mirror of the official frontend. The contract is fully immutable; this frontend is interchangeable with any fork.

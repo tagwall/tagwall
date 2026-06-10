@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getAddress } from 'viem'
 import type { Address } from 'viem'
 
 /**
@@ -43,12 +44,21 @@ function ShareReferralPopover({ address }: { address: Address }) {
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // Normalize to the EIP-55 checksummed form before baking into a link so
+  // every ?ref= consumer (strict or not) accepts it. wagmi addresses are
+  // already checksummed; this guards any other caller.
+  let checksummed = address
+  try {
+    checksummed = getAddress(address)
+  } catch {
+    // keep as-is; an invalid address renders a dead link rather than crashing
+  }
   // Build via window.location.origin so dev (localhost), preview, and
   // prod (tagwall.io) all produce a working link without env-var plumbing.
   const refUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/?ref=${address}`
-      : `https://tagwall.io/?ref=${address}`
+      ? `${window.location.origin}/?ref=${checksummed}`
+      : `https://tagwall.io/?ref=${checksummed}`
 
   // Copy stays consistent with marketing-plan.md §8 (plain template),
   // tense-neutral so it works whether or not the user has painted yet.

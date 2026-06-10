@@ -92,12 +92,15 @@ export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound }: 
               <span className="lb-ticker-rank">#{rank}</span>
               <Thumbnail region={r} pixels={pixels} />
               {url ? (
-                <a
+                // Real <button>, not an <a href>: a raw href lets
+                // middle-click / cmd-click / "open in new tab" bypass the
+                // outbound interstitial modal (PRD §6) and its blocklist
+                // checks entirely.
+                <button
+                  type="button"
                   className="lb-ticker-link"
-                  href={url}
                   title={url}
-                  onClick={(e) => {
-                    e.preventDefault()
+                  onClick={() => {
                     // Don't open links from the duplicated tail; the
                     // visible scroll position decides which copy the
                     // user clicked, but for screen readers the clone
@@ -106,8 +109,6 @@ export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound }: 
                     // could fire two modal opens on rapid clicks.)
                     if (!isClone) onRequestOutbound(url)
                   }}
-                  rel="noopener noreferrer"
-                  target="_blank"
                 >
                   {(() => {
                     try {
@@ -116,7 +117,7 @@ export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound }: 
                       return url
                     }
                   })()}
-                </a>
+                </button>
               ) : (
                 <span className="lb-ticker-link lb-ticker-link-empty">no link</span>
               )}

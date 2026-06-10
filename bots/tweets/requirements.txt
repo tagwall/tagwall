@@ -1,1 +1,7 @@
-web3>=6.0.0,<8
+# Exact pins: this runs unattended on the public repo's Actions cron,
+# so an unreviewed dependency bump must never change behaviour or pull
+# in compromised code silently.
+web3==7.16.0
+# main.py imports requests directly (retry classification); pin it
+# explicitly rather than relying on web3's transitive constraint.
+requests==2.34.2

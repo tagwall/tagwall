@@ -44,13 +44,16 @@ const ADDRESS_BY_CHAIN: Record<number, Address> = {
 }
 
 /**
- * Canvas contract address for the connected chain. Defaults to the live v1
- * address for unknown/undefined chains so a wallet on an unexpected network
- * still points at the canonical deployment rather than a dead address.
+ * Canvas contract address for the given chain, or undefined when the chain
+ * is unknown. No fallback on purpose: the old "default to the v1 address"
+ * behaviour meant a wallet on an unsupported chain could send paint value
+ * to a codeless address (a plain transfer, funds permanently lost). Every
+ * call site must treat undefined as "no canvas here" and disable the
+ * action instead.
  */
-export function canvasAddress(chainId: number | undefined): Address {
-  if (chainId === undefined) return CANVAS_ADDRESS_V1
-  return ADDRESS_BY_CHAIN[chainId] ?? CANVAS_ADDRESS_V1
+export function canvasAddress(chainId: number | undefined): Address | undefined {
+  if (chainId === undefined) return undefined
+  return ADDRESS_BY_CHAIN[chainId]
 }
 
 // Read-only ABI subset. Paint + write methods land in a later commit when

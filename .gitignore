@@ -16,6 +16,10 @@ Icon
 # Foundry
 contracts/cache/
 contracts/out/
+# Deploy broadcast JSONs ARE tracked despite this ignore: they were
+# force-added (git add -f) on purpose as a public record of the deploys.
+# The ignore only stops NEW broadcast output (local anvil runs etc.)
+# from being staged by accident.
 contracts/broadcast/
 contracts/.env
 

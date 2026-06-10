@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { formatEther } from 'viem'
-import { useChainId, useReadContracts } from 'wagmi'
+import { useReadContracts } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
+import { useFounders } from '../hooks/useFounders'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
-import { founderRanksFromRegions } from '../lib/founders'
+import { useViewerChainId } from '../lib/viewerChain'
 import { FounderBadge } from './FounderBadge'
 
 interface Props {
@@ -53,7 +54,11 @@ function effectiveMultiplier(r: PaintedRegion, startingPrice: bigint | null): nu
   const baseline = BigInt(r.pixelsPainted) * startingPrice
   if (baseline === 0n) return null
   const x1000 = (r.pricePaid * 1_000n) / baseline
-  return Number(x1000) / 1000
+  // pricePaid is attacker-controlled on-chain data; an absurd value can
+  // push Number(bigint) past float range. Render the placeholder instead
+  // of "Infinity×".
+  const mult = Number(x1000) / 1000
+  return Number.isFinite(mult) ? mult : null
 }
 
 function formatRelative(seconds: number): string {
@@ -69,16 +74,21 @@ function formatRelative(seconds: number): string {
  */
 function useLinkUrls(linkIds: number[]): Map<number, string> {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
-  const address = canvasAddress(useChainId())
+  // Viewer chain, matching the regions feeding this feed: linkIds index a
+  // per-chain registry, so resolving them against the wallet chain would
+  // attach the wrong chain's URLs.
+  const chainId = useViewerChainId()
+  const address = canvasAddress(chainId)
   const { data } = useReadContracts({
     allowFailure: true,
     contracts: unique.map((id) => ({
       address,
       abi: canvasAbi,
+      chainId,
       functionName: 'links' as const,
       args: [id],
     })),
-    query: { enabled: unique.length > 0, staleTime: 60_000 },
+    query: { enabled: unique.length > 0 && !!address, staleTime: 60_000 },
   })
   return useMemo(() => {
     const out = new Map<number, string>()
@@ -114,10 +124,11 @@ export function ActivityFeed({
 
   const linkUrls = useLinkUrls(regions?.map((r) => r.linkId) ?? [])
 
-  // Founder rank by painter, derived from the full (sorted) region list so
-  // ranks reflect first-paint order across the whole chain, not just the
-  // visible page. O(n) over regions; memoised on the region list.
-  const founderRanks = useMemo(() => founderRanksFromRegions(regions), [regions])
+  // Founder rank by painter. useFounders computes ranks from the
+  // UNFILTERED on-chain paint order (so filter-list changes can't shift
+  // anyone's number) and suppresses badges for filtered addresses; its
+  // usePaintedRegions call dedupes against the one feeding `regions`.
+  const { ranks: founderRanks } = useFounders()
 
   const nowSec = Math.floor(Date.now() / 1000)
 
@@ -251,23 +262,19 @@ export function ActivityFeed({
                     </td>
                     <td className="activity-td activity-td-link">
                       {url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        // Real <button>, not an <a href>: a raw href lets
+                        // middle-click / cmd-click bypass the outbound
+                        // interstitial modal (PRD §6) and its blocklist
+                        // checks entirely. Same pattern as the hover
+                        // tooltip link in HomePage.
+                        <button
+                          type="button"
+                          className="activity-link-btn"
                           title={url}
-                          onClick={(e) => {
-                            // Route through the outbound interstitial modal
-                            // (PRD §6) so users see a "leaving Tagwall"
-                            // warning and we re-validate the URL scheme as
-                            // defense-in-depth against a non-https link
-                            // ever reaching the frontend.
-                            e.preventDefault()
-                            onRequestOutbound(url)
-                          }}
+                          onClick={() => onRequestOutbound(url)}
                         >
                           {url.replace(/^https?:\/\//, '').slice(0, 24)}
-                        </a>
+                        </button>
                       ) : (
                         <span className="pixel-muted">—</span>
                       )}

@@ -45,6 +45,7 @@ Env (all optional; only CANVAS_ADDRESS is strictly required):
 """
 import json
 import os
+import re
 import sys
 import time
 from collections import Counter
@@ -73,6 +74,17 @@ PAINTED_EVENT_ABI = [{
         {"name": "linkId",        "type": "uint32",  "indexed": False},
     ],
 }]
+
+# topic0 values for the two Canvas events the queue scan watches in a
+# single get_logs window. The Painted signature must stay in lockstep
+# with PAINTED_EVENT_ABI above. TreasurySendFailed fires when the
+# contract's treasury send reverts and the amount is burned; it is the
+# only on-chain signal that revenue is burning, so the queue scan
+# surfaces it as an URGENT entry.
+PAINTED_TOPIC0 = Web3.keccak(
+    text="Painted(address,address,bytes32,uint32,uint32,uint32,uint32,uint32,uint256,uint32)"
+)
+TREASURY_SEND_FAILED_TOPIC0 = Web3.keccak(text="TreasurySendFailed(uint256)")
 
 # Per-chain floor price view used for overpaint detection and the
 # weekly summary's "blank vs overpaint" split.
@@ -225,7 +237,6 @@ MAX_PER_RUN = int(
     or os.environ.get("MANUAL_QUEUE_MAX_PER_RUN")
     or "50"
 )
-BACKFILL_BLOCKS = 1_000   # on first run, look back this far
 LOGS_WINDOW = 5_000       # cap each get_logs call to stay under public-RPC limits
 INTER_CHUNK_SLEEP_S = 0.2 # courtesy pause between get_logs chunks; without
                           # this, a 60-chunk first-run Base backfill bursts
@@ -284,11 +295,39 @@ scanning all five EVM chains for `Painted` events at or above
 # bad requests we should give up on.
 RETRYABLE_HTTP_STATUS = {408, 429, 500, 502, 503, 504, 522, 524}
 
+# Any http(s) URL substring inside an exception message. sanitize_err
+# keeps only scheme + host so an RPC API key embedded in the path
+# (e.g. /v2/<key>) or query string never reaches the world-readable
+# Actions log. GitHub's secret masking only matches the exact secret
+# value, so it does not catch a key inside a longer URL string.
+_URL_RE = re.compile(r"https?://[^\s'\"]+")
+
+
+def _redact_url(match: "re.Match[str]") -> str:
+    url = match.group(0)
+    scheme, _, rest = url.partition("://")
+    host = rest.split("/", 1)[0].split("?", 1)[0]
+    # Drop userinfo (user:pass@host) too, just the bare host survives.
+    host = host.rsplit("@", 1)[-1]
+    return f"{scheme}://{host}/[redacted]"
+
+
+def sanitize_err(err) -> str:
+    """Exception class name plus its message with any URL stripped to
+    scheme + host. requests exceptions embed the full request URL, which
+    can contain an RPC API key; route every error print through this.
+    """
+    return f"{type(err).__name__}: {_URL_RE.sub(_redact_url, str(err))}"
+
 
 def get_logs_with_retry(
-    painted_event, from_block: int, to_block: int, chain_name: str,
+    fetch_logs, from_block: int, to_block: int, chain_name: str,
 ) -> list:
-    """Wrap contract.events.Painted.get_logs with retry-on-transient-error.
+    """Wrap a get_logs-style callable with retry-on-transient-error.
+    `fetch_logs` is called as fetch_logs(from_block=..., to_block=...);
+    callers pass either contract.events.Painted.get_logs (decoded
+    events, summary + founders scans) or a raw w3.eth.get_logs wrapper
+    (queue scan, which fetches two event topics in one window).
     Public RPCs (default PulseChain, Base, etc.) burst-cap at ~30
     req/min or time out under sustained log queries, both of which the
     first-run 7-day backfill blows past in seconds.
@@ -303,7 +342,7 @@ def get_logs_with_retry(
     delay = RETRY_INITIAL_DELAY_S
     for attempt in range(RETRY_MAX_ATTEMPTS):
         try:
-            return painted_event.get_logs(from_block=from_block, to_block=to_block)
+            return fetch_logs(from_block=from_block, to_block=to_block)
         except requests.exceptions.HTTPError as err:
             status = err.response.status_code if err.response is not None else None
             if status in RETRYABLE_HTTP_STATUS and attempt < RETRY_MAX_ATTEMPTS - 1:
@@ -331,17 +370,34 @@ def get_logs_with_retry(
     return []
 
 
+def _write_json_atomic(path: Path, data) -> None:
+    """Write JSON via a temp file in the same directory + os.replace so
+    a crash mid-write never leaves a truncated file behind for the next
+    run to choke on."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, path)
+
+
 def load_state() -> dict[str, int]:
     if not STATE_FILE.exists():
         return {}
-    with STATE_FILE.open() as f:
-        return json.load(f)
+    try:
+        with STATE_FILE.open() as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as err:
+        print(
+            f"WARNING: state.json unreadable ({sanitize_err(err)}); "
+            f"treating as first run",
+            file=sys.stderr,
+        )
+        return {}
 
 
 def save_state(state: dict[str, int]) -> None:
-    with STATE_FILE.open("w") as f:
-        json.dump(state, f, indent=2, sort_keys=True)
-        f.write("\n")
+    _write_json_atomic(STATE_FILE, state)
 
 
 def shorten_address(addr: str) -> str:
@@ -485,6 +541,12 @@ def read_existing_queue() -> tuple[str, str]:
     """Return (header, tail) where tail is everything after the
     <!-- queue:start --> marker. If the file doesn't exist or doesn't
     contain the marker, return the canonical header and an empty tail.
+
+    The header is always the current QUEUE_HEADER constant, never the
+    text found on disk: preserving the on-disk header froze the first
+    version forever (the committed file still said "four EVM chains"
+    long after HyperEVM made it five). Rewriting it on every run means
+    future header edits propagate on the next bot write.
     """
     if not QUEUE_FILE.exists():
         return QUEUE_HEADER, ""
@@ -494,8 +556,12 @@ def read_existing_queue() -> tuple[str, str]:
         # File exists but is malformed; preserve its content under a
         # quarantine fence and start a fresh queue above it.
         return QUEUE_HEADER, f"\n<!-- pre-existing content preserved below -->\n{content}\n"
-    head, _, tail = content.partition(marker)
-    return head + marker + "\n", tail.lstrip("\n")
+    _, _, tail = content.partition(marker)
+    return QUEUE_HEADER, tail.lstrip("\n")
+
+
+# A 32-byte tx hash as it appears in each queue entry's explorer link.
+_TX_HASH_RE = re.compile(r"0x[0-9a-fA-F]{64}")
 
 
 def write_queue(new_entries: list[str]) -> None:
@@ -509,10 +575,24 @@ def write_queue(new_entries: list[str]) -> None:
     the working tree). On an empty-entries run with no pre-existing
     tail, the file ends up as just the header — same as the initial
     template, which leaves no diff against HEAD.
+
+    Dedupes by tx hash against the existing tail: after a quota hit the
+    state cursor rewinds to the deferred event's block, so the next run
+    re-scans that block and would otherwise re-emit same-block entries
+    already prepended last run (queue.json dedupes by id; this is the
+    Markdown equivalent). Entries without a tx hash (founder copy) are
+    deduped upstream by their own fired/daily bookkeeping.
     """
     head, tail = read_existing_queue()
-    if new_entries:
-        body = "\n".join(new_entries) + "\n"
+    tail_lower = tail.lower()
+    deduped: list[str] = []
+    for entry in new_entries:
+        match = _TX_HASH_RE.search(entry)
+        if match and match.group(0).lower() in tail_lower:
+            continue
+        deduped.append(entry)
+    if deduped:
+        body = "\n".join(deduped) + "\n"
     else:
         body = ""
     QUEUE_FILE.write_text(f"{head}\n{body}{tail}")
@@ -537,7 +617,7 @@ def write_queue_json(new_entries_json: list[dict], now_iso: str) -> None:
                 payload = json.load(f)
             existing = payload.get("entries", [])
         except (json.JSONDecodeError, OSError) as err:
-            print(f"queue.json unreadable, starting fresh: {err}", file=sys.stderr)
+            print(f"queue.json unreadable, starting fresh: {sanitize_err(err)}", file=sys.stderr)
 
     # De-dupe by id: if the bot reprocesses the same tx (e.g. after a
     # reorg or a manual rerun), don't double-list it.
@@ -553,24 +633,42 @@ def write_queue_json(new_entries_json: list[dict], now_iso: str) -> None:
         f.write("\n")
 
 
+def format_treasury_failed_entry(chain: dict, tx_hash_hex: str, amount_wei: int) -> str:
+    """URGENT operator alert for a TreasurySendFailed event. The amount
+    was burned instead of reaching the treasury; this is the only
+    on-chain signal that revenue is burning, so it jumps the queue.
+    """
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    explorer_url = f"{chain['explorer_tx']}{tx_hash_hex}"
+    return (
+        f"- [ ] **URGENT: TreasurySendFailed on {chain['name']}** · {now} · "
+        f"amount {amount_wei} wei ({format_price(amount_wei, chain['native'])}) · "
+        f"[tx]({explorer_url})\n"
+        f"\n"
+        f"  Treasury send failed and the amount was BURNED. Check the\n"
+        f"  treasury address configuration for this chain immediately.\n"
+    )
+
+
 def process_chain(
     chain: dict, state: dict[str, int], remaining_quota: int, now_iso: str,
-) -> tuple[list[str], list[dict]]:
-    """Return (markdown_entries, json_entries) for new notable paints on
-    this chain. Advances state[chain_id] to the next unscanned block.
-    Both lists are aligned: same entry at the same index in both.
+) -> tuple[list[str], list[dict], list[str]]:
+    """Return (markdown_entries, json_entries, urgent_entries) for new
+    notable paints (and TreasurySendFailed alerts) on this chain.
+    Advances state[chain_id] to the next unscanned block. The first two
+    lists are aligned: same entry at the same index in both.
     """
     rpc = os.environ.get(chain["rpc_env"]) or chain["rpc_default"]
     if not rpc:
         print(f"[{chain['name']}] skip: no RPC configured (set {chain['rpc_env']})")
-        return [], []
+        return [], [], []
 
     w3 = Web3(Web3.HTTPProvider(rpc))
     try:
         latest = w3.eth.block_number
     except Exception as err:
-        print(f"[{chain['name']}] RPC unreachable: {err}", file=sys.stderr)
-        return [], []
+        print(f"[{chain['name']}] RPC unreachable: {sanitize_err(err)}", file=sys.stderr)
+        return [], [], []
 
     canvas_address = Web3.to_checksum_address(
         chain.get("canvas_address") or os.environ["CANVAS_ADDRESS"]
@@ -582,8 +680,20 @@ def process_chain(
     except Exception as err:
         # Non-fatal: overpaint detection just degrades to "unknown" for
         # this chain on this run.
-        print(f"[{chain['name']}] startingPrice() failed, overpaint flag disabled: {err}", file=sys.stderr)
+        print(f"[{chain['name']}] startingPrice() failed, overpaint flag disabled: {sanitize_err(err)}", file=sys.stderr)
         floor_wei = 0
+
+    # Raw get_logs with both topic0 values OR'd, so Painted and
+    # TreasurySendFailed share one RPC pass per window. Painted logs are
+    # decoded through the contract event API below; TreasurySendFailed
+    # carries a single non-indexed uint256 decoded straight from data.
+    def fetch_logs(from_block: int, to_block: int) -> list:
+        return w3.eth.get_logs({
+            "address": canvas_address,
+            "fromBlock": from_block,
+            "toBlock": to_block,
+            "topics": [[PAINTED_TOPIC0.to_0x_hex(), TREASURY_SEND_FAILED_TOPIC0.to_0x_hex()]],
+        })
 
     cid_key = str(chain["id"])
     if cid_key in state:
@@ -601,34 +711,57 @@ def process_chain(
     if from_block > latest:
         print(f"[{chain['name']}] state ahead of head; resetting to latest")
         state[cid_key] = latest
-        return [], []
+        return [], [], []
     if from_block == latest:
         print(f"[{chain['name']}] up to date at block {latest}")
-        return [], []
+        return [], [], []
 
     # Loop through LOGS_WINDOW-sized chunks until we either catch up to
     # `latest` or exhaust the per-run quota. Each successful chunk
     # advances state[cid_key] so a mid-loop crash resumes cleanly.
     md_entries: list[str] = []
     json_entries: list[dict] = []
+    urgent_entries: list[str] = []
     cur = from_block
     while cur < latest and len(md_entries) < remaining_quota:
         to_block = min(latest, cur + chain.get("logs_window", LOGS_WINDOW))
         try:
-            events = get_logs_with_retry(
-                contract.events.Painted, cur, to_block, chain["name"],
+            raw_logs = get_logs_with_retry(
+                fetch_logs, cur, to_block, chain["name"],
             )
         except (ContractLogicError, ValueError, Web3RPCError, requests.exceptions.RequestException) as err:
             print(
-                f"[{chain['name']}] get_logs failed in [{cur},{to_block}]: {err}",
+                f"[{chain['name']}] get_logs failed in [{cur},{to_block}]: {sanitize_err(err)}",
                 file=sys.stderr,
             )
-            # Skip this chunk and advance; we'll reattempt the next run
-            # if the failure was transient (state hasn't moved past
-            # to_block yet).
-            cur = to_block + 1
-            time.sleep(INTER_CHUNK_SLEEP_S)
-            continue
+            # Do NOT advance past the failed range: a later successful
+            # chunk would push state[cid_key] beyond it and the Painted
+            # events inside would be lost forever. Halt this chain's
+            # scan instead; state still points at the failed chunk, so
+            # the next run retries from exactly here.
+            print(
+                f"[{chain['name']}] chunk {cur}-{to_block} failed, halting this "
+                f"chain's scan; will resume next run",
+                file=sys.stderr,
+            )
+            break
+
+        events = []
+        for raw in raw_logs:
+            topic0 = bytes(raw["topics"][0]) if raw["topics"] else b""
+            if topic0 == bytes(TREASURY_SEND_FAILED_TOPIC0):
+                tx_hash_hex = "0x" + bytes(raw["transactionHash"]).hex()
+                amount_wei = int.from_bytes(bytes(raw["data"]), "big")
+                print(
+                    f"[{chain['name']}] URGENT: TreasurySendFailed tx {tx_hash_hex}, "
+                    f"amount {amount_wei} wei (burned, not received)",
+                    file=sys.stderr,
+                )
+                urgent_entries.append(
+                    format_treasury_failed_entry(chain, tx_hash_hex, amount_wei)
+                )
+            elif topic0 == bytes(PAINTED_TOPIC0):
+                events.append(contract.events.Painted.process_log(raw))
 
         if events:
             print(f"[{chain['name']}] {len(events)} events in [{cur}, {to_block}]")
@@ -636,7 +769,7 @@ def process_chain(
             if len(md_entries) >= remaining_quota:
                 print(f"[{chain['name']}] hit MAX_PER_RUN; remaining events deferred to next run")
                 state[cid_key] = ev["blockNumber"]
-                return md_entries, json_entries
+                return md_entries, json_entries, urgent_entries
             args = ev["args"]
             if not is_notable(args):
                 continue
@@ -654,7 +787,7 @@ def process_chain(
         if cur < latest:
             time.sleep(INTER_CHUNK_SLEEP_S)
 
-    return md_entries, json_entries
+    return md_entries, json_entries, urgent_entries
 
 
 def gini_coefficient(values: list[int]) -> float:
@@ -719,7 +852,7 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict], d
         latest = latest_block["number"]
         latest_ts = latest_block["timestamp"]
     except Exception as err:
-        print(f"[{chain['name']}] summary: RPC unreachable: {err}", file=sys.stderr)
+        print(f"[{chain['name']}] summary: RPC unreachable: {sanitize_err(err)}", file=sys.stderr)
         return None, {}, {}
 
     canvas_address = Web3.to_checksum_address(
@@ -762,13 +895,18 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict], d
         to = min(latest, cur + chain.get("logs_window", LOGS_WINDOW))
         try:
             events = get_logs_with_retry(
-                contract.events.Painted, cur, to, chain["name"],
+                contract.events.Painted.get_logs, cur, to, chain["name"],
             )
         except (ContractLogicError, ValueError, Web3RPCError, requests.exceptions.RequestException) as err:
             print(
-                f"[{chain['name']}] summary chunk [{cur},{to}] failed: {err}",
+                f"[{chain['name']}] summary chunk [{cur},{to}] failed: {sanitize_err(err)}",
                 file=sys.stderr,
             )
+            # Skip-and-continue is fine HERE (unlike the queue and
+            # founders scans): the summary is recomputed from scratch
+            # every run with no persistent cursor, so a missed chunk
+            # only dents this run's aggregate and self-corrects on the
+            # next tick.
             cur = to + 1
             time.sleep(INTER_CHUNK_SLEEP_S)
             continue
@@ -961,7 +1099,6 @@ LEADERBOARD_JSON_FILE = (HERE / ".." / ".." / "web" / "public" / "leaderboard.js
 
 def build_referrer_leaderboard(
     per_chain_referrer_data: list[dict[str, dict]],
-    chains_by_native: dict[str, dict],
 ) -> list[dict]:
     """Merge per-chain referrer dicts into a sorted cross-chain
     leaderboard. Each row carries the referrer's address, total paint
@@ -1022,6 +1159,17 @@ def build_referrer_leaderboard(
     return formatted
 
 
+# Reverse-resolved ENS primary names are attacker-chosen display text:
+# anyone can set any string as their primary name, and it lands rendered
+# on tagwall.io's leaderboard. Accept only conservative ASCII .eth names
+# (lowercase alphanumerics plus inner dots/hyphens, capped length) so
+# homoglyph/RTL tricks and scam-bait names ("claim-rewards" lookalikes,
+# embedded URLs, zero-width characters) get dropped in favour of the
+# plain address.
+ENS_NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.eth$")
+ENS_NAME_MAX_LEN = 40
+
+
 def resolve_ens_names(leaderboard: list[dict]) -> None:
     """Resolve each row's ENS name in place by reverse-lookup on
     Ethereum mainnet. ENS only lives on Ethereum, but addresses are
@@ -1046,17 +1194,21 @@ def resolve_ens_names(leaderboard: list[dict]) -> None:
         w3_eth = Web3(Web3.HTTPProvider(eth_rpc))
         ns = ENS.from_web3(w3_eth)
     except Exception as err:
-        print(f"ENS setup failed, skipping resolution: {err}", file=sys.stderr)
+        print(f"ENS setup failed, skipping resolution: {sanitize_err(err)}", file=sys.stderr)
         return
 
     for row in leaderboard:
         try:
             name = ns.name(row["address"])
         except Exception as err:
-            print(f"ENS lookup failed for {row['address']}: {err}", file=sys.stderr)
+            print(f"ENS lookup failed for {row['address']}: {sanitize_err(err)}", file=sys.stderr)
             continue
-        if name:
-            row["name"] = name
+        if not name:
+            continue
+        if len(name) > ENS_NAME_MAX_LEN or not ENS_NAME_RE.fullmatch(name):
+            print(f"dropping non-conforming ENS name for {row['address']}", file=sys.stderr)
+            continue
+        row["name"] = name
 
 
 def write_leaderboard(leaderboard: list[dict], now_iso: str) -> None:
@@ -1093,14 +1245,20 @@ def write_leaderboard(leaderboard: list[dict], now_iso: str) -> None:
 def load_founders_state() -> dict:
     if not FOUNDERS_STATE_FILE.exists():
         return {}
-    with FOUNDERS_STATE_FILE.open() as f:
-        return json.load(f)
+    try:
+        with FOUNDERS_STATE_FILE.open() as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as err:
+        print(
+            f"WARNING: founders_state.json unreadable ({sanitize_err(err)}); "
+            f"treating as first run",
+            file=sys.stderr,
+        )
+        return {}
 
 
 def save_founders_state(fstate: dict) -> None:
-    with FOUNDERS_STATE_FILE.open("w") as f:
-        json.dump(fstate, f, indent=2, sort_keys=True)
-        f.write("\n")
+    _write_json_atomic(FOUNDERS_STATE_FILE, fstate)
 
 
 def compute_founder_stats(count: int) -> dict:
@@ -1141,7 +1299,7 @@ def scan_founders(chain: dict, fstate: dict) -> bool:
     try:
         latest = w3.eth.block_number
     except Exception as err:
-        print(f"[{chain['name']}] founders: RPC unreachable: {err}", file=sys.stderr)
+        print(f"[{chain['name']}] founders: RPC unreachable: {sanitize_err(err)}", file=sys.stderr)
         return False
 
     canvas_address = Web3.to_checksum_address(
@@ -1164,14 +1322,20 @@ def scan_founders(chain: dict, fstate: dict) -> bool:
         to = min(latest, cur + window)
         try:
             events = get_logs_with_retry(
-                contract.events.Painted, cur, to, chain["name"],
+                contract.events.Painted.get_logs, cur, to, chain["name"],
             )
         except (ContractLogicError, ValueError, Web3RPCError, requests.exceptions.RequestException) as err:
-            print(f"[{chain['name']}] founders chunk [{cur},{to}] failed: {err}", file=sys.stderr)
-            cur = to + 1
-            chunks += 1
-            time.sleep(INTER_CHUNK_SLEEP_S)
-            continue
+            print(f"[{chain['name']}] founders chunk [{cur},{to}] failed: {sanitize_err(err)}", file=sys.stderr)
+            # Do NOT advance lastBlock past the failed range: skipping
+            # it would permanently undercount the distinct-painter set.
+            # Halt this chain's founders scan; lastBlock still points at
+            # the last successful chunk, so the next run resumes here.
+            print(
+                f"[{chain['name']}] chunk {cur}-{to} failed, halting this "
+                f"chain's founders scan; will resume next run",
+                file=sys.stderr,
+            )
+            break
         for ev in events:
             painters.add(ev["args"]["painter"].lower())
         slot["lastBlock"] = to  # persist progress per chunk so we resume cleanly
@@ -1359,14 +1523,16 @@ def main() -> int:
 
     md_entries: list[str] = []
     json_entries: list[dict] = []
+    urgent_entries: list[str] = []
     for chain in CHAINS:
         remaining = MAX_PER_RUN - len(md_entries)
         if remaining <= 0:
             print("global per-run cap exhausted; deferring remaining chains to next run")
             break
-        chain_md, chain_json = process_chain(chain, state, remaining, now_iso)
+        chain_md, chain_json, chain_urgent = process_chain(chain, state, remaining, now_iso)
         md_entries.extend(chain_md)
         json_entries.extend(chain_json)
+        urgent_entries.extend(chain_urgent)
 
     # Newest first: reverse so the most recent paint across all chains
     # lands at the top of the queue. Within a chain, events are in block
@@ -1393,7 +1559,7 @@ def main() -> int:
             try:
                 s, referrers, parts = compute_weekly_summary(chain)
             except Exception as err:
-                print(f"[{chain['name']}] summary scan crashed, skipping: {err}", file=sys.stderr)
+                print(f"[{chain['name']}] summary scan crashed, skipping: {sanitize_err(err)}", file=sys.stderr)
                 continue
             if s is not None:
                 summaries.append(s)
@@ -1406,8 +1572,7 @@ def main() -> int:
     # ENS resolution happens against Ethereum mainnet; we kick it
     # whether or not Ethereum was in the scan (the leaderboard is
     # chain-agnostic).
-    chains_by_native = {c["native"]: c for c in CHAINS}
-    leaderboard = build_referrer_leaderboard(per_chain_referrers, chains_by_native)
+    leaderboard = build_referrer_leaderboard(per_chain_referrers)
     if leaderboard:
         print(f"resolving ENS names for {len(leaderboard)} leaderboard row(s)")
         resolve_ens_names(leaderboard)
@@ -1428,7 +1593,7 @@ def main() -> int:
             try:
                 caught_up = scan_founders(chain, founders_state)
             except Exception as err:
-                print(f"[{chain['name']}] founder scan crashed, skipping: {err}", file=sys.stderr)
+                print(f"[{chain['name']}] founder scan crashed, skipping: {sanitize_err(err)}", file=sys.stderr)
                 continue
             founder_caught_up[str(chain["id"])] = caught_up
             if not caught_up:
@@ -1436,7 +1601,7 @@ def main() -> int:
             try:
                 fmd, fjs = generate_founder_candidates(chain, founders_state, now_iso)
             except Exception as err:
-                print(f"[{chain['name']}] founder candidate gen failed: {err}", file=sys.stderr)
+                print(f"[{chain['name']}] founder candidate gen failed: {sanitize_err(err)}", file=sys.stderr)
                 continue
             founder_md.extend(fmd)
             founder_json.extend(fjs)
@@ -1444,8 +1609,9 @@ def main() -> int:
         print("SKIP_FOUNDERS set; skipping founder scan")
 
     # Prepend so founder candidates sit above paints in the freshly-reversed
-    # (newest-first) queue.
-    md_entries = founder_md + md_entries
+    # (newest-first) queue, and URGENT TreasurySendFailed alerts sit above
+    # everything else.
+    md_entries = urgent_entries + founder_md + md_entries
     json_entries = founder_json + json_entries
 
     summary_window_days = SUMMARY_WINDOW_SECONDS // 86400
@@ -1474,8 +1640,9 @@ def main() -> int:
         save_founders_state(founders_state)
 
     print(
-        f"queued {len(md_entries) - len(founder_md)} paint(s) + "
-        f"{len(founder_md)} founder candidate(s) this run; "
+        f"queued {len(md_entries) - len(founder_md) - len(urgent_entries)} paint(s) + "
+        f"{len(founder_md)} founder candidate(s) + "
+        f"{len(urgent_entries)} urgent alert(s) this run; "
         f"summarised {len(summaries)} chain(s); "
         f"leaderboard has {len(leaderboard)} referrer(s)"
     )

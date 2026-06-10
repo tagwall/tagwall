@@ -55,22 +55,44 @@ export interface PaginatedLogsArgs<E extends AbiEvent> {
   chunkSize?: bigint
 }
 
+/** A block range that failed even at MIN_CHUNK_SIZE and was skipped. */
+export interface DroppedRange {
+  fromBlock: bigint
+  toBlock: bigint
+}
+
+export interface PaginatedLogsResult<E extends AbiEvent> {
+  logs: GetLogsReturnType<E, [E], false>
+  /**
+   * Ranges skipped after exhausting retries. Callers that cache results
+   * should retry these on their next pass (see usePaintedRegions) so a
+   * transient RPC failure doesn't permanently hide events.
+   */
+  droppedRanges: DroppedRange[]
+}
+
 /**
  * Fetch logs in paginated chunks. Returns logs in the order each chunk
  * returned them; the caller is responsible for sorting (Painted events
- * sort by (blockNumber, logIndex) in usePaintedRegions).
+ * sort by (blockNumber, logIndex) in usePaintedRegions). Ranges that
+ * stay unrecoverable are reported in `droppedRanges` rather than
+ * silently forgotten.
  */
 export async function getLogsPaginated<E extends AbiEvent>(
   args: PaginatedLogsArgs<E>,
-): Promise<GetLogsReturnType<E, [E], false>> {
+): Promise<PaginatedLogsResult<E>> {
   const { publicClient, address, event, fromBlock, toBlock } = args
   const initialChunk = args.chunkSize ?? DEFAULT_CHUNK_SIZE
 
   if (toBlock < fromBlock) {
-    return [] as unknown as GetLogsReturnType<E, [E], false>
+    return {
+      logs: [] as unknown as GetLogsReturnType<E, [E], false>,
+      droppedRanges: [],
+    }
   }
 
   const out: unknown[] = []
+  const droppedRanges: DroppedRange[] = []
   let cursor = fromBlock
 
   while (cursor <= toBlock) {
@@ -100,7 +122,9 @@ export async function getLogsPaginated<E extends AbiEvent>(
             `[paginatedLogs] dropping range [${cursor}, ${chunkEnd}] after exhausting retries`,
             err,
           )
-          // Give up on this specific range, advance past it so we don't loop.
+          // Give up on this specific range, record it for the caller's
+          // retry path, and advance past it so we don't loop.
+          droppedRanges.push({ fromBlock: cursor, toBlock: chunkEnd })
           cursor = chunkEnd + 1n
           break
         }
@@ -112,7 +136,7 @@ export async function getLogsPaginated<E extends AbiEvent>(
     if (!succeeded) continue
   }
 
-  return out as GetLogsReturnType<E, [E], false>
+  return { logs: out as GetLogsReturnType<E, [E], false>, droppedRanges }
 }
 
 // Re-export so a single import in usePaintedRegions covers the helper

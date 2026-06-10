@@ -31,8 +31,14 @@ export default function EmbedPage() {
 
   const ref = useMemo(() => {
     const v = params.get('ref')
-    if (!v || !isAddress(v)) return null
-    return getAddress(v)
+    // Non-strict so lowercase / wrong-checksum addresses still earn their
+    // 5%; getAddress() normalizes to the checksummed form downstream.
+    if (!v || !isAddress(v, { strict: false })) return null
+    try {
+      return getAddress(v)
+    } catch {
+      return null
+    }
   }, [params])
 
   const { data: header } = useCanvasHeader()

@@ -324,6 +324,11 @@ export default function OpsStatsPage() {
   const okCount = live.chains.filter((c) => c.ok).length
   const gLabel = roll ? giniLabel(roll.gini) : null
 
+  // Treasury EOA tripwire: the treasury must never carry code (a 7702
+  // delegation that reverts or runs past Canvas's 50k gas budget would
+  // burn the 95% slice of every paint to 0xdEaD). See useCrossChainLive.
+  const treasuryCodeChains = live.chains.filter((c) => c.treasuryHasCode === true)
+
   const founderBoard = summary?.founders ?? []
 
   return (
@@ -342,6 +347,28 @@ export default function OpsStatsPage() {
           chain state, so there's nothing to gate, but it's an operator tool.
         </p>
       </header>
+
+      {treasuryCodeChains.length > 0 && (
+        <section
+          role="alert"
+          style={{
+            border: '2px solid #ff5050',
+            borderRadius: 8,
+            padding: '12px 16px',
+            margin: '0 0 16px',
+            background: 'rgba(255, 80, 80, 0.08)',
+          }}
+        >
+          <strong>URGENT: treasury address has contract code on{' '}
+            {treasuryCodeChains.map((c) => c.name).join(', ')}.</strong>{' '}
+          The treasury must stay a plain EOA. With code present (e.g. an EIP-7702
+          smart-account delegation), a receive() that reverts or exceeds the
+          contract's 50k gas budget makes Canvas burn the 95% treasury slice of
+          every paint to 0xdEaD, permanently. Remove the delegation from the
+          treasury wallet now and watch for TreasurySendFailed alerts in the
+          tweets-bot queue.
+        </section>
+      )}
 
       {/* KPI strip: live all-time totals + windowed health. */}
       <section className="ops-kpis" aria-label="Headline metrics">

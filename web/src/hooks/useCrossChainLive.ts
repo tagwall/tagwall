@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getBalance, readContract } from '@wagmi/core'
+import { getBalance, getBytecode, readContract } from '@wagmi/core'
 import type { Address } from 'viem'
 
 import { config } from '../wagmi'
@@ -60,10 +60,21 @@ export interface ChainLive {
   treasury: Address | null
   /** Treasury native balance, in wei (proxy for cumulative net revenue). */
   treasuryBalance: bigint | null
+  /**
+   * True when eth_getCode(treasury) is non-empty. The treasury MUST stay a
+   * plain EOA: Canvas sends its 95% slice with a 50k gas budget and burns
+   * it to 0xdEaD on failure, so a 7702 delegation (or any code) on the
+   * treasury address whose receive() reverts or exceeds the budget would
+   * silently burn all revenue, on every chain it is delegated on. This is
+   * the contract's only off-chain tripwire besides the TreasurySendFailed
+   * event (which the tweets bot also alerts on). null = check unavailable.
+   */
+  treasuryHasCode: boolean | null
 }
 
 async function readChain(c: OpsChain): Promise<ChainLive> {
   const address = canvasAddress(c.id)
+  if (!address) throw new Error(`no canvas address for chain ${c.id}`)
   const base = { address, abi: canvasAbi, chainId: c.id } as const
 
   const [stamp, price, treasury] = await Promise.all([
@@ -73,7 +84,13 @@ async function readChain(c: OpsChain): Promise<ChainLive> {
   ])
 
   const treasuryAddr = treasury as Address
-  const bal = await getBalance(config, { address: treasuryAddr, chainId: c.id })
+  const [bal, code] = await Promise.all([
+    getBalance(config, { address: treasuryAddr, chainId: c.id }),
+    getBytecode(config, { address: treasuryAddr, chainId: c.id })
+      .then((v) => (v != null && v !== '0x' ? true : false))
+      // Best effort: a flaky getCode must not sink the whole row.
+      .catch(() => null),
+  ])
 
   return {
     chainId: c.id,
@@ -84,6 +101,7 @@ async function readChain(c: OpsChain): Promise<ChainLive> {
     startingPrice: price as bigint,
     treasury: treasuryAddr,
     treasuryBalance: bal.value,
+    treasuryHasCode: code,
   }
 }
 
@@ -114,6 +132,7 @@ export function useCrossChainLive(): CrossChainLive {
           startingPrice: null,
           treasury: null,
           treasuryBalance: null,
+          treasuryHasCode: null,
         }
       })
     },

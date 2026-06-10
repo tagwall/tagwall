@@ -28,6 +28,10 @@ export function AppLayout() {
   const { isConnected } = useAccount()
   const chainId = useChainId()
   const tokens = chainColorTokens(isConnected ? chainId : null)
+  // useChainId() only returns configured chains, so this is always set in
+  // practice; the fallback keeps the footer total when canvasAddress's
+  // no-fallback signature (audit H1) says "unknown chain".
+  const footerCanvasAddr = canvasAddress(chainId)
   // Memory-leak fix: when the user switches chains, remove every cached
   // query whose chain id doesn't match the active chain. Without this,
   // each tile's react-query entry (chainId is in the queryKey) survived
@@ -97,8 +101,12 @@ export function AppLayout() {
         <div className="site-footer-left">
           <small>
             Tagwall is an immutable 1,000,000-pixel on-chain graffiti wall.
-            Canvas at{' '}
-            <code title={canvasAddress(chainId)}>{shortenAddress(canvasAddress(chainId))}</code>.
+            {footerCanvasAddr && (
+              <>
+                {' '}Canvas at{' '}
+                <code title={footerCanvasAddr}>{shortenAddress(footerCanvasAddr)}</code>.
+              </>
+            )}
           </small>
         </div>
         <div className="site-footer-socials" aria-label="Socials">

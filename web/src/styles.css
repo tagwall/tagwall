@@ -143,6 +143,14 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-radius: 3px;
 }
 .lb-ticker-link {
+  /* Button reset: this is a <button> styled as a link, so the outbound
+     interstitial can't be bypassed by middle-click (it has no href). */
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
   color: var(--tw-fg-bright);
   max-width: 200px;
   overflow: hidden;
@@ -157,8 +165,8 @@ body { margin: 0; background: var(--bg); color: var(--text); }
      clicking the link doesn't fight the scroll. */
   pointer-events: auto;
 }
-a.lb-ticker-link:hover,
-a.lb-ticker-link:focus-visible {
+.lb-ticker-link:hover,
+.lb-ticker-link:focus-visible {
   color: var(--tw-accent);
   border-bottom-color: var(--tw-accent);
   outline: none;
@@ -3366,6 +3374,15 @@ a.lb-ticker-link:focus-visible {
 /* URL first, above painter; accent colour so the "where does this go"
    answer reads first. */
 .leaderboard-link {
+  /* Button reset (see .lb-ticker-link): styled as a link, no href. */
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  display: block;
+  max-width: 100%;
+  text-align: left;
   font-size: 11px;
   color: var(--accent);
   text-decoration: none;
@@ -3526,8 +3543,18 @@ a.lb-ticker-link:focus-visible {
 .activity-td-painter { color: var(--text-dim); }
 .activity-td-price { text-align: right; }
 .activity-td-mult { text-align: right; color: var(--text-dim); }
-.activity-td-link a { color: var(--accent); text-decoration: none; }
-.activity-td-link a:hover { text-decoration: underline; }
+.activity-td-link a,
+.activity-link-btn { color: var(--accent); text-decoration: none; }
+.activity-td-link a:hover,
+.activity-link-btn:hover { text-decoration: underline; }
+/* Button reset (see .lb-ticker-link): styled as a link, no href. */
+.activity-link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
 
 /* Container sitting directly below the canvas. Inherits the canvas-col
    max-width via its parent, so the table width equals the canvas width.
@@ -4003,7 +4030,9 @@ a.lb-ticker-link:focus-visible {
   padding: 7px 13px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-dim);
+  /* Idle: a hint of the accent mixed into bright text so the link reads
+     as interactive, not disabled, without shouting. */
+  color: color-mix(in srgb, var(--tw-accent) 28%, var(--text-bright));
   text-decoration: none;
   border-radius: 7px;
   border: 1px solid var(--border-control);
@@ -4013,9 +4042,16 @@ a.lb-ticker-link:focus-visible {
   transition: color 120ms, border-color 120ms, background-color 120ms;
 }
 .nav-link:hover {
-  color: var(--text-bright);
+  color: var(--tw-accent);
   border-color: var(--tw-accent);
   background: var(--bg-panel-hi);
+}
+/* Current page: full accent + tinted fill so it's obvious which nav
+   item you're on. react-router's NavLink adds `.active` automatically. */
+.nav-link.active {
+  color: var(--tw-accent);
+  border-color: color-mix(in srgb, var(--tw-accent) 60%, var(--border-control));
+  background: color-mix(in srgb, var(--tw-accent) 12%, var(--bg-panel));
 }
 
 /* --- Founder badge pill --- */
@@ -4579,4 +4615,60 @@ a.lb-ticker-link:focus-visible {
   border-radius: 4px; margin-bottom: 12px; font-weight: 700;
 }
 .comp-pool-sub { color: var(--tw-dim); font-size: 13px; max-width: 52ch; margin: 6px auto 0; line-height: 1.45; }
-.nav-link-competition { color: var(--tw-accent); }
+
+/* --- Competition promo banner (above the ticker on the canvas page) ---
+   Follows the active chain accent (--tw-accent) so it matches the rest of
+   the chrome: lime by default, pink on PulseChain, blue on Ethereum, etc.
+   Dark high-contrast text works on every chain accent (all are bright).
+   Self-hides when the contest ends (component returns null). */
+.comp-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  background: var(--tw-accent);
+  color: #07070b;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  transition: background-color 120ms;
+}
+.comp-banner:hover { background: color-mix(in srgb, var(--tw-accent), #fff 18%); }
+.comp-banner-tag {
+  flex: 0 0 auto;
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  background: #07070b;
+  color: var(--tw-accent);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.comp-banner-live .comp-banner-tag {
+  /* gentle pulse so a live contest catches the eye */
+  animation: comp-banner-pulse 1.8s ease-in-out infinite;
+}
+@keyframes comp-banner-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .comp-banner-live .comp-banner-tag { animation: none; }
+}
+.comp-banner-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: center;
+}
+.comp-banner-cta { flex: 0 0 auto; font-weight: 800; }
+@media (max-width: 640px) {
+  .comp-banner { font-size: 12px; padding: 7px 12px; gap: 8px; }
+  .comp-banner-text { white-space: normal; }
+}

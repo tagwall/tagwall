@@ -49,6 +49,11 @@ jobs:
       contents: write   # to commit state.json + QUEUE.md + queue.json + summary.json back
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Don't persist the GITHUB_TOKEN into .git/config: later steps
+          # run pip-installed third-party code, and the write token
+          # should only exist in the push step's env, not on disk.
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
@@ -86,6 +91,11 @@ jobs:
 
       - name: Commit scan results
         if: ${{ !inputs.dry_run }}
+        env:
+          # Scoped to this step only (checkout ran with
+          # persist-credentials: false), so the write token never sits
+          # in .git/config while third-party code runs.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # Files the bot may touch. Some may not exist on disk if
@@ -128,7 +138,12 @@ jobs:
           git config user.email 'noreply@tagwall.io'
           git add "${EXISTING[@]}"
           git commit -m "bot: append notable paints"
-          # GITHUB_TOKEN with `contents: write` on this repo (granted by
-          # the job-level permissions block above) is automatically
-          # configured as the push credential by actions/checkout@v4.
-          git push
+          # An operator publish (or the previous bot tick) can land on
+          # main mid-run; rebase the bot commit on top instead of
+          # failing the push. The repo is public, so the fetch side of
+          # the pull needs no credentials. Never force-push.
+          git pull --rebase "https://github.com/${GITHUB_REPOSITORY}.git" main
+          # Authenticate explicitly and only at push time, using the
+          # step-scoped GITHUB_TOKEN (contents: write from the job-level
+          # permissions block above).
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main

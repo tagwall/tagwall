@@ -64,10 +64,13 @@ async function scanCoverage(c: (typeof OPS_CHAINS)[number]): Promise<ChainCovera
   const client = getPublicClient(config, { chainId: c.id })
   if (!client) throw new Error(`no public client for chain ${c.id}`)
 
+  const address = canvasAddress(c.id)
+  if (!address) throw new Error(`no canvas address for chain ${c.id}`)
+
   const toBlock = await client.getBlockNumber()
-  const logs = await getLogsPaginated({
+  const { logs } = await getLogsPaginated({
     publicClient: client as unknown as GetLogsClient,
-    address: canvasAddress(c.id) as Hex,
+    address: address as Hex,
     event: PAINTED_EVENT,
     fromBlock: deployBlockFor(c.id),
     toBlock,
