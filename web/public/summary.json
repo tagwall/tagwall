@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-13T05:01:29Z",
+  "generatedAt": "2026-06-13T08:36:40Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 4,
+    "chainCount": 3,
     "totalPaints": 19,
     "totalOverpaints": 3,
     "uniquePainters": 1,
@@ -57,7 +57,7 @@
       "chainId": 1,
       "chain": "Ethereum",
       "native": "ETH",
-      "caughtUp": true,
+      "caughtUp": false,
       "claimed": 1,
       "genesisClaimed": 1,
       "founderClaimed": 0,
@@ -107,8 +107,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26712477,
-      "windowEndBlock": 26772957,
+      "windowStartBlock": 26713665,
+      "windowEndBlock": 26774145,
       "paintCount": 19,
       "overpaintCount": 3,
       "uniquePainters": 1,
@@ -174,8 +174,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25255929,
-      "windowEndBlock": 25306329,
+      "windowStartBlock": 25257004,
+      "windowEndBlock": 25307404,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -219,59 +219,14 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 46966424,
-      "windowEndBlock": 47268824,
+      "windowStartBlock": 46972847,
+      "windowEndBlock": 47275247,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
       "uniqueReferrers": 0,
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
-      "dailyActivity": [
-        {
-          "date": "2026-06-07",
-          "paints": 0
-        },
-        {
-          "date": "2026-06-08",
-          "paints": 0
-        },
-        {
-          "date": "2026-06-09",
-          "paints": 0
-        },
-        {
-          "date": "2026-06-10",
-          "paints": 0
-        },
-        {
-          "date": "2026-06-11",
-          "paints": 0
-        },
-        {
-          "date": "2026-06-12",
-          "paints": 0
-        },
-        {
-          "date": "2026-06-13",
-          "paints": 0
-        }
-      ],
-      "biggestByPixels": null,
-      "biggestByPrice": null
-    },
-    {
-      "chain": "HyperEVM",
-      "chainId": 999,
-      "native": "HYPE",
-      "windowStartBlock": 37084764,
-      "windowEndBlock": 37689564,
-      "paintCount": 0,
-      "overpaintCount": 0,
-      "uniquePainters": 0,
-      "uniqueReferrers": 0,
-      "gini": 0.0,
-      "totalVolumeFormatted": "0.000000 HYPE",
       "dailyActivity": [
         {
           "date": "2026-06-07",
