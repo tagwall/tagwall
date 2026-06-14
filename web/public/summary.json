@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-14T12:22:37Z",
+  "generatedAt": "2026-06-14T14:40:22Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -12,7 +12,7 @@
     "dailyActivity": [
       {
         "date": "2026-06-08",
-        "paints": 3
+        "paints": 5
       },
       {
         "date": "2026-06-09",
@@ -107,8 +107,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26722860,
-      "windowEndBlock": 26783340,
+      "windowStartBlock": 26723632,
+      "windowEndBlock": 26784112,
       "paintCount": 19,
       "overpaintCount": 3,
       "uniquePainters": 1,
@@ -118,7 +118,7 @@
       "dailyActivity": [
         {
           "date": "2026-06-08",
-          "paints": 3
+          "paints": 5
         },
         {
           "date": "2026-06-09",
@@ -174,8 +174,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25265296,
-      "windowEndBlock": 25315696,
+      "windowStartBlock": 25265981,
+      "windowEndBlock": 25316381,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -219,8 +219,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 47022848,
-      "windowEndBlock": 47325248,
+      "windowStartBlock": 47026962,
+      "windowEndBlock": 47329362,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -264,8 +264,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 37199408,
-      "windowEndBlock": 37804208,
+      "windowStartBlock": 37207771,
+      "windowEndBlock": 37812571,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
