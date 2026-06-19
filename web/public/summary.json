@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-06-19T04:14:16Z",
+  "generatedAt": "2026-06-19T09:19:08Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
     "chainCount": 4,
-    "totalPaints": 0,
+    "totalPaints": 1,
     "totalOverpaints": 0,
-    "uniquePainters": 0,
-    "weeklyActivePainters": 0,
+    "uniquePainters": 1,
+    "weeklyActivePainters": 1,
     "gini": 0.0,
     "dailyActivity": [
       {
@@ -36,7 +36,7 @@
       },
       {
         "date": "2026-06-19",
-        "paints": 0
+        "paints": 1
       }
     ]
   },
@@ -46,18 +46,18 @@
       "chain": "PulseChain",
       "native": "PLS",
       "caughtUp": true,
-      "claimed": 2,
-      "genesisClaimed": 2,
+      "claimed": 3,
+      "genesisClaimed": 3,
       "founderClaimed": 0,
-      "genesisLeft": 98,
+      "genesisLeft": 97,
       "founderLeft": 900,
-      "totalLeft": 998
+      "totalLeft": 997
     },
     {
       "chainId": 1,
       "chain": "Ethereum",
       "native": "ETH",
-      "caughtUp": false,
+      "caughtUp": true,
       "claimed": 1,
       "genesisClaimed": 1,
       "founderClaimed": 0,
@@ -107,14 +107,14 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26761325,
-      "windowEndBlock": 26821805,
-      "paintCount": 0,
+      "windowStartBlock": 26763081,
+      "windowEndBlock": 26823561,
+      "paintCount": 1,
       "overpaintCount": 0,
-      "uniquePainters": 0,
-      "uniqueReferrers": 0,
+      "uniquePainters": 1,
+      "uniqueReferrers": 1,
       "gini": 0.0,
-      "totalVolumeFormatted": "0.000000 PLS",
+      "totalVolumeFormatted": "6,994,800 PLS",
       "dailyActivity": [
         {
           "date": "2026-06-13",
@@ -142,18 +142,40 @@
         },
         {
           "date": "2026-06-19",
-          "paints": 0
+          "paints": 1
         }
       ],
-      "biggestByPixels": null,
-      "biggestByPrice": null
+      "biggestByPixels": {
+        "x": 0,
+        "y": 0,
+        "w": 36,
+        "h": 36,
+        "pixels": 1044,
+        "priceFormatted": "6,994,800 PLS",
+        "painter": "0x19C1BB001fAa97bD0a07AC75719F380787Ae4759",
+        "painterShort": "0x19C1\u20264759",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://otter.pulsechain.com/tx/0xb1a29fab651d905bad49d068b20c216ddda0f2182c77d14cfe78351bf5f9a78f"
+      },
+      "biggestByPrice": {
+        "x": 0,
+        "y": 0,
+        "w": 36,
+        "h": 36,
+        "pixels": 1044,
+        "priceFormatted": "6,994,800 PLS",
+        "painter": "0x19C1BB001fAa97bD0a07AC75719F380787Ae4759",
+        "painterShort": "0x19C1\u20264759",
+        "pixelUrl": "https://tagwall.io/pixel/0,0",
+        "txUrl": "https://otter.pulsechain.com/tx/0xb1a29fab651d905bad49d068b20c216ddda0f2182c77d14cfe78351bf5f9a78f"
+      }
     },
     {
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25298769,
-      "windowEndBlock": 25349169,
+      "windowStartBlock": 25300288,
+      "windowEndBlock": 25350688,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -197,8 +219,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 47224533,
-      "windowEndBlock": 47526933,
+      "windowStartBlock": 47233722,
+      "windowEndBlock": 47536122,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -242,8 +264,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 37609499,
-      "windowEndBlock": 38214299,
+      "windowStartBlock": 37628183,
+      "windowEndBlock": 38232983,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,

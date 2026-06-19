@@ -13,6 +13,18 @@ scanning all five EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **Ethereum** · 2026-06-19 09:38 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  99 of 100 Genesis founder slots left on Ethereum. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **PulseChain** · 2026-06-19 09:19 UTC · 36×36 · 1,044 px · 6,994,800 PLS · [tx](https://otter.pulsechain.com/tx/0xb1a29fab651d905bad49d068b20c216ddda0f2182c77d14cfe78351bf5f9a78f) · [pixel](https://tagwall.io/pixel/0,0)
+
+  ```text
+  💸 6,994,800 PLS on PulseChain for a 36×36 region by 0x19C1…4759, 1,044 px. https://tagwall.io/pixel/0,0 ↪ ref 0x8c5b…aBbf +349,740 PLS
+  ```
+
 - [ ] **PulseChain** · 2026-06-19 04:31 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text

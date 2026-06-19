@@ -1,6 +1,20 @@
 {
-  "generatedAt": "2026-06-19T04:14:16Z",
+  "generatedAt": "2026-06-19T09:19:08Z",
   "windowDays": 7,
   "topN": 20,
-  "referrers": []
+  "referrers": [
+    {
+      "address": "0x8c5bcbD7CBeCB92172D534e1AEA03F48b24FaBbf",
+      "addressShort": "0x8c5b\u2026aBbf",
+      "paintCount": 1,
+      "earnings": [
+        {
+          "native": "PLS",
+          "wei": "349740000000000000000000",
+          "formatted": "349,740 PLS"
+        }
+      ],
+      "name": null
+    }
+  ]
 }
