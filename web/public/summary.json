@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-18T21:34:02Z",
+  "generatedAt": "2026-06-18T23:44:37Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -10,10 +10,6 @@
     "weeklyActivePainters": 0,
     "gini": 0.0,
     "dailyActivity": [
-      {
-        "date": "2026-06-12",
-        "paints": 0
-      },
       {
         "date": "2026-06-13",
         "paints": 0
@@ -36,6 +32,10 @@
       },
       {
         "date": "2026-06-18",
+        "paints": 0
+      },
+      {
+        "date": "2026-06-19",
         "paints": 0
       }
     ]
@@ -107,8 +107,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26759017,
-      "windowEndBlock": 26819497,
+      "windowStartBlock": 26759769,
+      "windowEndBlock": 26820249,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -152,8 +152,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25296770,
-      "windowEndBlock": 25347170,
+      "windowStartBlock": 25297423,
+      "windowEndBlock": 25347823,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -197,8 +197,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 47212556,
-      "windowEndBlock": 47514956,
+      "windowStartBlock": 47216443,
+      "windowEndBlock": 47518843,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -242,8 +242,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 37585151,
-      "windowEndBlock": 38189951,
+      "windowStartBlock": 37593054,
+      "windowEndBlock": 38197854,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -251,10 +251,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 HYPE",
       "dailyActivity": [
-        {
-          "date": "2026-06-12",
-          "paints": 0
-        },
         {
           "date": "2026-06-13",
           "paints": 0
@@ -277,6 +273,10 @@
         },
         {
           "date": "2026-06-18",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-19",
           "paints": 0
         }
       ],
