@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-20T08:20:50Z",
+  "generatedAt": "2026-06-20T10:57:29Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 3,
+    "chainCount": 4,
     "totalPaints": 1,
     "totalOverpaints": 0,
     "uniquePainters": 1,
@@ -107,8 +107,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26770965,
-      "windowEndBlock": 26831445,
+      "windowStartBlock": 26771856,
+      "windowEndBlock": 26832336,
       "paintCount": 1,
       "overpaintCount": 0,
       "uniquePainters": 1,
@@ -171,11 +171,56 @@
       }
     },
     {
+      "chain": "Ethereum",
+      "chainId": 1,
+      "native": "ETH",
+      "windowStartBlock": 25307954,
+      "windowEndBlock": 25358354,
+      "paintCount": 0,
+      "overpaintCount": 0,
+      "uniquePainters": 0,
+      "uniqueReferrers": 0,
+      "gini": 0.0,
+      "totalVolumeFormatted": "0.000000 ETH",
+      "dailyActivity": [
+        {
+          "date": "2026-06-14",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-15",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-16",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-17",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-18",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-19",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-20",
+          "paints": 0
+        }
+      ],
+      "biggestByPixels": null,
+      "biggestByPrice": null
+    },
+    {
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 47275103,
-      "windowEndBlock": 47577503,
+      "windowStartBlock": 47279810,
+      "windowEndBlock": 47582210,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -219,8 +264,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 37712331,
-      "windowEndBlock": 38317131,
+      "windowStartBlock": 37721802,
+      "windowEndBlock": 38326602,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
