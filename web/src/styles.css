@@ -3579,10 +3579,13 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-top: 1px solid var(--tw-line);
   padding: 16px 24px 24px;
   display: grid;
-  /* Three equal thirds: Leaderboard | Activity | Top Referrers. minmax(0,1fr)
-     keeps them exactly even and lets each shrink within the padded dock
-     instead of overflowing. StatsCards spans all three (rule below). */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Leaderboard | Activity | Top Referrers, weighted by content density.
+     Activity has the most columns (time/region/size/painter/price) and was
+     truncating its header at an even third, so it gets the widest track;
+     Top Referrers is the sparsest, so it gives up the most. minmax(0,*)
+     lets each shrink within the padded dock instead of overflowing.
+     StatsCards spans all three (rule below). */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 0.8fr);
   gap: 16px;
   align-items: start;
 }
