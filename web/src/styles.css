@@ -4668,6 +4668,38 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   text-align: center;
 }
 .comp-banner-cta { flex: 0 0 auto; font-weight: 800; }
+
+/* Solana devnet demand-gauge bar: dark strip with a lime tweet button,
+   sits above the comp-banner on /solana. Dark (not lime) so it reads as
+   distinct from the contest banner directly below it. */
+.sol-demand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 16px;
+  background: #0d0f0d;
+  border-bottom: 1px solid #1c2a12;
+  font-size: 13px;
+  color: var(--tw-text, #c9d1d4);
+}
+.sol-demand-text { text-align: center; }
+.sol-demand-text strong { color: var(--tw-accent); }
+.sol-demand-btn {
+  flex: 0 0 auto;
+  background: var(--tw-accent);
+  color: #07070b;
+  font-weight: 800;
+  text-decoration: none;
+  padding: 5px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: filter 120ms;
+}
+.sol-demand-btn:hover { filter: brightness(1.08); }
 @media (max-width: 640px) {
   .comp-banner { font-size: 12px; padding: 7px 12px; gap: 8px; }
   .comp-banner-text { white-space: normal; }

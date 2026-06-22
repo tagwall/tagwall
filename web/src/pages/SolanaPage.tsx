@@ -64,6 +64,35 @@ const MAX_PIXELS_PER_TX = 1500
  *  lamports are 9-dec, so multiply by 1e9 for exact SOL rendering. */
 const LAMPORTS_TO_DISPLAY = 1_000_000_000n
 
+/** One-tap "I want Solana mainnet" tweet. The page is a devnet preview;
+ *  the goal is to gauge demand, so the prefilled tweet @-mentions the
+ *  project account, those mentions are the signal we read. */
+const SOLANA_TWEET_TEXT =
+  "I want @tagwall_io to bring the million-pixel wall to @solana mainnet 🎨 it's already live on devnet 👇"
+const SOLANA_TWEET_INTENT =
+  'https://twitter.com/intent/tweet?text=' +
+  encodeURIComponent(SOLANA_TWEET_TEXT) +
+  '&url=' +
+  encodeURIComponent('https://tagwall.io/solana')
+
+function SolanaDemandBanner() {
+  return (
+    <div className="sol-demand">
+      <span className="sol-demand-text">
+        the wall is live on <strong>solana devnet</strong>. want it on mainnet?
+      </span>
+      <a
+        className="sol-demand-btn"
+        href={SOLANA_TWEET_INTENT}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        tweet that you want it →
+      </a>
+    </div>
+  )
+}
+
 type PaintPhase =
   | { step: 'idle' }
   | { step: 'preparing' }
@@ -444,6 +473,7 @@ export default function SolanaPage() {
 
   return (
     <>
+      <SolanaDemandBanner />
       <CompetitionBanner />
       <LeaderboardTicker
         regions={regions}
