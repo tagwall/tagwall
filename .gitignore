@@ -65,3 +65,6 @@ docs/design_handoff_*/
 # Raw third-party project logos pulled for seeding (avatars via unavatar).
 # Not ours to redistribute; the on-chain paint is the artifact. Keep local.
 marketing/assets/logos-src/
+
+# Transient per-run paint-alert feed (consumed by the notify step, never committed)
+bots/tweets/new_paints.json

@@ -192,6 +192,26 @@ SUMMARY_JSON_FILE = (HERE / ".." / ".." / "web" / "public" / "summary.json").res
 # bound), we keep this many of the most recent entries. Markdown queue
 # is never auto-trimmed; the operator manages that file by hand.
 JSON_QUEUE_KEEP = 200
+
+# --- Per-paint phone alerts ------------------------------------------------
+# Every new paint (not just notable ones) is written to new_paints.json for
+# the workflow's separate notify step (notify.py) to turn into a GitHub
+# Discussion, so the operator gets a GitHub Mobile push. main.py does no
+# GitHub I/O and needs no token; it only emits the data. The file is
+# transient (regenerated every run, never committed). Dedup lives in
+# state.json's notifiedTxs ring so a chunk re-scan never double-pings, and
+# a systematic notify failure (e.g. Discussions not yet enabled) marks
+# paints seen rather than replaying the whole backlog once it's fixed.
+NEW_PAINTS_FILE = HERE / "new_paints.json"
+NOTIFIED_TXS_KEY = "notifiedTxs"
+NOTIFIED_TXS_CAP = 1000
+# Cap alerts emitted per run so a state reset (full re-backfill) can't
+# unleash a flood of pings; the overflow is left unmarked and drains over
+# the next runs.
+MAX_ALERTS_PER_RUN = int(os.environ.get("PAINT_ALERT_MAX_PER_RUN", "12"))
+# Floor for what counts as a paint worth pinging about; 1 = every paint.
+ALERT_MIN_PIXELS = int(os.environ.get("PAINT_ALERT_MIN_PIXELS", "1"))
+
 # Weekly summary window: trailing 7 days. Chain-specific block times
 # are below so we can convert the window to a from_block per chain.
 SUMMARY_WINDOW_SECONDS = 7 * 24 * 60 * 60
@@ -398,6 +418,40 @@ def load_state() -> dict[str, int]:
 
 def save_state(state: dict[str, int]) -> None:
     _write_json_atomic(STATE_FILE, state)
+
+
+def already_alerted(state: dict, tx_id: str) -> bool:
+    return tx_id in state.get(NOTIFIED_TXS_KEY, [])
+
+
+def remember_alerted(state: dict, tx_id: str) -> None:
+    lst = state.setdefault(NOTIFIED_TXS_KEY, [])
+    if tx_id not in lst:
+        lst.append(tx_id)
+        del lst[:-NOTIFIED_TXS_CAP]
+
+
+def format_paint_alert(args: dict, chain: dict, tx_hash_hex: str) -> dict:
+    """Structured per-paint record for new_paints.json. notify.py renders
+    the GitHub Discussion title/body from this; main.py stays GitHub-free."""
+    x, y = args["x"], args["y"]
+    return {
+        "chain": chain["name"],
+        "chainId": chain["id"],
+        "x": x, "y": y, "w": args["w"], "h": args["h"],
+        "pixels": args["pixelsPainted"],
+        "price": format_price(args["pricePaid"], chain["native"]),
+        "painter": args["painter"],
+        "pixelUrl": f"{TAGWALL_BASE_URL}/pixel/{x},{y}",
+        "tx": tx_hash_hex,
+        "txUrl": f"{chain['explorer_tx']}{tx_hash_hex}",
+    }
+
+
+def write_new_paints(paint_alerts: list[dict], now_iso: str) -> None:
+    """Transient file consumed by the notify step in the same run. Always
+    written (even empty) so the step has a defined input. Never committed."""
+    _write_json_atomic(NEW_PAINTS_FILE, {"generatedAt": now_iso, "paints": paint_alerts})
 
 
 def shorten_address(addr: str) -> str:
@@ -680,24 +734,27 @@ def format_treasury_failed_entry(chain: dict, tx_hash_hex: str, amount_wei: int)
 
 
 def process_chain(
-    chain: dict, state: dict[str, int], remaining_quota: int, now_iso: str,
-) -> tuple[list[str], list[dict], list[str]]:
-    """Return (markdown_entries, json_entries, urgent_entries) for new
-    notable paints (and TreasurySendFailed alerts) on this chain.
-    Advances state[chain_id] to the next unscanned block. The first two
-    lists are aligned: same entry at the same index in both.
+    chain: dict, state: dict[str, int], remaining_quota: int,
+    alert_remaining: int, now_iso: str,
+) -> tuple[list[str], list[dict], list[str], list[dict]]:
+    """Return (markdown_entries, json_entries, urgent_entries, paint_alerts)
+    for new paints (and TreasurySendFailed alerts) on this chain.
+    Advances state[chain_id] to the next unscanned block. The md/json lists
+    are aligned (same entry at same index) and cover only *notable* paints;
+    paint_alerts covers *every* new paint (phone-ping feed), capped at
+    alert_remaining and deduped via state.
     """
     rpc = os.environ.get(chain["rpc_env"]) or chain["rpc_default"]
     if not rpc:
         print(f"[{chain['name']}] skip: no RPC configured (set {chain['rpc_env']})")
-        return [], [], []
+        return [], [], [], []
 
     w3 = Web3(Web3.HTTPProvider(rpc))
     try:
         latest = w3.eth.block_number
     except Exception as err:
         print(f"[{chain['name']}] RPC unreachable: {sanitize_err(err)}", file=sys.stderr)
-        return [], [], []
+        return [], [], [], []
 
     canvas_address = Web3.to_checksum_address(
         chain.get("canvas_address") or os.environ["CANVAS_ADDRESS"]
@@ -740,10 +797,10 @@ def process_chain(
     if from_block > latest:
         print(f"[{chain['name']}] state ahead of head; resetting to latest")
         state[cid_key] = latest
-        return [], [], []
+        return [], [], [], []
     if from_block == latest:
         print(f"[{chain['name']}] up to date at block {latest}")
-        return [], [], []
+        return [], [], [], []
 
     # Loop through LOGS_WINDOW-sized chunks until we either catch up to
     # `latest` or exhaust the per-run quota. Each successful chunk
@@ -751,6 +808,7 @@ def process_chain(
     md_entries: list[str] = []
     json_entries: list[dict] = []
     urgent_entries: list[str] = []
+    paint_alerts: list[dict] = []
     cur = from_block
     while cur < latest and len(md_entries) < remaining_quota:
         to_block = min(latest, cur + chain.get("logs_window", LOGS_WINDOW))
@@ -798,12 +856,19 @@ def process_chain(
             if len(md_entries) >= remaining_quota:
                 print(f"[{chain['name']}] hit MAX_PER_RUN; remaining events deferred to next run")
                 state[cid_key] = ev["blockNumber"]
-                return md_entries, json_entries, urgent_entries
+                return md_entries, json_entries, urgent_entries, paint_alerts
             args = ev["args"]
-            if not is_notable(args):
-                continue
             tx_hash_bytes = bytes(ev["transactionHash"])
             tx_hash_hex = "0x" + tx_hash_bytes.hex()
+            # Phone-ping feed: every paint (not just notable), capped per run
+            # and deduped via state so a chunk re-scan never double-pings.
+            if (args["pixelsPainted"] >= ALERT_MIN_PIXELS
+                    and len(paint_alerts) < alert_remaining
+                    and not already_alerted(state, tx_hash_hex)):
+                paint_alerts.append(format_paint_alert(args, chain, tx_hash_hex))
+                remember_alerted(state, tx_hash_hex)
+            if not is_notable(args):
+                continue
             tweet = format_tweet(args, chain, tx_hash_bytes)
             md_entries.append(format_queue_entry(args, chain, tx_hash_hex, tweet))
             json_entries.append(
@@ -816,7 +881,7 @@ def process_chain(
         if cur < latest:
             time.sleep(INTER_CHUNK_SLEEP_S)
 
-    return md_entries, json_entries, urgent_entries
+    return md_entries, json_entries, urgent_entries, paint_alerts
 
 
 def gini_coefficient(values: list[int]) -> float:
@@ -1553,15 +1618,19 @@ def main() -> int:
     md_entries: list[str] = []
     json_entries: list[dict] = []
     urgent_entries: list[str] = []
+    paint_alerts: list[dict] = []
     for chain in CHAINS:
         remaining = MAX_PER_RUN - len(md_entries)
         if remaining <= 0:
             print("global per-run cap exhausted; deferring remaining chains to next run")
             break
-        chain_md, chain_json, chain_urgent = process_chain(chain, state, remaining, now_iso)
+        chain_md, chain_json, chain_urgent, chain_alerts = process_chain(
+            chain, state, remaining, MAX_ALERTS_PER_RUN - len(paint_alerts), now_iso
+        )
         md_entries.extend(chain_md)
         json_entries.extend(chain_json)
         urgent_entries.extend(chain_urgent)
+        paint_alerts.extend(chain_alerts)
 
     # Newest first: reverse so the most recent paint across all chains
     # lands at the top of the queue. Within a chain, events are in block
@@ -1659,12 +1728,15 @@ def main() -> int:
         print("[founders] " + json.dumps(founders_rollup))
         for row in leaderboard:
             print("[leaderboard] " + json.dumps(row))
+        for p in paint_alerts:
+            print("[alert] " + json.dumps(p))
     else:
         write_queue(md_entries)
         write_queue_json(json_entries, now_iso)
         if summaries:
             write_summary(summaries, all_chains, founders_rollup, now_iso)
         write_leaderboard(leaderboard, now_iso)
+        write_new_paints(paint_alerts, now_iso)
         save_state(state)
         save_founders_state(founders_state)
 
@@ -1673,7 +1745,8 @@ def main() -> int:
         f"{len(founder_md)} founder candidate(s) + "
         f"{len(urgent_entries)} urgent alert(s) this run; "
         f"summarised {len(summaries)} chain(s); "
-        f"leaderboard has {len(leaderboard)} referrer(s)"
+        f"leaderboard has {len(leaderboard)} referrer(s); "
+        f"{len(paint_alerts)} new paint alert(s)"
     )
     return 0
 

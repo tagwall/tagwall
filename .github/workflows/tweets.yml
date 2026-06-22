@@ -46,7 +46,8 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # to commit state.json + QUEUE.md + queue.json + summary.json back
+      contents: write      # to commit state.json + QUEUE.md + queue.json + summary.json back
+      discussions: write   # paint-alert notifier posts one Discussion per new paint
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,6 +89,21 @@ jobs:
           TWEETS_MIN_PIXELS:         ${{ vars.TWEETS_MIN_PIXELS || vars.MANUAL_QUEUE_MIN_PIXELS }}
           TWEETS_MAX_PER_RUN:        ${{ vars.TWEETS_MAX_PER_RUN || vars.MANUAL_QUEUE_MAX_PER_RUN }}
         run: python main.py
+
+      # Phone push for new paints. Separate step + stdlib-only notify.py so
+      # the discussions-scoped GITHUB_TOKEN never enters the scanner step
+      # (which runs third-party pip code). No-op unless the PAINT_ALERT_GH_USER
+      # repo variable is set, so it stays dormant by default. Paint data
+      # reaches GitHub as parameterized GraphQL variables, never shell, so
+      # there's no injection surface from on-chain content.
+      - name: Notify new paints (GitHub Discussions)
+        if: ${{ !inputs.dry_run }}
+        working-directory: bots/tweets
+        env:
+          GITHUB_TOKEN:          ${{ secrets.GITHUB_TOKEN }}
+          PAINT_ALERT_GH_USER:   ${{ vars.PAINT_ALERT_GH_USER }}
+          PAINT_ALERT_CATEGORY:  ${{ vars.PAINT_ALERT_CATEGORY }}
+        run: python notify.py
 
       - name: Commit scan results
         if: ${{ !inputs.dry_run }}
