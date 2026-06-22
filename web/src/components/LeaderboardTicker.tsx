@@ -54,9 +54,14 @@ interface Props {
    *  user gets the same click-through interstitial + scheme check that
    *  the Leaderboard and ActivityFeed link cells use. */
   onRequestOutbound: (url: string) => void
+  /** Pre-resolved linkId -> URL map for non-EVM chain families
+   *  (Solana feeds this from useSolanaLinkUrls). When provided it
+   *  replaces the internal wagmi-based resolution entirely and the
+   *  EVM contract reads are disabled. Absent on EVM chains. */
+  linkUrlsOverride?: Map<number, string>
 }
 
-export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound }: Props) {
+export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound, linkUrlsOverride }: Props) {
   const top = useMemo(() => {
     if (!regions || regions.length === 0) return []
     return [...regions]
@@ -64,7 +69,11 @@ export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound }: 
       .slice(0, MAX_TICKER_ITEMS)
   }, [regions])
 
-  const linkUrls = useLinkUrls(top.map((r) => r.linkId))
+  // Override (non-EVM chain families) replaces the wagmi lookup; the
+  // shared Leaderboard hook is disabled in that case so no EVM reads
+  // fire. EVM callers keep sharing Leaderboard's wagmi cache key.
+  const evmLinkUrls = useLinkUrls(top.map((r) => r.linkId), !linkUrlsOverride)
+  const linkUrls = linkUrlsOverride ?? evmLinkUrls
   const { data: thumbPixels } = useThumbnailPixels(top)
 
   if (top.length === 0) return null

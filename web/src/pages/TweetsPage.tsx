@@ -119,6 +119,33 @@ function savePosted(posted: Set<string>): void {
   }
 }
 
+/**
+ * Keep only the newest scarcity pulse per chain. The tweets bot stamps
+ * each daily pulse with a per-day id (`scarcity-<chainId>-<date>`) so
+ * successive days never dedupe against each other; left unfiltered the
+ * queue fills with one near-identical "N of 100 Genesis left on X" card
+ * per chain per day, burying the real per-paint entries. A scarcity
+ * pulse is only ever the current reminder, so older ones are noise.
+ *
+ * Entries arrive newest-first, so the first scarcity seen for a chain is
+ * the freshest and wins. Milestones (one-shot) and per-paint entries
+ * pass through untouched. Mirrors collapse_stale_scarcity() in
+ * bots/tweets/main.py so the page is correct even against an older
+ * queue.json that still carries the backlog.
+ */
+function collapseStaleScarcity(entries: QueueEntry[]): QueueEntry[] {
+  const seen = new Set<number>()
+  const out: QueueEntry[] = []
+  for (const e of entries) {
+    if (e.kind === 'scarcity') {
+      if (seen.has(e.chainId)) continue
+      seen.add(e.chainId)
+    }
+    out.push(e)
+  }
+  return out
+}
+
 function formatQueuedAt(iso: string): string {
   try {
     const d = new Date(iso)
@@ -689,9 +716,10 @@ export default function TweetsPage() {
 
   const { visible, hiddenCount } = useMemo(() => {
     if (!payload) return { visible: [] as QueueEntry[], hiddenCount: 0 }
-    if (showPosted) return { visible: payload.entries, hiddenCount: 0 }
-    const visible = payload.entries.filter((e) => !posted.has(e.id))
-    return { visible, hiddenCount: payload.entries.length - visible.length }
+    const collapsed = collapseStaleScarcity(payload.entries)
+    if (showPosted) return { visible: collapsed, hiddenCount: 0 }
+    const visible = collapsed.filter((e) => !posted.has(e.id))
+    return { visible, hiddenCount: collapsed.length - visible.length }
   }, [payload, posted, showPosted])
 
   return (

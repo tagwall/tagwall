@@ -5,6 +5,14 @@
  * "$X" while offline or on first load. The contract charges the native
  * amount; USD is purely informational.
  */
+/**
+ * Pseudo chain id for the Solana canvas in chain-id-keyed lookups (USD
+ * fixtures, the CoinGecko mapping, /ops rows). Solana has no EVM chain
+ * id, so a negative sentinel keeps it out of every real id range; -501
+ * nods to Solana's SLIP-44 coin type (501).
+ */
+export const SOLANA_PSEUDO_CHAIN_ID = -501
+
 const NATIVE_USD: Record<number, number> = {
   // Ethereum mainnet
   1: 2_300,
@@ -22,6 +30,11 @@ const NATIVE_USD: Record<number, number> = {
   999: 67,
   // Anvil dev chain — uses ETH currency by default.
   31337: 2_300,
+  // Solana (SOL), via the pseudo chain id. Rough 2026-06 ballpark; the
+  // live CoinGecko feed overrides this whenever it's reachable. Solana
+  // amounts arrive pre-scaled lamports*1e9 (18-dec), so the shared
+  // weiToUsd/weiToUsdRate math works unchanged.
+  [SOLANA_PSEUDO_CHAIN_ID]: 150,
 }
 
 /**

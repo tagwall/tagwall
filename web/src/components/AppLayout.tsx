@@ -5,6 +5,8 @@ import type * as React from 'react'
 import { useAccount, useChainId } from 'wagmi'
 
 import { canvasAddress } from '../contracts/canvas'
+import { useActiveChain } from '../lib/activeChain'
+import { SOLANA_PROGRAM_ID } from '../solana/cluster'
 import { useLivePaintedRefresh } from '../hooks/useLivePaintedRefresh'
 import { chainColorTokens } from '../lib/chainColor'
 import { shortenAddress } from '../lib/format'
@@ -31,7 +33,10 @@ export function AppLayout() {
   // useChainId() only returns configured chains, so this is always set in
   // practice; the fallback keeps the footer total when canvasAddress's
   // no-fallback signature (audit H1) says "unknown chain".
-  const footerCanvasAddr = canvasAddress(chainId)
+  // Family-aware: the Solana canvas is a program, not an EVM contract.
+  const activeChain = useActiveChain()
+  const footerCanvasAddr =
+    activeChain.family === 'solana' ? SOLANA_PROGRAM_ID : canvasAddress(chainId)
   // Memory-leak fix: when the user switches chains, remove every cached
   // query whose chain id doesn't match the active chain. Without this,
   // each tile's react-query entry (chainId is in the queryKey) survived

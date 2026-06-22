@@ -21,6 +21,11 @@ interface Props {
    *  click-through interstitial (PRD §6) and a defense-in-depth scheme
    *  check before navigation. */
   onRequestOutbound: (url: string) => void
+  /** Pre-resolved linkId -> URL map for non-EVM chain families
+   *  (Solana feeds this from useSolanaLinkUrls). When provided it
+   *  replaces the internal wagmi-based resolution entirely and the
+   *  EVM contract reads are disabled. Absent on EVM chains. */
+  linkUrlsOverride?: Map<number, string>
 }
 
 /** Magnitude-aware formatter for native amounts. The previous toFixed(0)
@@ -147,8 +152,9 @@ function colorToHex(c: number): string {
 
 /** Fetches the URL for each unique linkId in the top regions.
  *  Exported so `LeaderboardTicker` can reuse the same wagmi cache key
- *  and avoid double-fetching. */
-export function useLinkUrls(linkIds: number[]) {
+ *  and avoid double-fetching. Pass `enabled: false` when an override
+ *  map supplies the URLs so no EVM reads fire (Solana dock). */
+export function useLinkUrls(linkIds: number[], enabled = true) {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
   // Viewer chain, not wallet chain: linkIds index a per-chain registry,
   // so they must resolve against the chain the regions came from.
@@ -163,7 +169,7 @@ export function useLinkUrls(linkIds: number[]) {
       functionName: 'links' as const,
       args: [id],
     })),
-    query: { enabled: unique.length > 0 && !!address, staleTime: 60_000 },
+    query: { enabled: enabled && unique.length > 0 && !!address, staleTime: 60_000 },
   })
   const map = useMemo(() => {
     const out = new Map<number, string>()
@@ -220,7 +226,7 @@ export function Thumbnail({ region, pixels }: { region: PaintedRegion; pixels: r
  * hardest" view: highlights the most-reserved logos above the activity
  * feed's strictly-chronological stream.
  */
-export function Leaderboard({ regions, nativeSymbol = 'native', chainId = null, onRequestOutbound }: Props) {
+export function Leaderboard({ regions, nativeSymbol = 'native', chainId = null, onRequestOutbound, linkUrlsOverride }: Props) {
   const usdRate = useNativeUsdPrice(chainId)
   const top = useMemo(() => {
     if (!regions || regions.length === 0) return []
@@ -229,7 +235,10 @@ export function Leaderboard({ regions, nativeSymbol = 'native', chainId = null, 
       .slice(0, 10)
   }, [regions])
 
-  const linkUrls = useLinkUrls(top.map((r) => r.linkId))
+  // Override (non-EVM chain families) replaces the wagmi lookup; the
+  // internal hook is disabled in that case so no EVM reads fire.
+  const evmLinkUrls = useLinkUrls(top.map((r) => r.linkId), !linkUrlsOverride)
+  const linkUrls = linkUrlsOverride ?? evmLinkUrls
   const { data: thumbPixels } = useThumbnailPixels(top)
 
   if (!regions || regions.length === 0) return null

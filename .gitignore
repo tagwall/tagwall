@@ -43,10 +43,11 @@ venv/
 coverage/
 lcov.info
 
-# Marketing renderer artifacts (regenerable from token icons + the renderer
-# script). The plan itself is tracked at docs/marketing-plan.md; this dir holds
-# only render output (mp4/png/html + cache), so the whole thing is regenerable.
-marketing-plan/
+# Marketing renderer scratch (regenerable from token icons + the renderer
+# script). The plan itself is tracked at marketing/marketing-plan.md, and
+# finished/source assets live in marketing/assets/; this dir holds only
+# regenerable render output (mp4/png/html + cache).
+marketing/renders/
 
 # Claude Code worktree checkouts (internal tooling state, not project content).
 # .claude/launch.json stays tracked; only the throwaway worktrees are ignored.
@@ -60,3 +61,7 @@ docs/design_handoff_*/
 # images whose redistribution rights aren't ours to grant)
 /token icons/
 /liberty-token-logos/
+
+# Raw third-party project logos pulled for seeding (avatars via unavatar).
+# Not ours to redistribute; the on-chain paint is the artifact. Keep local.
+marketing/assets/logos-src/

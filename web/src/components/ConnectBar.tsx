@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { SOLANA_CHAIN_LABEL } from '../solana/cluster'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import {
   useAccount,
@@ -10,11 +11,14 @@ import {
   useDisconnect,
   useSwitchChain,
 } from 'wagmi'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useSearchParams } from 'react-router-dom'
 
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
 import { shortenAddress } from '../lib/format'
 import { useViewerChainId, useSetViewerChain } from '../lib/viewerChain'
+import { useActiveChain, useSelectSolana } from '../lib/activeChain'
+import { useSolanaWallet } from '../solana/SolanaWalletProvider'
+import { solanaConnection } from '../hooks/useSolanaCanvas'
 import { NavMetrics } from './NavMetrics'
 import { ShareReferralButton } from './ShareReferralButton'
 
@@ -109,6 +113,35 @@ export function ConnectBar() {
   const viewerChain = chains.find((c) => c.id === viewerChainId)
   const setViewerChain = useSetViewerChain()
 
+  // Chain-family state: Solana is a first-class entry in the same
+  // picker. `solanaActive` swaps the picker label + the wallet control
+  // to the Solana family. Picking an EVM chain clears the ?chain=solana
+  // param so the dispatch flips back.
+  const active = useActiveChain()
+  const solanaActive = active.family === 'solana'
+  const selectSolana = useSelectSolana()
+  const solWallet = useSolanaWallet()
+  const [solWalletMenuOpen, setSolWalletMenuOpen] = useState(false)
+  // SOL balance chip, mirroring the EVM useBalance chip. lamports are
+  // 9-decimal, so the shared formatter is reused with decimals = 9.
+  const solBalance = useQuery({
+    queryKey: ['solana-balance', solWallet.publicKey?.toBase58() ?? null],
+    enabled: solanaActive && !!solWallet.publicKey,
+    refetchInterval: 30_000,
+    queryFn: async () =>
+      BigInt(await solanaConnection().getBalance(solWallet.publicKey!)),
+  })
+  const [, setSearchParams] = useSearchParams()
+  const clearSolanaParam = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        if (prev.get('chain')?.toLowerCase() === 'solana') prev.delete('chain')
+        return prev
+      },
+      { replace: false },
+    )
+  }, [setSearchParams])
+
   // Global "refresh canvas data" button (operator preference 2026-05-25:
   // there's a refresh on the minimap overlay too, but a second one in
   // the global chrome makes it discoverable without finding the
@@ -157,6 +190,7 @@ export function ConnectBar() {
   // banner blocks the user before they reach for the paint button.
   const deployedStatus = useCanvasDeployed()
   const showNotDeployedBanner =
+    !solanaActive &&
     !!currentChain &&
     deployedStatus === 'not-deployed' &&
     chainId !== FALLBACK_DEPLOYED_CHAIN_ID
@@ -180,7 +214,7 @@ export function ConnectBar() {
 
   return (
     <header className="connect-bar">
-      {onUnsupportedChain && recoveryChain && (
+      {!solanaActive && onUnsupportedChain && recoveryChain && (
         <div className="wrong-chain-banner" role="status">
           <span>
             Your wallet is on chain {walletChainId ?? 'unknown'}, which Tagwall does not deploy to.
@@ -238,7 +272,8 @@ export function ConnectBar() {
       <div className="connect-bar-right">
         {/* Canvas metrics live in the nav bar (left of chain) so the
             canvas itself can claim the vertical space the old metric
-            strip ate. */}
+            strip ate. EVM-only: they read wagmi contract state, and the
+            Solana page surfaces its own floor/stamps/painted in-header. */}
         <NavMetrics />
         <button
           type="button"
@@ -260,7 +295,9 @@ export function ConnectBar() {
             aria-expanded={chainMenuOpen}
             title={isConnected ? 'Switch chain' : 'Browse a chain (no wallet needed)'}
           >
-            <span className="chain-dropdown-label">{viewerChain?.name ?? `Chain ${viewerChainId}`}</span>
+            <span className="chain-dropdown-label">
+              {solanaActive ? SOLANA_CHAIN_LABEL : (viewerChain?.name ?? `Chain ${viewerChainId}`)}
+            </span>
             <span className="chain-dropdown-caret" aria-hidden>▾</span>
           </button>
           {chainMenuOpen && (
@@ -270,14 +307,16 @@ export function ConnectBar() {
                   key={c.id}
                   type="button"
                   role="option"
-                  aria-selected={c.id === viewerChainId}
-                  className={`chain-dropdown-item ${c.id === viewerChainId ? 'chain-dropdown-item-active' : ''}`}
+                  aria-selected={!solanaActive && c.id === viewerChainId}
+                  className={`chain-dropdown-item ${!solanaActive && c.id === viewerChainId ? 'chain-dropdown-item-active' : ''}`}
                   onClick={() => {
-                    // Connected wallet: prompt the wallet so paint UX
-                    // stays aligned with what gets signed. Disconnected:
-                    // just write the URL ?chain= param so the canvas
-                    // reads switch to that chain without needing a
+                    // Leaving Solana? Drop the ?chain=solana param so the
+                    // canvas dispatch flips back to EVM. Then connected
+                    // wallet: prompt the wallet so paint UX stays aligned
+                    // with what gets signed; disconnected: write the URL
+                    // ?chain= param so the canvas reads switch without a
                     // wallet at all.
+                    if (solanaActive) clearSolanaParam()
                     if (isConnected) switchChain({ chainId: c.id })
                     else setViewerChain(c.id)
                     setChainMenuOpen(false)
@@ -288,12 +327,100 @@ export function ConnectBar() {
                   <span className="chain-dropdown-item-sub">{c.nativeCurrency.symbol}</span>
                 </button>
               ))}
+              {/* Solana: a different chain family, but the same picker.
+                  Selecting it writes ?chain=solana; CanvasRouter swaps
+                  to the Solana canvas + the Solana wallet control. */}
+              <button
+                type="button"
+                role="option"
+                aria-selected={solanaActive}
+                className={`chain-dropdown-item ${solanaActive ? 'chain-dropdown-item-active' : ''}`}
+                onClick={() => {
+                  selectSolana()
+                  setChainMenuOpen(false)
+                }}
+                title="View the Solana canvas"
+              >
+                <span>{SOLANA_CHAIN_LABEL}</span>
+                <span className="chain-dropdown-item-sub">SOL</span>
+              </button>
             </div>
           )}
         </div>
 
         <div className="wallet">
-          {isConnected && address ? (
+          {solanaActive ? (
+            // Solana family: one Connect control, same slot. Wallets
+            // come from Wallet Standard discovery (Phantom, Solflare,
+            // Backpack, MetaMask's Solana support, ...), never a
+            // hardcoded brand.
+            solWallet.publicKey ? (
+              <>
+                <div className="wallet-info">
+                  <span className="addr" title={solWallet.walletName ?? undefined}>
+                    {solWallet.publicKey.toBase58().slice(0, 4)}…
+                    {solWallet.publicKey.toBase58().slice(-4)}
+                  </span>
+                  {solBalance.data != null ? (
+                    <span
+                      className="wallet-balance"
+                      title={`${formatNativeBalance(solBalance.data, 9)} SOL`}
+                    >
+                      {formatNativeBalance(solBalance.data, 9)}{' '}
+                      <span className="wallet-balance-symbol">SOL</span>
+                    </span>
+                  ) : null}
+                </div>
+                <button className="wallet-btn" onClick={() => void solWallet.disconnect()}>
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              // One Connect control regardless of how many wallets were
+              // discovered: the menu lists them (or an install hint when
+              // none registered). Mirrors the EVM button's plain label.
+              <div className="chain-dropdown">
+                <button
+                  type="button"
+                  className="wallet-btn"
+                  onClick={() => setSolWalletMenuOpen((o) => !o)}
+                  disabled={solWallet.connecting}
+                  aria-haspopup="listbox"
+                  aria-expanded={solWalletMenuOpen}
+                >
+                  {solWallet.connecting ? 'Connecting…' : 'Connect'}
+                </button>
+                {solWalletMenuOpen && (
+                  <div className="chain-dropdown-menu" role="listbox">
+                    {solWallet.wallets.length === 0 ? (
+                      <div className="chain-dropdown-item" role="note">
+                        <span>
+                          No Solana wallet found. Install Phantom, Solflare,
+                          Backpack, or enable Solana in MetaMask.
+                        </span>
+                      </div>
+                    ) : (
+                      solWallet.wallets.map((w) => (
+                        <button
+                          key={w.name}
+                          type="button"
+                          role="option"
+                          className="chain-dropdown-item"
+                          onClick={() => {
+                            setSolWalletMenuOpen(false)
+                            void solWallet.connect(w.name)
+                          }}
+                        >
+                          <img src={w.icon} alt="" width={16} height={16} />
+                          <span>{w.name}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          ) : isConnected && address ? (
             <>
               <div className="wallet-info">
                 <span className="addr">{shortenAddress(address)}</span>

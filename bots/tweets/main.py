@@ -598,6 +598,34 @@ def write_queue(new_entries: list[str]) -> None:
     QUEUE_FILE.write_text(f"{head}\n{body}{tail}")
 
 
+def collapse_stale_scarcity(entries: list[dict]) -> list[dict]:
+    """Keep only the newest scarcity pulse per chain.
+
+    Daily scarcity pulses carry a per-day id (`scarcity-<chainId>-<date>`)
+    so successive days never dedupe against each other. Left alone they
+    pile up one row per chain per day until JSON_QUEUE_KEEP, burying the
+    real per-paint entries under dozens of near-identical "99 of 100
+    Genesis left on X" cards (the /tweets page is a "which tweet should I
+    copy today?" tool, not a historical log). A scarcity pulse is only
+    ever the *current* reminder, so older ones are noise.
+
+    `entries` is newest-first, so the first scarcity seen for a chain is
+    the freshest and wins; older ones for that chain are dropped.
+    Milestones (one-shot, guarded by milestonesFired) and per-paint
+    entries pass through untouched.
+    """
+    seen_scarcity_chains: set[int] = set()
+    out: list[dict] = []
+    for e in entries:
+        if e.get("kind") == "scarcity":
+            cid = e.get("chainId")
+            if cid in seen_scarcity_chains:
+                continue
+            seen_scarcity_chains.add(cid)
+        out.append(e)
+    return out
+
+
 def write_queue_json(new_entries_json: list[dict], now_iso: str) -> None:
     """Prepend new_entries_json (already newest-first) to the existing
     queue.json, trim to JSON_QUEUE_KEEP, write to web/public/queue.json.
@@ -624,6 +652,7 @@ def write_queue_json(new_entries_json: list[dict], now_iso: str) -> None:
     new_ids = {e["id"] for e in new_entries_json}
     kept = [e for e in existing if e["id"] not in new_ids]
     combined = new_entries_json + kept
+    combined = collapse_stale_scarcity(combined)
     combined = combined[:JSON_QUEUE_KEEP]
 
     payload = {"generatedAt": now_iso, "entries": combined}

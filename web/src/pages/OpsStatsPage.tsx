@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SOLANA_CHAIN_LABEL } from '../solana/cluster'
 import { formatEther } from 'viem'
 
 import { chainColorTokens } from '../lib/chainColor'
 import { GENESIS_CAP, FOUNDER_CAP } from '../lib/founders'
 import { OPS_CHAINS, useCrossChainLive, type ChainLive } from '../hooks/useCrossChainLive'
+import { useSolanaCanvas } from '../hooks/useSolanaCanvas'
 import { useAllChainsCoverage, type ChainCoverage } from '../hooks/useAllChainsCoverage'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 
@@ -181,6 +183,46 @@ interface KpiProps {
   sub?: string
   tone?: 'good' | 'mid' | 'warn'
   title?: string
+}
+
+function SolanaOpsCards() {
+  const { config, paintedPixels, vaultLamports, isLoading } = useSolanaCanvas()
+  const sol = (lamports: bigint) => {
+    const n = Number(lamports) / 1e9
+    return n !== 0 && n < 0.001 ? n.toPrecision(2) : n.toFixed(3)
+  }
+  return (
+    <section className="ops-section" aria-label="Solana">
+      <header className="ops-section-head">
+        <h2>{SOLANA_CHAIN_LABEL}</h2>
+        <span className="ops-section-sub">
+          live program reads (pre-mainnet test surface)
+        </span>
+      </header>
+      <div className="ops-kpis">
+        <Kpi
+          label="stamps"
+          value={config ? config.stampCount.toString() : isLoading ? '…' : '—'}
+          sub="all-time paints"
+        />
+        <Kpi
+          label="painted px"
+          value={config ? paintedPixels.toLocaleString() : '—'}
+          sub="live tile scan"
+        />
+        <Kpi
+          label="floor"
+          value={config ? `${sol(config.startingPrice)} SOL` : '—'}
+          sub="per pixel"
+        />
+        <Kpi
+          label="rent vault"
+          value={config ? `${sol(vaultLamports)} SOL` : '—'}
+          sub="tile-init reimbursements"
+        />
+      </div>
+    </section>
+  )
 }
 
 function Kpi({ label, value, sub, tone, title }: KpiProps) {
@@ -398,6 +440,12 @@ export default function OpsStatsPage() {
           title="Unique-painter Gini over the window. 0 = everyone painted equally, 1 = one wallet did everything. Lower is healthier."
         />
       </section>
+
+      {/* Solana (devnet) live reads. Separate from the EVM table:
+          different units (SOL/lamports), different read path (tile
+          accounts + program events), and devnet state besides. Becomes
+          a real table row when mainnet-beta ships. */}
+      <SolanaOpsCards />
 
       {/* Cross-chain daily trend (the operator-chosen trend chart). */}
       <section className="ops-section ops-trend" aria-label="Daily activity trend">

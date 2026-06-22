@@ -11,7 +11,7 @@ import { useAccount } from 'wagmi'
  * Every card has "Tweet this" (opens X compose dialog) and "Copy text"
  * (clipboard). No backend, no analytics, fully static.
  *
- * Templates are pulled verbatim from docs/marketing-plan.md §8. When
+ * Templates are pulled verbatim from marketing/marketing-plan.md §8. When
  * editing copy, edit it here AND in the marketing plan to keep the
  * single-source-of-truth honest.
  */

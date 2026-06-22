@@ -11,6 +11,9 @@ import {
   CONTEST_END_MS as END_MS,
   CONTEST_FLOOR_PLS,
   CONTEST_START_MS as START_MS,
+  NOMINATION_END_MS,
+  NOMINATION_TWEET_URL,
+  nominationLive,
 } from '../lib/contest'
 import { deployBlockFor, logsChunkSizeFor } from '../lib/deployBlocks'
 import { getLogsPaginated } from '../lib/paginatedLogs'
@@ -20,7 +23,8 @@ import { getLogsPaginated } from '../lib/paginatedLogs'
  * lib/contest.ts so the banner stays in sync). Retune split here.
  * ------------------------------------------------------------------ */
 const POOL_BPS = 8000n // 80% of referred-paint revenue
-const FLOOR_WEI = BigInt(CONTEST_FLOOR_PLS) * 10n ** 18n // 5,000,000 PLS floor
+const FLOOR_WEI = BigInt(CONTEST_FLOOR_PLS) * 10n ** 18n // guaranteed minimum pool
+const FLOOR_PLS_LABEL = CONTEST_FLOOR_PLS.toLocaleString('en-US') // e.g. "7,777,777"
 const SPLIT = [50, 30, 20] // % of pool to ranks 1/2/3
 
 const PAINTED_EVENT = parseAbiItem(
@@ -152,6 +156,10 @@ export default function CompetitionPage() {
   const statusLabel =
     status === 'upcoming' ? 'starts in' : status === 'live' ? 'ends in' : 'ended'
 
+  // While the nomination contest is live it is the featured competition;
+  // the referral contest below takes over once it closes (Mon 06-22).
+  if (nominationLive()) return <NominationContest />
+
   return (
     <div className="shell-measure comp-page">
       <header className="comp-header">
@@ -172,8 +180,8 @@ export default function CompetitionPage() {
         </div>
         <div className="comp-pool-sub">
           {atFloor
-            ? '5,000,000 PLS guaranteed minimum, and that is just the floor. once it opens, the pool is 80% of every referred paint, so it only grows.'
-            : '80% of referred-paint volume so far, on a 5,000,000 PLS minimum. it grows with every referred paint.'}
+            ? `${FLOOR_PLS_LABEL} PLS guaranteed minimum, and that is just the floor. once it opens, the pool is 80% of every referred paint, so it only grows.`
+            : `80% of referred-paint volume so far, on a ${FLOOR_PLS_LABEL} PLS minimum. it grows with every referred paint.`}
         </div>
         <div className="comp-status">
           {statusLabel}
@@ -238,6 +246,65 @@ export default function CompetitionPage() {
           <Link to="/" className="comp-cta-link">
             go to the wall and grab your link →
           </Link>
+        </p>
+      </section>
+    </div>
+  )
+}
+
+/**
+ * Nomination contest view: a reply-on-X contest (no on-chain pool/board).
+ * The 10 most-nominated PulseChain projects get painted onto the wall for
+ * free. Reuses the comp-* layout so it matches the referral page.
+ */
+function NominationContest() {
+  const countdown = useCountdown(NOMINATION_END_MS)
+
+  return (
+    <div className="shell-measure comp-page">
+      <header className="comp-header">
+        <div className="comp-soon">live now · closes sunday night</div>
+        <h1>nominate your favourite pulsechain project</h1>
+        <p>
+          reply to the pinned post on @tagwall_io with your favourite pulsechain project. the 10
+          most-nominated get painted onto the wall permanently, on-chain, free. tag them so they
+          know you repped them.
+        </p>
+        <p className="comp-window">closes sun 21 jun (night) · winners painted mon 22 jun</p>
+      </header>
+
+      <section className="comp-pool">
+        <div className="comp-pool-label">the prize</div>
+        <div className="comp-pool-value">
+          10 <span className="comp-pool-unit">permanent tags</span>
+        </div>
+        <div className="comp-pool-sub">
+          the 10 most-nominated projects get a permanent spot on the wall, painted free. no token,
+          no entry fee, it stays on-chain until someone pays to overwrite it.
+        </div>
+        <div className="comp-status">
+          closes in<span className="comp-countdown"> {countdown}</span>
+        </div>
+      </section>
+
+      <section className="comp-rules">
+        <h2>how to enter</h2>
+        <ol>
+          <li>find the pinned nomination post on @tagwall_io.</li>
+          <li>reply with your favourite pulsechain project.</li>
+          <li>tag the project so they know you nominated them.</li>
+        </ol>
+        <p className="comp-fine">
+          the 10 most-nominated projects win. obvious spam, self-nominations, and brigading do not
+          count. winners are painted free on monday 22 jun, then revealed one per day.
+        </p>
+        <p className="comp-cta">
+          <a className="comp-cta-link" href={NOMINATION_TWEET_URL} target="_blank" rel="noreferrer">
+            nominate on X →
+          </a>
+        </p>
+        <p className="comp-muted">
+          next up: the referral contest opens mon 22 jun, {FLOOR_PLS_LABEL} PLS minimum pool.
         </p>
       </section>
     </div>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { nativeUsdPrice } from '../lib/usdPrice'
+import { nativeUsdPrice, SOLANA_PSEUDO_CHAIN_ID } from '../lib/usdPrice'
 
 // CoinGecko simple price API — free tier, no key, ~30 req/min rate limit.
 // Each chain maps to the CoinGecko token ID for its native currency.
@@ -11,6 +11,7 @@ const COINGECKO_IDS: Partial<Record<number, string>> = {
   943:   'pulsechain',  // PulseChain v4 testnet, same token
   999:   'hyperliquid', // HyperEVM: HYPE-denominated
   31337: 'ethereum',   // Anvil dev chain
+  [SOLANA_PSEUDO_CHAIN_ID]: 'solana', // Solana canvas (pseudo chain id)
 }
 
 const STALE_MS = 5 * 60 * 1_000  // 5 min

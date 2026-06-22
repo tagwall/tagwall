@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { formatEther, isAddress, getAddress } from 'viem'
 
+import { useSolanaCanvas } from '../hooks/useSolanaCanvas'
+import { isValidSolanaAddress } from '../hooks/useSolanaReferrer'
+import {
+  SOLANA_CANVAS_HEIGHT,
+  SOLANA_CANVAS_WIDTH,
+} from '../solana/constants'
 import { useCanvasHeader } from '../hooks/useCanvasHeader'
 import { useLivePaintedRefresh } from '../hooks/useLivePaintedRefresh'
 import { usePaintedRegions } from '../hooks/usePaintedRegions'
@@ -26,6 +32,16 @@ import { colorToHex } from '../lib/format'
  * a minimal rectangle that a mirror site can drop into their page.
  */
 export default function EmbedPage() {
+  const [searchOnly] = useSearchParams()
+  // Chain-family dispatch before any EVM hook does work: the Solana
+  // embed is its own component with its own data path.
+  if (searchOnly.get('chain')?.toLowerCase() === 'solana') {
+    return <SolanaEmbed params={searchOnly} />
+  }
+  return <EvmEmbed />
+}
+
+function EvmEmbed() {
   useLivePaintedRefresh()
   const [params] = useSearchParams()
 
@@ -169,6 +185,98 @@ export default function EmbedPage() {
         </a>
         <Link to="/" target="_top" className="embed-brand">Tagwall</Link>
       </footer>
+    </div>
+  )
+}
+
+/**
+ * Solana flavour of the embed: same query params (x, y, w, h crop;
+ * ref referral propagation, base58 here), same minimal chrome, data
+ * from tile accounts instead of event logs. Read-only like the EVM
+ * embed; the Paint link deep-links into the full app.
+ */
+function SolanaEmbed({ params }: { params: URLSearchParams }) {
+  const { tiles, config, isLoading } = useSolanaCanvas()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  const refAddr = useMemo(() => {
+    const v = params.get('ref')
+    return v && isValidSolanaAddress(v) ? v : null
+  }, [params])
+
+  // Same hostile-iframe clamping as the EVM embed: never allocate a
+  // canvas at attacker-chosen dimensions.
+  const region = useMemo(() => {
+    const x = Number(params.get('x'))
+    const y = Number(params.get('y'))
+    const w = Number(params.get('w'))
+    const h = Number(params.get('h'))
+    if (
+      !Number.isInteger(x) || !Number.isInteger(y) ||
+      !Number.isInteger(w) || !Number.isInteger(h) ||
+      x < 0 || y < 0 || w < 1 || h < 1 ||
+      x >= SOLANA_CANVAS_WIDTH || y >= SOLANA_CANVAS_HEIGHT ||
+      x + w > SOLANA_CANVAS_WIDTH || y + h > SOLANA_CANVAS_HEIGHT
+    ) {
+      return { x: 0, y: 0, w: SOLANA_CANVAS_WIDTH, h: SOLANA_CANVAS_HEIGHT }
+    }
+    return { x, y, w, h }
+  }, [params])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const img = ctx.createImageData(region.w, region.h)
+    for (let i = 0; i < region.w * region.h; i++) {
+      img.data[i * 4 + 0] = 16
+      img.data[i * 4 + 1] = 16
+      img.data[i * 4 + 2] = 19
+      img.data[i * 4 + 3] = 255
+    }
+    for (const t of tiles) {
+      for (let ly = 0; ly < 20; ly++) {
+        for (let lx = 0; lx < 20; lx++) {
+          const px = t.tileX * 20 + lx
+          const py = t.tileY * 20 + ly
+          if (px < region.x || px >= region.x + region.w) continue
+          if (py < region.y || py >= region.y + region.h) continue
+          const p = t.pixels[ly * 20 + lx]
+          if (p.lastPrice === 0n) continue
+          const o = ((py - region.y) * region.w + (px - region.x)) * 4
+          img.data[o + 0] = (p.color >> 16) & 0xff
+          img.data[o + 1] = (p.color >> 8) & 0xff
+          img.data[o + 2] = p.color & 0xff
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0)
+  }, [tiles, region])
+
+  const paintHref = `/?chain=solana${refAddr ? `&ref=${refAddr}` : ''}`
+
+  return (
+    <div className="embed-page">
+      <canvas
+        ref={canvasRef}
+        width={region.w}
+        height={region.h}
+        className="embed-canvas"
+        style={{ imageRendering: 'pixelated', width: '100%' }}
+      />
+      <div className="embed-footer">
+        <span>
+          {isLoading
+            ? 'loading…'
+            : config
+              ? `Tagwall on Solana · floor ${formatEther(config.startingPrice * 1_000_000_000n)} SOL/px`
+              : 'Tagwall on Solana'}
+        </span>
+        <Link to={paintHref} target="_blank" rel="noopener noreferrer">
+          Paint this wall ↗
+        </Link>
+      </div>
     </div>
   )
 }

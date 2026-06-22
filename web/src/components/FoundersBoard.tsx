@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useAccount, useChains } from 'wagmi'
 
+import { useActiveChain } from '../lib/activeChain'
+
 import { useFounders } from '../hooks/useFounders'
 import { GENESIS_CAP, FOUNDER_CAP } from '../lib/founders'
 import { chainColorTokens } from '../lib/chainColor'
@@ -54,7 +56,11 @@ export function FoundersBoard() {
   const { entries, stats, isLoading } = useFounders()
   const chainId = useViewerChainId()
   const chains = useChains()
-  const chainName = chains.find((c) => c.id === chainId)?.name ?? `Chain ${chainId}`
+  const { family } = useActiveChain()
+  const chainName =
+    family === 'solana'
+      ? 'Solana'
+      : (chains.find((c) => c.id === chainId)?.name ?? `Chain ${chainId}`)
   const accent = chainColorTokens(chainId).hex
 
   const { address: connectedAddress } = useAccount()

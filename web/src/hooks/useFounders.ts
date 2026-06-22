@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 
 import { usePaintedRegions } from './usePaintedRegions'
+import { useSolanaRegions } from './useSolanaCanvas'
+import { useActiveChain } from '../lib/activeChain'
 import {
   founderEntriesFromRegions,
   founderStatsFromCount,
@@ -30,12 +32,25 @@ interface UseFounders {
  * get no badge and no board row in the official frontend.
  */
 export function useFounders(): UseFounders {
-  const { data: regions, rawData, isLoading } = usePaintedRegions()
+  // Family dispatch: Solana founder windows come from the program's
+  // event history (same pure rank functions; regions are pre-sorted by
+  // (slot, logIndex) like the EVM (block, logIndex) order). The EVM
+  // query stays mounted but idle data-wise when Solana is active, and
+  // vice versa, keeping hook order stable.
+  const { family } = useActiveChain()
+  const solana = family === 'solana'
+  const evm = usePaintedRegions()
+  const sol = useSolanaRegions({ enabled: solana })
+
+  const rawData = solana ? sol.regions : evm.rawData
+  const regions = solana ? sol.regions : evm.data
+  const isLoading = solana ? sol.isLoading : evm.isLoading
 
   const allEntries = useMemo(() => founderEntriesFromRegions(rawData), [rawData])
 
   // Painters with at least one region surviving the client filter. null
   // when nothing was filtered out, to skip the set walk entirely.
+  // (Solana has no client filter layer yet, so visible stays null.)
   const visible = useMemo(() => {
     if (!regions || !rawData || regions.length === rawData.length) return null
     const out = new Set<string>()

@@ -60,7 +60,7 @@ function ShareReferralPopover({ address }: { address: Address }) {
       ? `${window.location.origin}/?ref=${checksummed}`
       : `https://tagwall.io/?ref=${checksummed}`
 
-  // Copy stays consistent with marketing-plan.md §8 (plain template),
+  // Copy stays consistent with marketing/marketing-plan.md §8 (plain template),
   // tense-neutral so it works whether or not the user has painted yet.
   // The user can edit in the Twitter compose dialog before posting.
   const tweetText =

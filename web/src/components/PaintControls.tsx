@@ -65,6 +65,11 @@ interface Props {
   onSubmit: (args: {
     link: string
     referrer?: Address
+    /** The validated referrer string verbatim, for chain families whose
+     *  addresses aren't EVM 0x addresses (Solana base58). Set whenever
+     *  the referrer field holds a valid value; EVM callers can keep
+     *  reading `referrer` and ignore this. */
+    referrerRaw?: string
     maxTotalCost: bigint
     value: bigint
     reserveMultiplierBps: bigint
@@ -76,7 +81,7 @@ interface Props {
   }) => Promise<void> | void
   disabledReason?: string
   /** Optionally prefills the referrer field with a share link (e.g. ?ref=0x...). */
-  defaultReferrer?: Address
+  defaultReferrer?: string
   /**
    * Address of the connected wallet, used to block self-referral. The contract
    * strips referrer == painter (the referral slice is redirected to the
@@ -113,6 +118,24 @@ interface Props {
   /** Canvas dimensions; the minimap derives its scale from these. */
   canvasWidth?: number
   canvasHeight?: number
+  /**
+   * Replaces the pixel-cap chunk estimate in the "Needs N signatures"
+   * caption. Chain families whose chunking is not a simple
+   * pixels-per-tx division (Solana: wire-format dependent, plus tile
+   * init transactions) pass their plan's actual transaction count.
+   */
+  chunkCountOverride?: number | null
+  /**
+   * Replaces the EVM isAddress check on the referrer field for chain
+   * families with non-EVM addresses (Solana passes a base58 pubkey
+   * validator). When set, the validated string travels to onSubmit
+   * via `referrerRaw` and `referrer` stays undefined. Absent on EVM
+   * chains, where behavior is unchanged.
+   */
+  referrerValidator?: (s: string) => boolean
+  /** Replaces the "0x… address" placeholder on the referrer input for
+   *  non-EVM chain families. Absent on EVM chains. */
+  referrerPlaceholder?: string
 }
 
 function shortenHash(h: string): string {
@@ -187,6 +210,9 @@ export function PaintControls({
   regions,
   canvasWidth = 1250,
   canvasHeight = 800,
+  chunkCountOverride,
+  referrerValidator,
+  referrerPlaceholder,
 }: Props) {
   const usdRate = useNativeUsdPrice(chainId)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -204,20 +230,33 @@ export function PaintControls({
 
   const linkValid = isPlausibleHttpsUrl(link)
   const referrerTrim = referrer.trim()
-  const referrerFormatValid = referrerTrim === '' || isAddress(referrerTrim)
+  const referrerFormatValid =
+    referrerTrim === '' ||
+    (referrerValidator ? referrerValidator(referrerTrim) : isAddress(referrerTrim))
+  // EVM resolution only: with a custom validator (non-EVM addresses)
+  // the validated string travels via `referrerRaw` instead, since
+  // getAddress() would throw on anything that isn't 0x-hex.
   const referrerResolved: Address | undefined =
-    referrerFormatValid && referrerTrim !== '' ? getAddress(referrerTrim) : undefined
+    !referrerValidator && referrerFormatValid && referrerTrim !== ''
+      ? getAddress(referrerTrim)
+      : undefined
   // Self-referral check: referrer can't be the connected wallet. The contract
   // strips it (slice goes to treasury, earns the painter nothing); UX refuses
   // it outright so the user doesn't waste a paint expecting a rebate.
+  // Non-EVM addresses are case-sensitive (base58), so the custom-validator
+  // path compares exact strings instead of lowercasing.
   const referrerIsSelf = Boolean(
-    referrerResolved &&
-      connectedAddress &&
-      referrerResolved.toLowerCase() === connectedAddress.toLowerCase(),
+    connectedAddress &&
+      (referrerValidator
+        ? referrerFormatValid && referrerTrim !== '' && referrerTrim === connectedAddress
+        : referrerResolved &&
+          referrerResolved.toLowerCase() === connectedAddress.toLowerCase()),
   )
   const referrerValid = referrerFormatValid && !referrerIsSelf
   const referrerErrorMessage = !referrerFormatValid
-    ? 'Must be a valid 0x… address or blank.'
+    ? referrerValidator
+      ? 'Must be a valid address or blank.'
+      : 'Must be a valid 0x… address or blank.'
     : referrerIsSelf
     ? "Referrer can't be your own wallet."
     : null
@@ -226,7 +265,12 @@ export function PaintControls({
   // Single-tx paint works today; multi-chunk submits land with EIP-5792
   // batch-sign (next commit). For now we compute the number so the UI can
   // surface it; submit is disabled when chunks > 1 until batching ships.
-  const chunksRequired = pixelCount > 0 ? Math.ceil(pixelCount / maxPixelsPerTx) : 0
+  const chunksRequired =
+    chunkCountOverride != null
+      ? chunkCountOverride
+      : pixelCount > 0
+        ? Math.ceil(pixelCount / maxPixelsPerTx)
+        : 0
   const needsBatching = chunksRequired > 1
 
   // Applied cost at the chosen multiplier. The on-chain paint() recomputes
@@ -291,6 +335,10 @@ export function PaintControls({
     await onSubmit({
       link,
       referrer: referrerResolved,
+      referrerRaw:
+        referrerValid && referrerTrim !== ''
+          ? referrerResolved ?? referrerTrim
+          : undefined,
       skipUnchanged: opts?.skipUnchanged,
       maxTotalCost,
       value: maxTotalCost,
@@ -592,7 +640,7 @@ export function PaintControls({
                 id="paint-referrer"
                 className="pz-field-input"
                 type="text"
-                placeholder="0x… address (optional, earns 5%)"
+                placeholder={referrerPlaceholder ?? '0x… address (optional, earns 5%)'}
                 value={referrer}
                 onChange={(e) => setReferrer(e.target.value)}
                 spellCheck={false}

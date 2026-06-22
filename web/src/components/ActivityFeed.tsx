@@ -24,6 +24,11 @@ interface Props {
    *  through the parent's OutboundLinkModal so users get a click-through
    *  interstitial (PRD §6) and a defense-in-depth scheme check. */
   onRequestOutbound: (url: string) => void
+  /** Pre-resolved linkId -> URL map for non-EVM chain families
+   *  (Solana feeds this from useSolanaLinkUrls). When provided it
+   *  replaces the internal wagmi-based resolution entirely and the
+   *  EVM contract reads are disabled. Absent on EVM chains. */
+  linkUrlsOverride?: Map<number, string>
 }
 
 type SortKey = 'time' | 'painter' | 'region' | 'size' | 'price' | 'multiplier'
@@ -70,9 +75,10 @@ function formatRelative(seconds: number): string {
 
 /**
  * Fetch link URLs for any region with linkId > 0. Batched via multicall so
- * the feed doesn't fire one RPC per row.
+ * the feed doesn't fire one RPC per row. Pass `enabled: false` when an
+ * override map supplies the URLs so no EVM reads fire (Solana dock).
  */
-function useLinkUrls(linkIds: number[]): Map<number, string> {
+function useLinkUrls(linkIds: number[], enabled = true): Map<number, string> {
   const unique = useMemo(() => Array.from(new Set(linkIds.filter((n) => n > 0))), [linkIds])
   // Viewer chain, matching the regions feeding this feed: linkIds index a
   // per-chain registry, so resolving them against the wallet chain would
@@ -88,7 +94,7 @@ function useLinkUrls(linkIds: number[]): Map<number, string> {
       functionName: 'links' as const,
       args: [id],
     })),
-    query: { enabled: unique.length > 0 && !!address, staleTime: 60_000 },
+    query: { enabled: enabled && unique.length > 0 && !!address, staleTime: 60_000 },
   })
   return useMemo(() => {
     const out = new Map<number, string>()
@@ -117,12 +123,16 @@ export function ActivityFeed({
   nativeSymbol = 'native',
   blockTimestamps,
   onRequestOutbound,
+  linkUrlsOverride,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('time')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [filter, setFilter] = useState('')
 
-  const linkUrls = useLinkUrls(regions?.map((r) => r.linkId) ?? [])
+  // Override (non-EVM chain families) replaces the wagmi lookup; the
+  // internal hook is disabled in that case so no EVM reads fire.
+  const evmLinkUrls = useLinkUrls(regions?.map((r) => r.linkId) ?? [], !linkUrlsOverride)
+  const linkUrls = linkUrlsOverride ?? evmLinkUrls
 
   // Founder rank by painter. useFounders computes ranks from the
   // UNFILTERED on-chain paint order (so filter-list changes can't shift
