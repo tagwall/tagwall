@@ -22,6 +22,7 @@ import { useCanvasHeader } from '../hooks/useCanvasHeader'
 import { useDebounced } from '../hooks/useDebounced'
 import { usePaintDraft } from '../hooks/usePaintDraft'
 import { usePaintedRegions } from '../hooks/usePaintedRegions'
+import { useBlockTimestamps } from '../hooks/useBlockTimestamps'
 import { usePaintSubmitBatch } from '../hooks/usePaintSubmitBatch'
 import { usePixelInfo } from '../hooks/usePixelInfo'
 import { useWindowDragUpload } from '../hooks/useWindowDragUpload'
@@ -161,6 +162,10 @@ const MAX_PIXELS_PER_TX = 1_500
 // surfaced in the cost line so users see the tradeoff.
 const MAX_STAMP_SIDE = 100
 
+// Stable empty reference so useBlockTimestamps doesn't see a new array
+// identity every render while regions are still loading.
+const EMPTY_BLOCKS: bigint[] = []
+
 function CanvasView({
   startingPrice,
   canvasWidth,
@@ -247,6 +252,9 @@ function CanvasView({
   // internally, so subsequent region-list updates are picked up without
   // forcing the draft to re-load.
   const { data: regions, isLoading: regionsLoading, isFetching: regionsFetching } = usePaintedRegions()
+  // Block timestamps for the activity feed's human-readable "time since
+  // paint" column. Empty array (not undefined) keeps the hook order stable.
+  const blockTimestamps = useBlockTimestamps(regions?.map((r) => r.blockNumber) ?? EMPTY_BLOCKS)
 
   const paint = usePaintDraft({
     canvasWidth,
@@ -1072,6 +1080,7 @@ function CanvasView({
           isLoading={regionsLoading}
           startingPrice={startingPrice}
           nativeSymbol={nativeSymbol}
+          blockTimestamps={blockTimestamps}
           onRequestOutbound={setOutboundUrl}
         />
         {/* Sibling to the per-paint Leaderboard. Data source is entirely

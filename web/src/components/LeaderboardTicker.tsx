@@ -24,13 +24,9 @@ import { Thumbnail, useLinkUrls, useThumbnailPixels } from './Leaderboard'
  * Renders nothing when there are zero painted regions — the ticker would
  * be just an empty bar.
  *
- * Same data fields as Leaderboard rows: rank, thumbnail, link, painter,
- * price. Per operator preference 2026-05-24.
+ * Fields: rank, thumbnail, link, price. (Painter address omitted, per
+ * operator preference.)
  */
-
-function shortenAddress(a: string): string {
-  return `${a.slice(0, 6)}…${a.slice(-4)}`
-}
 
 /** Magnitude-aware native amount formatter. Mirrors `formatNative` in
  *  Leaderboard.tsx — keep in sync if the leaderboard's number style
@@ -130,9 +126,6 @@ export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound, li
               ) : (
                 <span className="lb-ticker-link lb-ticker-link-empty">no link</span>
               )}
-              <span className="lb-ticker-painter" title={r.painter}>
-                {shortenAddress(r.painter)}
-              </span>
               <span className="lb-ticker-price">
                 {formatNative(r.pricePaid)}
                 <span className="lb-ticker-price-unit"> {nativeSymbol}</span>

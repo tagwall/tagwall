@@ -175,7 +175,6 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   color: var(--tw-dim);
   font-style: italic;
 }
-.lb-ticker-painter { color: var(--tw-dim); }
 .lb-ticker-price {
   color: var(--tw-accent);
   font-weight: 600;
@@ -1072,11 +1071,16 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
   font-size: 10.5px;
   color: var(--text-dim);
+  white-space: nowrap;
 }
+/* Shared EVM-address style: same size + colour as .leaderboard-painter and
+   .activity-painter-addr so a 0x address reads identically in all three
+   dock boxes. nowrap keeps "0x….1234" on one line in the narrow column. */
 .referrers-address {
   font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
-  font-size: 12.5px;
-  color: var(--text);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 .referrers-count {
   display: flex;
@@ -3368,8 +3372,9 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 }
 .leaderboard-painter {
   font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 /* URL first, above painter; accent colour so the "where does this go"
    answer reads first. */
@@ -3579,13 +3584,12 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-top: 1px solid var(--tw-line);
   padding: 16px 24px 24px;
   display: grid;
-  /* Leaderboard | Activity | Top Referrers, weighted by content density.
-     Activity has the most columns (time/region/size/painter/price) and was
-     truncating its header at an even third, so it gets the widest track;
-     Top Referrers is the sparsest, so it gives up the most. minmax(0,*)
-     lets each shrink within the padded dock instead of overflowing.
-     StatsCards spans all three (rule below). */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 0.8fr);
+  /* Leaderboard 25% | Activity 50% | Top Referrers 25%. Activity has the
+     most columns (time/region/size/painter/price) so it gets half the row;
+     the two side boards split the rest. minmax(0,*) lets each shrink within
+     the padded dock instead of overflowing. StatsCards spans all three
+     (rule below). */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -4102,7 +4106,13 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   gap: 6px;
   flex-wrap: wrap;
 }
-.activity-painter-addr { font-variant-numeric: tabular-nums; }
+.activity-painter-addr {
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 /* --- Founders page shell --- */
 .founders-page-header h1 { margin: 0 0 8px; font-size: 26px; color: var(--text-bright); }
