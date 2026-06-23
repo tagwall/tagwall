@@ -1733,6 +1733,31 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   white-space: nowrap;
   pointer-events: none;
 }
+/* Live coordinate readout of the draft stamp's top-left + size, tracks the
+   stamp at any zoom/scroll (the .draft-outline parent is positioned in % of
+   the scaled canvas). Bottom-left so it clears the top "Drag to move" hint. */
+.draft-coord {
+  position: absolute;
+  bottom: -22px;
+  left: 0;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 7px;
+  background: #0b0b10;
+  color: var(--tw-accent);
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--tw-accent);
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.draft-coord-size {
+  color: var(--tw-dim);
+  font-weight: 500;
+}
 
 /* Floating hover tooltip that follows the cursor over the canvas.
    position: fixed so it can escape the canvas scroll container and

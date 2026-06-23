@@ -993,6 +993,10 @@ function CanvasView({
                 {!draftTouched && (
                   <span className="draft-outline-label">Drag to move</span>
                 )}
+                <span className="draft-coord">
+                  {paint.draft.x}, {paint.draft.y}
+                  <span className="draft-coord-size">{paint.draft.w}×{paint.draft.h}</span>
+                </span>
               </div>
             )}
             {dragUpload.isDragging && !paint.draft && (
