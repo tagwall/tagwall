@@ -66,14 +66,22 @@ def _resolve_ids(repo: str, category: str, token: str) -> tuple[str, str]:
 
 def _render(user: str, p: dict) -> tuple[str, str]:
     title = f"🎨 {p['chain']}: {p['w']}×{p['h']} ({p['pixels']:,}px) at ({p['x']},{p['y']})"
-    body = (
-        f"@{user} new paint on **{p['chain']}**\n\n"
-        f"- region: **{p['w']}×{p['h']}** ({p['pixels']:,} px) at ({p['x']},{p['y']})\n"
-        f"- price: **{p['price']}**\n"
-        f"- painter: `{p['painter']}`\n"
-        f"- [view pixel]({p['pixelUrl']}) · [tx]({p['txUrl']})\n"
-    )
-    return title, body
+    base = (os.environ.get("TAGWALL_BASE_URL") or "https://tagwall.io").rstrip("/")
+    lines = [f"@{user} new paint on **{p['chain']}**", ""]
+    # Rendered image of the tag (server-side, /api/tag-image on the canvas
+    # site decodes the paint tx's calldata into an upscaled PNG).
+    lines.append(f"![tag]({base}/api/tag-image?chain={p['chainId']}&tx={p['tx']})")
+    lines.append("")
+    lines.append(f"- region: **{p['w']}×{p['h']}** ({p['pixels']:,} px) at ({p['x']},{p['y']})")
+    lines.append(f"- price: **{p['price']}**")
+    lines.append(f"- painter: `{p['painter']}`")
+    link = p.get("link")
+    if link:
+        # Painter-supplied URL. Shown verbatim (no auto-link markdown) since
+        # it's arbitrary content in the operator's private alert feed.
+        lines.append(f"- link: `{link}`")
+    lines.append(f"- [view pixel]({p['pixelUrl']}) · [tx]({p['txUrl']})")
+    return title, "\n".join(lines) + "\n"
 
 
 def main() -> int:

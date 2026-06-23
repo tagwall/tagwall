@@ -90,6 +90,7 @@ TREASURY_SEND_FAILED_TOPIC0 = Web3.keccak(text="TreasurySendFailed(uint256)")
 # weekly summary's "blank vs overpaint" split.
 CANVAS_VIEW_ABI = [
     {"type": "function", "name": "startingPrice", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
+    {"type": "function", "name": "links", "stateMutability": "view", "inputs": [{"type": "uint256"}], "outputs": [{"type": "string"}]},
 ]
 
 CHAINS = [
@@ -431,7 +432,19 @@ def remember_alerted(state: dict, tx_id: str) -> None:
         del lst[:-NOTIFIED_TXS_CAP]
 
 
-def format_paint_alert(args: dict, chain: dict, tx_hash_hex: str) -> dict:
+def resolve_link(view_contract, link_id: int, chain_name: str) -> str:
+    """The painter's outbound URL for this paint, or "" when there's none.
+    Best effort: a failed read just drops the link from the alert."""
+    if not link_id:
+        return ""
+    try:
+        return view_contract.functions.links(link_id).call() or ""
+    except Exception as err:
+        print(f"[{chain_name}] links({link_id}) read failed: {sanitize_err(err)}", file=sys.stderr)
+        return ""
+
+
+def format_paint_alert(args: dict, chain: dict, tx_hash_hex: str, link: str = "") -> dict:
     """Structured per-paint record for new_paints.json. notify.py renders
     the GitHub Discussion title/body from this; main.py stays GitHub-free."""
     x, y = args["x"], args["y"]
@@ -442,6 +455,7 @@ def format_paint_alert(args: dict, chain: dict, tx_hash_hex: str) -> dict:
         "pixels": args["pixelsPainted"],
         "price": format_price(args["pricePaid"], chain["native"]),
         "painter": args["painter"],
+        "link": link,
         "pixelUrl": f"{TAGWALL_BASE_URL}/pixel/{x},{y}",
         "tx": tx_hash_hex,
         "txUrl": f"{chain['explorer_tx']}{tx_hash_hex}",
@@ -865,7 +879,8 @@ def process_chain(
             if (args["pixelsPainted"] >= ALERT_MIN_PIXELS
                     and len(paint_alerts) < alert_remaining
                     and not already_alerted(state, tx_hash_hex)):
-                paint_alerts.append(format_paint_alert(args, chain, tx_hash_hex))
+                link = resolve_link(view_contract, args.get("linkId", 0), chain["name"])
+                paint_alerts.append(format_paint_alert(args, chain, tx_hash_hex, link))
                 remember_alerted(state, tx_hash_hex)
             if not is_notable(args):
                 continue
