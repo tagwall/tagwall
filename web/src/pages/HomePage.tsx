@@ -37,6 +37,12 @@ import { chainPixelCap } from '../lib/chainCaps'
 import { colorToHex } from '../lib/format'
 
 const MAJOR_GRIDLINE_EVERY = 100
+const MINOR_GRIDLINE_EVERY = 50
+// Two-tier grid on the near-black canvas (#0b0b10): a light hairline every
+// 50px, and an ever-so-slightly darker one every 100px so the lattice reads
+// as even rather than the old sparse 100-only grid.
+const MINOR_GRIDLINE_COLOR = '#1d1d26'
+const MAJOR_GRIDLINE_COLOR = '#191921'
 const HOVER_DEBOUNCE_MS = 200
 
 /** Human-readable byte size for the drop-target overlay subline. Mirrors
@@ -517,8 +523,26 @@ function CanvasView({
     ctx.fillStyle = '#0b0b10'
     ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
-    ctx.strokeStyle = '#1d1d26'
     ctx.lineWidth = 1
+    // Minor grid every 50px (skip the 100s; they're drawn as majors below
+    // so the stronger colour wins at the shared lines).
+    ctx.strokeStyle = MINOR_GRIDLINE_COLOR
+    for (let i = 0; i <= canvasWidth; i += MINOR_GRIDLINE_EVERY) {
+      if (i % MAJOR_GRIDLINE_EVERY === 0) continue
+      ctx.beginPath()
+      ctx.moveTo(i + 0.5, 0)
+      ctx.lineTo(i + 0.5, canvasHeight)
+      ctx.stroke()
+    }
+    for (let i = 0; i <= canvasHeight; i += MINOR_GRIDLINE_EVERY) {
+      if (i % MAJOR_GRIDLINE_EVERY === 0) continue
+      ctx.beginPath()
+      ctx.moveTo(0, i + 0.5)
+      ctx.lineTo(canvasWidth, i + 0.5)
+      ctx.stroke()
+    }
+    // Major grid every 100px.
+    ctx.strokeStyle = MAJOR_GRIDLINE_COLOR
     for (let i = 0; i <= canvasWidth; i += MAJOR_GRIDLINE_EVERY) {
       ctx.beginPath()
       ctx.moveTo(i + 0.5, 0)
