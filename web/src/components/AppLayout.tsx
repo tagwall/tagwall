@@ -25,6 +25,18 @@ import { SprayTrail } from './SprayTrail'
  * lime number badges, etc.) flips together. Pre-connect falls back to
  * the brand lime via the :root defaults.
  */
+
+/** Render the injected ISO build timestamp as "YYYY-MM-DD HH:MM UTC". */
+function formatBuildTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const p = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ` +
+    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`
+  )
+}
+
 export function AppLayout() {
   useLivePaintedRefresh()
   const { isConnected } = useAccount()
@@ -112,6 +124,9 @@ export function AppLayout() {
                 <code title={footerCanvasAddr}>{shortenAddress(footerCanvasAddr)}</code>.
               </>
             )}
+          </small>
+          <small className="site-footer-build" title={`Built ${__BUILD_TIME__}`}>
+            build {formatBuildTime(__BUILD_TIME__)} · <code>{__BUILD_COMMIT__}</code>
           </small>
         </div>
         <div className="site-footer-socials" aria-label="Socials">

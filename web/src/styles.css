@@ -3928,6 +3928,16 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   .site-footer { padding: 14px 12px 0; flex-direction: column; align-items: flex-start; }
 }
 .site-footer-left { flex: 1 1 auto; min-width: 0; }
+/* Build version line: dim, monospace, its own row under the description so
+   it's easy to quote in an issue report. */
+.site-footer-build {
+  display: block;
+  margin-top: 4px;
+  font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--tw-dim);
+}
+.site-footer-build code { font-size: inherit; color: inherit; }
 .site-footer small { font-size: 12px; }
 .site-footer code { background: var(--bg-panel); padding: 2px 6px; border-radius: 4px; font-size: 11px; word-break: break-all; }
 .site-footer-socials {

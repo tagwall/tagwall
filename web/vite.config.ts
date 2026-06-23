@@ -1,8 +1,30 @@
+import { execFileSync } from 'node:child_process'
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Short commit of the build, for the footer version string. Prefer git
+// (the CI checkout is a repo); fall back to the CI-provided SHA, then
+// 'local' for a plain dev build. Static argv, no shell — no injection surface.
+function buildCommit(): string {
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD']).toString().trim()
+  } catch {
+    // ignore — fall through to CI env / local
+  }
+  const sha =
+    process.env.WORKERS_CI_COMMIT_SHA ||
+    process.env.CF_PAGES_COMMIT_SHA ||
+    process.env.GITHUB_SHA
+  return sha ? sha.slice(0, 7) : 'local'
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __BUILD_COMMIT__: JSON.stringify(buildCommit()),
+  },
   plugins: [react()],
   resolve: {
     alias: {
