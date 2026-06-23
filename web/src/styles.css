@@ -141,6 +141,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   width: 24px;
   height: 24px;
   border-radius: 3px;
+  border: none;
 }
 .lb-ticker-link {
   /* Button reset: this is a <button> styled as a link, so the outbound
