@@ -62,12 +62,20 @@ function humanize(s: string): string {
 }
 
 /**
- * Label available without any network call. Returns null only for the iOS
- * id-only short link, where the name must come from useAppStoreName.
+ * Reliable label available with no network call: only the iOS long link,
+ * whose slug *is* the app name. Everything else returns null so the caller
+ * resolves the real name from the server (/api/app-name).
  */
 export function storeLinkLabelSync(link: StoreLink): string | null {
-  if (link.platform === 'ios') {
-    return link.slug ? storeLabelWithName('ios', humanize(link.slug)) : null
+  if (link.platform === 'ios' && link.slug) return storeLabelWithName('ios', humanize(link.slug))
+  return null
+}
+
+/** Last-resort label when the server lookup yields nothing: a humanized
+ *  package name for Android, else a generic platform label. */
+export function storeLinkFallbackLabel(link: StoreLink): string {
+  if (link.platform === 'android' && link.packageId) {
+    return storeLabelWithName('android', humanize(link.packageId))
   }
-  return link.packageId ? storeLabelWithName('android', humanize(link.packageId)) : 'Android app'
+  return link.platform === 'ios' ? 'iOS app' : 'Android app'
 }

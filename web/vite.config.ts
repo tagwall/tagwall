@@ -16,4 +16,13 @@ export default defineConfig({
   optimizeDeps: {
     include: ['buffer'],
   },
+  server: {
+    // /api/* is served by the Cloudflare Worker (web/worker/index.js) in
+    // prod. In `vite dev` there's no Worker, so proxy /api to a local
+    // `wrangler dev` (default below) when it's running; otherwise these
+    // calls just fail and the UI falls back to a generic label.
+    proxy: {
+      '/api': { target: 'http://localhost:8799', changeOrigin: true },
+    },
+  },
 })

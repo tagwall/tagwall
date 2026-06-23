@@ -343,17 +343,26 @@ function CanvasView({
   const onRefresh = useCallback(async () => {
     if (refreshing) return
     setRefreshing(true)
-    try {
-      await Promise.all([
+    const invalidateAll = () =>
+      Promise.all([
         queryClient.invalidateQueries({ queryKey: ['painted-regions'] }),
         queryClient.invalidateQueries({ queryKey: ['tile-pixels'] }),
         queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] }),
       ])
+    try {
+      // Public PulseChain/etc. RPCs are load-balanced, so a read fired right
+      // after a paint confirms can land on a node that hasn't indexed it yet
+      // and return the pre-paint tile. A single refetch then "misses" the
+      // new tag. Fire a short burst instead so one press of refresh reliably
+      // catches the state once it has propagated (TanStack structural sharing
+      // makes the no-change refetches a cheap no-op for the canvas).
+      await invalidateAll()
+      await new Promise((r) => setTimeout(r, 2500))
+      await invalidateAll()
+      await new Promise((r) => setTimeout(r, 3500))
+      await invalidateAll()
     } finally {
-      // Small minimum dwell so the spinner is visible even on near-
-      // instant invalidations; without this the button just flashes
-      // and the user can't tell they pressed it.
-      setTimeout(() => setRefreshing(false), 250)
+      setRefreshing(false)
     }
   }, [queryClient, refreshing])
   const [outboundUrl, setOutboundUrl] = useState<string | null>(null)

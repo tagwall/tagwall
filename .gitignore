@@ -68,3 +68,6 @@ marketing/assets/logos-src/
 
 # Transient per-run paint-alert feed (consumed by the notify step, never committed)
 bots/tweets/new_paints.json
+
+# wrangler dev local cache/state
+.wrangler/

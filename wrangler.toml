@@ -1,16 +1,21 @@
 name = "tagwall"
 compatibility_date = "2026-05-03"
 
-# Workers Static Assets. Day-0 launch posture (2026-05-24): serves the
-# built canvas bundle from `./web/dist`. Cloudflare's git integration
-# runs the build below on every push.
+# Workers Static Assets + a thin Worker. The Worker (web/worker/index.js)
+# serves the built canvas bundle from ./web/dist via the ASSETS binding, and
+# adds one server-side route, /api/app-name, that resolves App Store / Play
+# app names for the store-link labels (keeps the browser free of a JSONP
+# script). Cloudflare's git integration runs the build below on every push.
 #
 # Pre-launch the directory was `./holding/` (static HTML placeholder);
 # the holding/ folder is retained in-repo as historical reference but
 # is no longer served.
+main = "web/worker/index.js"
+
 [build]
 command = "npm --prefix web ci && npm --prefix web run build"
 
 [assets]
 directory = "./web/dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
