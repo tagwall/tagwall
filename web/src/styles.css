@@ -1063,8 +1063,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   font-weight: 600;
   font-size: 13px;
   color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Show the full ENS/PLS name on one line: never truncate, never wrap. */
   white-space: nowrap;
 }
 .referrers-address-dim {
@@ -3584,12 +3583,13 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   border-top: 1px solid var(--tw-line);
   padding: 16px 24px 24px;
   display: grid;
-  /* Leaderboard 25% | Activity 50% | Top Referrers 25%. Activity has the
-     most columns (time/region/size/painter/price) so it gets half the row;
-     the two side boards split the rest. minmax(0,*) lets each shrink within
-     the padded dock instead of overflowing. StatsCards spans all three
-     (rule below). */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  /* Desktop 3-col split: Activity 45% | Leaderboard 30% | Top Referrers
+     25%. The L-to-R visual order is set with `order` in the >1100px media
+     block below; DOM order stays Leaderboard, Activity, Referrers so the
+     2-col (≤1100) and 1-col (≤760) stacking is unchanged. minmax(0,*) lets
+     each shrink within the padded dock instead of overflowing. StatsCards
+     spans all three (rule below). */
+  grid-template-columns: minmax(0, 45fr) minmax(0, 30fr) minmax(0, 25fr);
   gap: 16px;
   align-items: start;
 }
@@ -3603,6 +3603,18 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .activity-dock > .stats-cards,
 .activity-dock > .stats-missing {
   grid-column: 1 / -1;
+}
+/* Desktop-only visual reorder: Activity left (wide track), Leaderboard
+   middle, Top Referrers right. Scoped to the 3-col range so the 2-col
+   (≤1100) and 1-col (≤760) layouts keep natural DOM order. StatsCards is
+   forced last (default order 0 would otherwise float it above the panels). */
+@media (min-width: 1101px) {
+  .activity-dock > .activity-feed { order: 1; }
+  .activity-dock > .leaderboard:not(.referrers-leaderboard) { order: 2; }
+  .activity-dock > .referrers-leaderboard { order: 3; }
+  .activity-dock > .stats-grid,
+  .activity-dock > .stats-cards,
+  .activity-dock > .stats-missing { order: 4; }
 }
 @media (max-width: 1100px) {
   /* Three columns get cramped below ~1100px; drop to two. */

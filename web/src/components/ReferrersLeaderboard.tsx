@@ -103,7 +103,7 @@ export function ReferrersLeaderboard() {
               </div>
               <div className="referrers-count" title={`${r.paintCount} paint${r.paintCount === 1 ? '' : 's'} referred`}>
                 {r.paintCount.toLocaleString()}
-                <span className="referrers-count-label">paints</span>
+                <span className="referrers-count-label">{r.paintCount === 1 ? 'paint' : 'paints'}</span>
               </div>
               <div className="referrers-earnings">
                 {r.earnings.map((e) => (
