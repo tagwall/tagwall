@@ -1,6 +1,26 @@
 {
-  "generatedAt": "2026-06-23T05:48:25Z",
+  "generatedAt": "2026-06-23T09:37:09Z",
   "entries": [
+    {
+      "id": "0x308c1a316197cc7601a5ccbc27ac15848809f6293c2aab2f72299711e249bd52",
+      "chain": "PulseChain",
+      "chainId": 369,
+      "queuedAt": "2026-06-23T09:37:09Z",
+      "painter": "0x4279F70BDafa783046F5A36BF4524d7a638b5514",
+      "painterShort": "0x4279\u20265514",
+      "x": 369,
+      "y": 369,
+      "w": 32,
+      "h": 32,
+      "pixels": 812,
+      "priceFormatted": "5,440,400 PLS",
+      "pricePerPixelFormatted": "6,700 PLS",
+      "native": "PLS",
+      "wasOverpaint": false,
+      "tweet": "\ud83d\udccd paint drop on PulseChain: 0x4279\u20265514 took 32\u00d732 for 5,440,400 PLS (812 px). https://tagwall.io/pixel/369,369",
+      "txUrl": "https://otter.pulsechain.com/tx/0x308c1a316197cc7601a5ccbc27ac15848809f6293c2aab2f72299711e249bd52",
+      "pixelUrl": "https://tagwall.io/pixel/369,369"
+    },
     {
       "id": "0x8ae987b7ba75a59a7620664224cc74c7a41e1a2f647931348b64d55a2a609d0a",
       "chain": "PulseChain",
