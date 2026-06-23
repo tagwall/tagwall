@@ -222,6 +222,12 @@ export function PaintControls({
   // Seed from the ?ref= query param when present (embed + share-link use).
   const [referrer, setReferrer] = useState<string>(defaultReferrer ?? '')
 
+  // Clear the link after a paint lands so it doesn't carry over to the next
+  // tag (the image/draft is cleared by the parent; the link lives here).
+  useEffect(() => {
+    if (submitStatus === 'success') setLink('')
+  }, [submitStatus])
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (file) onLoad(file)

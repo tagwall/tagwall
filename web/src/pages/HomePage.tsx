@@ -340,31 +340,35 @@ function CanvasView({
   // (e.g. after a tx landed in a different tab).
   const queryClient = useQueryClient()
   const [refreshing, setRefreshing] = useState(false)
-  const onRefresh = useCallback(async () => {
-    if (refreshing) return
-    setRefreshing(true)
+  // Re-fetch regions + tiles + leaderboard as a short burst rather than a
+  // single shot. Public RPCs are load-balanced, so a read fired right after
+  // a paint confirms can land on a node that hasn't indexed it yet and
+  // return the pre-paint tile; the staggered retries catch the state once it
+  // propagates (TanStack structural sharing makes the no-change refetches a
+  // cheap no-op for the canvas). Used by both the manual refresh button and
+  // the post-paint auto-refresh below.
+  const burstRefresh = useCallback(async () => {
     const invalidateAll = () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ['painted-regions'] }),
         queryClient.invalidateQueries({ queryKey: ['tile-pixels'] }),
         queryClient.invalidateQueries({ queryKey: ['leaderboard-pixels'] }),
       ])
+    await invalidateAll()
+    await new Promise((r) => setTimeout(r, 2500))
+    await invalidateAll()
+    await new Promise((r) => setTimeout(r, 3500))
+    await invalidateAll()
+  }, [queryClient])
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return
+    setRefreshing(true)
     try {
-      // Public PulseChain/etc. RPCs are load-balanced, so a read fired right
-      // after a paint confirms can land on a node that hasn't indexed it yet
-      // and return the pre-paint tile. A single refetch then "misses" the
-      // new tag. Fire a short burst instead so one press of refresh reliably
-      // catches the state once it has propagated (TanStack structural sharing
-      // makes the no-change refetches a cheap no-op for the canvas).
-      await invalidateAll()
-      await new Promise((r) => setTimeout(r, 2500))
-      await invalidateAll()
-      await new Promise((r) => setTimeout(r, 3500))
-      await invalidateAll()
+      await burstRefresh()
     } finally {
       setRefreshing(false)
     }
-  }, [queryClient, refreshing])
+  }, [burstRefresh, refreshing])
   const [outboundUrl, setOutboundUrl] = useState<string | null>(null)
   // Success toast: shown briefly after a paint lands, auto-dismisses.
   // Holds the last successful tx hash so the toast keeps its content
@@ -384,15 +388,17 @@ function CanvasView({
   }, [queryClient])
 
   // On successful submit, surface a popover + clear the draft (removes
-  // the overlay preview + resize handles).
+  // the overlay preview + resize handles) + auto-refresh the canvas so the
+  // new tag reveals itself without the user touching the refresh button.
   useEffect(() => {
     if (submit.status !== 'success' || !submit.hash) return
     setSuccessToast(submit.hash)
     paint.clear()
     submit.reset()
+    void burstRefresh()
     const timer = setTimeout(dismissSuccessToast, 6000)
     return () => clearTimeout(timer)
-  }, [submit.status, submit.hash, dismissSuccessToast])
+  }, [submit.status, submit.hash, dismissSuccessToast, burstRefresh])
 
   // Remember which pixels we've already revealed this session so the canvas
   // accumulates painted state. Previously this was a Map<string, number>
