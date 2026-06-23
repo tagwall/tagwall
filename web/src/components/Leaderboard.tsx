@@ -9,6 +9,7 @@ import type { PaintedRegion } from '../hooks/usePaintedRegions'
 import type { PixelState } from '../hooks/useTilePixels'
 import { formatUsd, weiToUsdRate } from '../lib/usdPrice'
 import { useViewerChainId } from '../lib/viewerChain'
+import { LinkLabel } from './LinkLabel'
 
 interface Props {
   regions: readonly PaintedRegion[] | undefined
@@ -269,7 +270,7 @@ export function Leaderboard({ regions, nativeSymbol = 'native', chainId = null, 
                     title={link}
                     onClick={() => onRequestOutbound(link)}
                   >
-                    {link.replace(/^https?:\/\//, '').slice(0, 30)}
+                    <LinkLabel url={link} fallback={link.replace(/^https?:\/\//, '').slice(0, 30)} />
                   </button>
                 ) : (
                   <span className="leaderboard-link-empty">— no link —</span>

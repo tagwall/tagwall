@@ -3,6 +3,7 @@ import { formatEther } from 'viem'
 
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
 import { Thumbnail, useLinkUrls, useThumbnailPixels } from './Leaderboard'
+import { LinkLabel } from './LinkLabel'
 
 /**
  * Stock-ticker-style continuously-scrolling strip of the top leaderboard
@@ -115,13 +116,16 @@ export function LeaderboardTicker({ regions, nativeSymbol, onRequestOutbound, li
                     if (!isClone) onRequestOutbound(url)
                   }}
                 >
-                  {(() => {
-                    try {
-                      return new URL(url).hostname
-                    } catch {
-                      return url
-                    }
-                  })()}
+                  <LinkLabel
+                    url={url}
+                    fallback={(() => {
+                      try {
+                        return new URL(url).hostname
+                      } catch {
+                        return url
+                      }
+                    })()}
+                  />
                 </button>
               ) : (
                 <span className="lb-ticker-link lb-ticker-link-empty">no link</span>

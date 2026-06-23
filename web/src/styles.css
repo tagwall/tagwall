@@ -3079,8 +3079,8 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 /* Paint-success toast popover. Slides in top-right, auto-dismisses. */
 .paint-toast {
   position: fixed;
-  top: 24px;
-  right: 24px;
+  bottom: 28px;
+  left: 50%;
   z-index: 120;
   padding: 12px 16px;
   background: var(--bg-panel);
@@ -3092,7 +3092,9 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   display: flex;
   align-items: center;
   gap: 12px;
-  animation: paint-toast-in 180ms ease-out;
+  /* Fade up, hold, fade out over the 6s lifetime (matches the auto-dismiss
+     timer in HomePage), so it dissolves on its own instead of vanishing. */
+  animation: paint-toast-life 6s ease-in-out forwards;
 }
 .paint-toast code {
   font-family: ui-monospace, Menlo, Monaco, 'Courier New', monospace;
@@ -3108,9 +3110,18 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   padding: 0 4px;
 }
 .paint-toast button:hover { color: var(--text); }
-@keyframes paint-toast-in {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes paint-toast-life {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  4%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  85%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paint-toast { animation: paint-toast-fade 6s ease-in-out forwards; }
+  @keyframes paint-toast-fade {
+    0%, 100% { opacity: 0; transform: translateX(-50%); }
+    4%, 85%  { opacity: 1; transform: translateX(-50%); }
+  }
 }
 
 /* Single status line below the row (e.g. "Connect your wallet", chunk
