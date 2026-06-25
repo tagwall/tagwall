@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-25T16:23:10Z",
+  "generatedAt": "2026-06-25T18:32:24Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 3,
+    "chainCount": 4,
     "totalPaints": 3,
     "totalOverpaints": 0,
     "uniquePainters": 2,
@@ -107,8 +107,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26814921,
-      "windowEndBlock": 26875401,
+      "windowStartBlock": 26815655,
+      "windowEndBlock": 26876135,
       "paintCount": 3,
       "overpaintCount": 0,
       "uniquePainters": 2,
@@ -174,8 +174,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25345412,
-      "windowEndBlock": 25395812,
+      "windowStartBlock": 25346052,
+      "windowEndBlock": 25396452,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -219,14 +219,59 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 47504142,
-      "windowEndBlock": 47806542,
+      "windowStartBlock": 47509116,
+      "windowEndBlock": 47811516,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
       "uniqueReferrers": 0,
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
+      "dailyActivity": [
+        {
+          "date": "2026-06-19",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-20",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-21",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-22",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-23",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-24",
+          "paints": 0
+        },
+        {
+          "date": "2026-06-25",
+          "paints": 0
+        }
+      ],
+      "biggestByPixels": null,
+      "biggestByPrice": null
+    },
+    {
+      "chain": "HyperEVM",
+      "chainId": 999,
+      "native": "HYPE",
+      "windowStartBlock": 38188069,
+      "windowEndBlock": 38792869,
+      "paintCount": 0,
+      "overpaintCount": 0,
+      "uniquePainters": 0,
+      "uniqueReferrers": 0,
+      "gini": 0.0,
+      "totalVolumeFormatted": "0.000000 HYPE",
       "dailyActivity": [
         {
           "date": "2026-06-19",
