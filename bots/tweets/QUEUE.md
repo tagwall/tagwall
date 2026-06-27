@@ -13,6 +13,18 @@ scanning all five EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **PulseChain** · 2026-06-27 07:48 UTC · 32×32 · 1,024 px · 6,860,800 PLS · [tx](https://otter.pulsechain.com/tx/0xfb1d1633848497fd035ff6f2635b34fa9a15b85e5589e6d62c15d2c903d1d557) · [pixel](https://tagwall.io/pixel/1062,43)
+
+  ```text
+  💸 6,860,800 PLS on PulseChain for a 32×32 region by 0x4279…5514, 1,024 px. https://tagwall.io/pixel/1062,43
+  ```
+
+- [ ] **PulseChain** · 2026-06-27 07:48 UTC · 32×32 · 1,024 px · 6,860,800 PLS · [tx](https://otter.pulsechain.com/tx/0x22de8eaa8bfc0bd35884a8ef932fffd856feda8c399eee6537454ef7118a8342) · [pixel](https://tagwall.io/pixel/908,209)
+
+  ```text
+  📍 paint drop on PulseChain: 0x4279…5514 took 32×32 for 6,860,800 PLS (1,024 px). https://tagwall.io/pixel/908,209
+  ```
+
 - [ ] **PulseChain** · 2026-06-27 00:11 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text
