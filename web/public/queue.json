@@ -1,6 +1,39 @@
 {
-  "generatedAt": "2026-06-27T07:48:41Z",
+  "generatedAt": "2026-06-28T00:01:22Z",
   "entries": [
+    {
+      "id": "scarcity-369-2026-06-28",
+      "kind": "scarcity",
+      "chain": "PulseChain",
+      "chainId": 369,
+      "queuedAt": "2026-06-28T00:01:22Z",
+      "tier": "genesis",
+      "label": "97 of 100 Genesis left",
+      "tweet": "97 of 100 Genesis founder slots left on PulseChain. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
+    {
+      "id": "scarcity-8453-2026-06-28",
+      "kind": "scarcity",
+      "chain": "Base",
+      "chainId": 8453,
+      "queuedAt": "2026-06-28T00:01:22Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on Base. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
+    {
+      "id": "scarcity-56-2026-06-28",
+      "kind": "scarcity",
+      "chain": "BSC",
+      "chainId": 56,
+      "queuedAt": "2026-06-28T00:01:22Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
     {
       "id": "0xfb1d1633848497fd035ff6f2635b34fa9a15b85e5589e6d62c15d2c903d1d557",
       "chain": "PulseChain",
@@ -40,39 +73,6 @@
       "tweet": "\ud83d\udccd paint drop on PulseChain: 0x4279\u20265514 took 32\u00d732 for 6,860,800 PLS (1,024 px). https://tagwall.io/pixel/908,209",
       "txUrl": "https://otter.pulsechain.com/tx/0x22de8eaa8bfc0bd35884a8ef932fffd856feda8c399eee6537454ef7118a8342",
       "pixelUrl": "https://tagwall.io/pixel/908,209"
-    },
-    {
-      "id": "scarcity-369-2026-06-27",
-      "kind": "scarcity",
-      "chain": "PulseChain",
-      "chainId": 369,
-      "queuedAt": "2026-06-27T00:06:02Z",
-      "tier": "genesis",
-      "label": "97 of 100 Genesis left",
-      "tweet": "97 of 100 Genesis founder slots left on PulseChain. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
-    },
-    {
-      "id": "scarcity-8453-2026-06-27",
-      "kind": "scarcity",
-      "chain": "Base",
-      "chainId": 8453,
-      "queuedAt": "2026-06-27T00:06:02Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on Base. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
-    },
-    {
-      "id": "scarcity-56-2026-06-27",
-      "kind": "scarcity",
-      "chain": "BSC",
-      "chainId": 56,
-      "queuedAt": "2026-06-27T00:06:02Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
     },
     {
       "id": "0x308c1a316197cc7601a5ccbc27ac15848809f6293c2aab2f72299711e249bd52",
