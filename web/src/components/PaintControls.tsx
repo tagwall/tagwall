@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatEther, isAddress, getAddress } from 'viem'
 import type { Address } from 'viem'
+import { useBalance } from 'wagmi'
 
 import type { PaintDraft } from '../hooks/usePaintDraft'
+import type { ChainId } from '../lib/viewerChain'
 import { useNativeUsdPrice } from '../hooks/useNativeUsdPrice'
 import type { PaintedRegion } from '../hooks/usePaintedRegions'
 import { formatUsd, weiToUsdRate } from '../lib/usdPrice'
@@ -330,6 +332,25 @@ export function PaintControls({
   const maxTotalCost =
     scaledCost !== null ? (scaledCost * (BPS + SLIPPAGE_BPS)) / BPS : null
 
+  // Balance guard: the wallet must hold the paint value plus a little gas
+  // headroom. Without it, a wallet funded to ~the paint value makes
+  // eth_estimateGas revert ("insufficient funds"), which the wallet shows as
+  // a cryptic "network fee unavailable" (and on Arbitrum Orbit, a nonsense
+  // multi-thousand-token fee from the 2^50 block-limit fallback) with no
+  // hint that the real problem is balance. Read the native balance on the
+  // paint chain and disable + explain up front. Reserve ~1% of the value for
+  // gas, far above the actual paint gas on every supported chain. Only fires
+  // when we can read an EVM balance (skipped for Solana / no wallet).
+  const { data: nativeBalance } = useBalance({
+    address: connectedAddress,
+    chainId: (chainId ?? undefined) as ChainId | undefined,
+    query: { enabled: !!connectedAddress },
+  })
+  const insufficientFunds =
+    nativeBalance != null &&
+    maxTotalCost !== null &&
+    nativeBalance.value < maxTotalCost + maxTotalCost / 100n
+
   // Indicative USD subline. Hidden when the chain has no fixture so we
   // don't mislead users with a $0 readout on chains we can't price.
   const scaledCostUsd =
@@ -360,7 +381,8 @@ export function PaintControls({
     !linkValid ||
     !referrerValid ||
     submitStatus === 'pending' ||
-    submitStatus === 'confirming'
+    submitStatus === 'confirming' ||
+    insufficientFunds
 
   let submitLabel = 'Tag it'
   if (submitStatus === 'pending') submitLabel = 'Confirm in wallet…'
@@ -381,6 +403,11 @@ export function PaintControls({
   let statusLine: { kind: 'err' | 'info'; text: string } | null = null
   if (submitError) statusLine = { kind: 'err', text: submitError }
   else if (!linkValid) statusLine = { kind: 'err', text: 'Link must start with https:// and be ≤ 256 bytes.' }
+  else if (insufficientFunds && nativeBalance && maxTotalCost !== null)
+    statusLine = {
+      kind: 'err',
+      text: `Not enough ${nativeBalance.symbol} to cover this tag plus gas: it costs about ${formatCost(maxTotalCost)} ${nativeBalance.symbol} and the wallet holds ${formatCost(nativeBalance.value)}. Add funds or shrink the stamp.`,
+    }
   // Referrer errors render inline under the referrer input (pc-field-err),
   // not in the shared status line; that way the user sees the message right
   // where they typed the bad value.
