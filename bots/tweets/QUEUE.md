@@ -13,6 +13,30 @@ scanning all five EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **Robinhood** · 2026-07-12 17:10 UTC · 32×32 · 1,024 px · 0.0222 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0xb8da350840e8e0b8157a5faf82801533f739360777d85a5c182a6bb24a53322d) · [pixel](https://tagwall.io/pixel/680,270)
+
+  ```text
+  🟦 Robinhood: 32×32 by 0x4279…5514, 1,024 px for 0.0222 ETH. https://tagwall.io/pixel/680,270
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 17:10 UTC · 32×32 · 1,024 px · 0.0222 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0xbb14f6ca8486a2e35c8de54e883d110dcb12f94d97cad6bb3339c3ea5c13dd66) · [pixel](https://tagwall.io/pixel/600,446)
+
+  ```text
+  📍 paint drop on Robinhood: 0x4279…5514 took 32×32 for 0.0222 ETH (1,024 px). https://tagwall.io/pixel/600,446
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 17:10 UTC · 32×32 · 764 px · 0.0166 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0xa8f103a9ef748fabaedc5ad3cccdcbcd19d8c46f662ac70a4b4059ac3f7992aa) · [pixel](https://tagwall.io/pixel/661,424)
+
+  ```text
+  📍 paint drop on Robinhood: 0x4279…5514 took 32×32 for 0.0166 ETH (764 px). https://tagwall.io/pixel/661,424
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 17:10 UTC · 32×32 · 812 px · 0.0176 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0xbac7c76dd1f23fafecc5eeb958b18781652fb69987f03ca741ccc8a5c66950c4) · [pixel](https://tagwall.io/pixel/757,412)
+
+  ```text
+  🎨 0x4279…5514 painted 32×32 on Robinhood for 0.0176 ETH (812 px). https://tagwall.io/pixel/757,412
+  ```
+
 - [ ] **Robinhood** · 2026-07-12 16:05 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text
