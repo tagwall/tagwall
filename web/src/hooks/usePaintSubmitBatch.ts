@@ -12,6 +12,7 @@ import {
 } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
+import { chainNeedsExplicitGas } from '../lib/chainCaps'
 import { chunkDraft, type PaintChunk } from '../lib/chunkDraft'
 import { allocateChunkFunding, chunkCostWeights } from '../lib/chunkFunding'
 import { decodeCanvasError, type DecodedCanvasError } from '../lib/decodeCanvasError'
@@ -472,6 +473,35 @@ export function usePaintSubmitBatch() {
         decodedError: null,
       })
 
+      // Some chains (Arbitrum Orbit, e.g. Robinhood 4663) report a 2^50
+      // block gas limit that injected wallets fall back to when they can't
+      // self-estimate, so the wallet shows a nonsensical multi-thousand-ETH
+      // fee and "network fee unavailable". Pre-estimate via the RPC and hand
+      // the wallet an explicit limit so it shows the true fee. Best-effort:
+      // on estimate failure, return no override and let the wallet estimate
+      // (the working default on every other chain). The +50% headroom
+      // absorbs Arbitrum L1-fee variance between estimate and inclusion;
+      // unused gas is refunded, so over-estimating only affects the max.
+      const gasFor = async (
+        data: Hex,
+        txValue: bigint,
+      ): Promise<{ gas?: bigint }> => {
+        if (!chainNeedsExplicitGas(chainId) || !publicClient || !address || !canvasAddr) {
+          return {}
+        }
+        try {
+          const est = await publicClient.estimateGas({
+            account: address,
+            to: canvasAddr,
+            data,
+            value: txValue,
+          })
+          return { gas: (est * 3n) / 2n }
+        } catch {
+          return {}
+        }
+      }
+
       // Fast path: single chunk, use writeContract for a clean UX.
       if (chunkCalls.length === 1) {
         const c = chunkCalls[0]
@@ -494,6 +524,7 @@ export function usePaintSubmitBatch() {
               reserveBps,
             ],
             value: c.value,
+            ...(await gasFor(c.data, c.value)),
           })
         } catch (e) {
           setState({
@@ -561,6 +592,7 @@ export function usePaintSubmitBatch() {
               reserveBps,
             ],
             value: c.value,
+            ...(await gasFor(c.data, c.value)),
           })
           broadcastChunks.push(c.chunk)
           setState((s) => ({

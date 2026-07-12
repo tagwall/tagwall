@@ -105,3 +105,22 @@ export function isChainCapTighterThanContract(
 ): boolean {
   return chainPixelCap(chainId, contractCap) < contractCap
 }
+
+/**
+ * Chains where the frontend must estimate gas via the RPC and pass an
+ * explicit limit, because the injected wallet can't self-estimate.
+ *
+ * Arbitrum Orbit chains (Robinhood) report a 2^50 block gas limit. When a
+ * wallet like MetaMask fails to run its own estimation on an unrecognised
+ * Orbit chain it falls back to that block limit as the tx gas limit, so the
+ * "Edit gas fee" dialog shows a nonsensical multi-thousand-ETH fee
+ * (2^50 × the gas price) and the network fee reads "unavailable". The RPC's
+ * own eth_estimateGas returns the real value (~a few hundred k), so we
+ * estimate there and hand the wallet an explicit `gas`, which it displays
+ * as the true fraction-of-a-cent fee.
+ */
+const EXPLICIT_GAS_CHAINS = new Set<number>([ROBINHOOD])
+
+export function chainNeedsExplicitGas(chainId: number | undefined): boolean {
+  return chainId !== undefined && EXPLICIT_GAS_CHAINS.has(chainId)
+}
