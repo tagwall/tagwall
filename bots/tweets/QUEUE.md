@@ -13,6 +13,48 @@ scanning all five EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **Robinhood** · 2026-07-12 16:05 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  98 of 100 Genesis founder slots left on Robinhood. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 15:58 UTC · 32×32 · 1,024 px · 0.0222 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0x177d13f511d6ccf97a12be47a8b29b8663cfbd524015ea0cfc528a8a5ffb726a) · [pixel](https://tagwall.io/pixel/755,301)
+
+  ```text
+  📍 paint drop on Robinhood: 0x4279…5514 took 32×32 for 0.0222 ETH (1,024 px). https://tagwall.io/pixel/755,301
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 15:58 UTC · 32×32 · 1,024 px · 0.0222 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0x0552d62f0940b9d6b4f1fe83a48774ed280fd0012985db13cf86e884bd924dcf) · [pixel](https://tagwall.io/pixel/510,355)
+
+  ```text
+  💸 0.0222 ETH on Robinhood for a 32×32 region by 0x4279…5514, 1,024 px. https://tagwall.io/pixel/510,355
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 15:58 UTC · 32×32 · 705 px · 0.0153 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0x53a064ad4f7bcaac026d8b35b86c2414202298586efd946433d9741e5f7188eb) · [pixel](https://tagwall.io/pixel/668,359)
+
+  ```text
+  💸 0.0153 ETH on Robinhood for a 32×32 region by 0x4279…5514, 705 px. https://tagwall.io/pixel/668,359
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 15:58 UTC · 32×32 · 202 px · 0.0044 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0x6dc422086d29a24732291d4129bd9bf54aeafeb5c2b199b193d089cc7c01b8d6) · [pixel](https://tagwall.io/pixel/837,346)
+
+  ```text
+  📍 paint drop on Robinhood: 0x4279…5514 took 32×32 for 0.0044 ETH (202 px). https://tagwall.io/pixel/837,346
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 15:58 UTC · 32×32 · 217 px · 0.0047 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0xd63a382469324f1788acc79343778d2b3f9b85eefbdc94a5364cb5ca424273e1) · [pixel](https://tagwall.io/pixel/497,472)
+
+  ```text
+  🟦 Robinhood: 32×32 by 0x4279…5514, 217 px for 0.0047 ETH. https://tagwall.io/pixel/497,472
+  ```
+
+- [ ] **Robinhood** · 2026-07-12 15:58 UTC · 32×32 · 1,024 px · 0.0222 ETH · [tx](https://robinhoodchain.blockscout.com/tx/0x9b51fa0d3b880c0dbc0d1ba56d8ed4bfec7f35f7d5e7b7926df80c1116032005) · [pixel](https://tagwall.io/pixel/571,251)
+
+  ```text
+  🟦 Robinhood: 32×32 by 0x4279…5514, 1,024 px for 0.0222 ETH. https://tagwall.io/pixel/571,251
+  ```
+
 - [ ] **PulseChain** · 2026-07-12 01:09 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text

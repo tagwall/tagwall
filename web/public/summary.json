@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-12T14:55:09Z",
+  "generatedAt": "2026-07-12T15:58:47Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 4,
-    "totalPaints": 0,
+    "chainCount": 5,
+    "totalPaints": 10,
     "totalOverpaints": 0,
-    "uniquePainters": 0,
-    "weeklyActivePainters": 0,
-    "gini": 0.0,
+    "uniquePainters": 2,
+    "weeklyActivePainters": 2,
+    "gini": 0.4,
     "dailyActivity": [
       {
         "date": "2026-07-06",
@@ -36,7 +36,7 @@
       },
       {
         "date": "2026-07-12",
-        "paints": 0
+        "paints": 10
       }
     ]
   },
@@ -100,6 +100,18 @@
       "genesisLeft": 99,
       "founderLeft": 900,
       "totalLeft": 999
+    },
+    {
+      "chainId": 4663,
+      "chain": "Robinhood",
+      "native": "ETH",
+      "caughtUp": true,
+      "claimed": 2,
+      "genesisClaimed": 2,
+      "founderClaimed": 0,
+      "genesisLeft": 98,
+      "founderLeft": 900,
+      "totalLeft": 998
     }
   ],
   "chains": [
@@ -107,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26953689,
-      "windowEndBlock": 27014169,
+      "windowStartBlock": 26954056,
+      "windowEndBlock": 27014536,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -152,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25466872,
-      "windowEndBlock": 25517272,
+      "windowStartBlock": 25467188,
+      "windowEndBlock": 25517588,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -197,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 48236996,
-      "windowEndBlock": 48539396,
+      "windowStartBlock": 48238952,
+      "windowEndBlock": 48541352,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -242,8 +254,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 39667814,
-      "windowEndBlock": 40272614,
+      "windowStartBlock": 39671797,
+      "windowEndBlock": 40276597,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -282,6 +294,73 @@
       ],
       "biggestByPixels": null,
       "biggestByPrice": null
+    },
+    {
+      "chain": "Robinhood",
+      "chainId": 4663,
+      "native": "ETH",
+      "windowStartBlock": 1886669,
+      "windowEndBlock": 7934669,
+      "paintCount": 10,
+      "overpaintCount": 0,
+      "uniquePainters": 2,
+      "uniqueReferrers": 0,
+      "gini": 0.4,
+      "totalVolumeFormatted": "0.1475 ETH",
+      "dailyActivity": [
+        {
+          "date": "2026-07-06",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-07",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-08",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-09",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-10",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-11",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-12",
+          "paints": 10
+        }
+      ],
+      "biggestByPixels": {
+        "x": 571,
+        "y": 251,
+        "w": 32,
+        "h": 32,
+        "pixels": 1024,
+        "priceFormatted": "0.0222 ETH",
+        "painter": "0x4279F70BDafa783046F5A36BF4524d7a638b5514",
+        "painterShort": "0x4279\u20265514",
+        "pixelUrl": "https://tagwall.io/pixel/571,251",
+        "txUrl": "https://robinhoodchain.blockscout.com/tx/0x9b51fa0d3b880c0dbc0d1ba56d8ed4bfec7f35f7d5e7b7926df80c1116032005"
+      },
+      "biggestByPrice": {
+        "x": 571,
+        "y": 251,
+        "w": 32,
+        "h": 32,
+        "pixels": 1024,
+        "priceFormatted": "0.0222 ETH",
+        "painter": "0x4279F70BDafa783046F5A36BF4524d7a638b5514",
+        "painterShort": "0x4279\u20265514",
+        "pixelUrl": "https://tagwall.io/pixel/571,251",
+        "txUrl": "https://robinhoodchain.blockscout.com/tx/0x9b51fa0d3b880c0dbc0d1ba56d8ed4bfec7f35f7d5e7b7926df80c1116032005"
+      }
     }
   ]
 }
