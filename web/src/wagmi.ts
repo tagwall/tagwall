@@ -74,6 +74,13 @@ const HYPEREVM_RPC_URLS = [
   'https://hyperliquid.rpc.blxrbdn.com',
   'https://hyperliquid.drpc.org',
 ] as const
+// Robinhood Chain (4663) is young enough that the official RPC is the only
+// public endpoint we've verified (CORS-clean, no observed eth_getLogs range
+// cap even at 6M blocks, probed 2026-07-12). Single-operator fragility is a
+// known gap; add a second independent operator here as soon as one exists.
+const ROBINHOOD_RPC_URLS = [
+  'https://rpc.mainnet.chain.robinhood.com',
+] as const
 
 // Per-chain RPC overrides. wagmi/chains ships single-URL defaults for
 // each chain that all suffer the same single-vendor-flap fragility; we
@@ -159,6 +166,27 @@ const hyperevm = defineChain({
   },
 })
 
+// Robinhood Chain (Arbitrum Orbit L2), chain 4663. Native token ETH.
+// Multicall3 is present at the canonical address (verified on-chain
+// 2026-07-11). Runs the v1.2 Canvas build at its own CREATE2 address
+// (the chain-4663 constructor branch shifts the init-code hash);
+// canvas.ts resolves the right address per chain. ~0.1s blocks.
+const robinhood = defineChain({
+  id: 4663,
+  name: 'Robinhood Chain',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: ROBINHOOD_RPC_URLS } },
+  blockExplorers: {
+    default: {
+      name: 'Robinhood Chain Explorer',
+      url: 'https://robinhoodchain.blockscout.com',
+    },
+  },
+  contracts: {
+    multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' },
+  },
+})
+
 const isDev = import.meta.env.DEV
 
 // Chain order controls the default network shown to new users. PulseChain
@@ -167,8 +195,8 @@ const isDev = import.meta.env.DEV
 // in dev only, so `preview_start web` + `scripts/seed-local.sh` gives a
 // fully-working UI without touching any public chain.
 const chains = isDev
-  ? ([anvilLocal, pulsechain, mainnet, base, bsc, hyperevm, pulsechainV4] as const)
-  : ([pulsechain, mainnet, base, bsc, hyperevm, pulsechainV4] as const)
+  ? ([anvilLocal, pulsechain, mainnet, base, bsc, hyperevm, robinhood, pulsechainV4] as const)
+  : ([pulsechain, mainnet, base, bsc, hyperevm, robinhood, pulsechainV4] as const)
 
 export const config = createConfig({
   chains,
@@ -179,6 +207,7 @@ export const config = createConfig({
     [base.id]: fallback(BASE_RPC_URLS.map((u) => http(u))),
     [bsc.id]: fallback(BSC_RPC_URLS.map((u) => http(u))),
     [hyperevm.id]: fallback(HYPEREVM_RPC_URLS.map((u) => http(u))),
+    [robinhood.id]: fallback(ROBINHOOD_RPC_URLS.map((u) => http(u))),
     [pulsechainV4.id]: fallback(PULSECHAIN_V4_RPC_URLS.map((u) => http(u))),
   },
   connectors: [

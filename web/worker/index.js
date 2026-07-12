@@ -20,6 +20,7 @@ const RPC_BY_CHAIN = {
   '8453': 'https://mainnet.base.org',
   '56': 'https://bsc-dataseed.binance.org',
   '999': 'https://rpc.hyperliquid.xyz/evm',
+  '4663': 'https://rpc.mainnet.chain.robinhood.com',
 }
 const PAINT_SELECTOR = '67640514' // paint(uint32,uint32,uint32,uint32,uint32[],string,address,bytes32,uint256,uint256)
 const TRANSPARENT = 0xffffffff

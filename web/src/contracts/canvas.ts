@@ -8,20 +8,21 @@
  */
 import type { Address } from 'viem'
 
-// Two Canvas builds exist, at two CREATE2 addresses:
+// Three Canvas builds exist, at three CREATE2 addresses:
 //
 //   v1   (0xd58D…6415) — the original 4-chain build: PulseChain, Ethereum,
 //        Base, BSC + PulseChain v4 testnet. Deployed Day-0, immutable.
 //   v1.1 (0xbe68…C5A4) — adds the HyperEVM (chain 999) branch to the
 //        constructor's chainid dispatch and bumps version() to
 //        "tagwall.canvas.v1.1". The extra branch shifts the init-code hash,
-//        so CREATE2 lands at a different address. This is the build used on
-//        HyperEVM and on any fresh local/anvil deploy (which compiles from
-//        current source).
+//        so CREATE2 lands at a different address.
+//   v1.2 (0x280f…Fa4C) — adds the Robinhood Chain (4663) branch, version()
+//        "tagwall.canvas.v1.2". Used on Robinhood and on any fresh
+//        local/anvil deploy (which compiles from current source).
 //
 // The salt is unchanged (keccak256("tagwall.canvas.v1")); the address moves
-// only because the init code changed. The four live mainnets + testnet stay
-// at v1 forever (immutable). Resolve the right address per connected chain
+// only because the init code changed. Chains already deployed stay at their
+// build forever (immutable). Resolve the right address per connected chain
 // via canvasAddress(chainId) — there is intentionally no single CANVAS_ADDRESS
 // constant, so every on-chain call site must pass the chain it's reading.
 //
@@ -31,6 +32,8 @@ export const CANVAS_ADDRESS_V1: Address =
   '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415'
 export const CANVAS_ADDRESS_V1_1: Address =
   '0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4'
+export const CANVAS_ADDRESS_V1_2: Address =
+  '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C'
 
 const ADDRESS_BY_CHAIN: Record<number, Address> = {
   369: CANVAS_ADDRESS_V1, // PulseChain mainnet
@@ -39,8 +42,9 @@ const ADDRESS_BY_CHAIN: Record<number, Address> = {
   56: CANVAS_ADDRESS_V1, // BSC
   943: CANVAS_ADDRESS_V1, // PulseChain v4 testnet
   999: CANVAS_ADDRESS_V1_1, // HyperEVM
-  31337: CANVAS_ADDRESS_V1_1, // local anvil (fresh build = v1.1)
-  1337: CANVAS_ADDRESS_V1_1, // local hardhat
+  4663: CANVAS_ADDRESS_V1_2, // Robinhood Chain
+  31337: CANVAS_ADDRESS_V1_2, // local anvil (fresh build = v1.2)
+  1337: CANVAS_ADDRESS_V1_2, // local hardhat
 }
 
 /**

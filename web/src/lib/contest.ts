@@ -38,3 +38,14 @@ export function contestPhase(nowMs: number = Date.now()): ContestPhase {
   if (nowMs < CONTEST_END_MS) return 'live'
   return 'ended'
 }
+
+/**
+ * True while there is a competition worth surfacing in the main nav and
+ * banner: the nomination contest is live, or the referral contest is
+ * upcoming/live. Once both are over this returns false, so the
+ * "Competition" nav link and the home banner auto-drop (date-driven, no
+ * manual toggle). The /competition route stays reachable for final standings.
+ */
+export function competitionFeatured(nowMs: number = Date.now()): boolean {
+  return nominationLive(nowMs) || contestPhase(nowMs) !== 'ended'
+}

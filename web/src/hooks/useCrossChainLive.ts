@@ -30,7 +30,7 @@ import { canvasAbi, canvasAddress } from '../contracts/canvas'
  * `chainId` flows into wagmi's `readContract`/`getBalance` params, which
  * require one of the config's configured chain ids rather than any number.
  */
-export type OpsChainId = 369 | 999 | 1 | 8453 | 56
+export type OpsChainId = 369 | 999 | 4663 | 1 | 8453 | 56
 
 interface OpsChain {
   id: OpsChainId
@@ -41,6 +41,7 @@ interface OpsChain {
 /** Mainnet chains shown on /ops, in marketing-priority order. */
 export const OPS_CHAINS: ReadonlyArray<OpsChain> = [
   { id: 369, name: 'PulseChain', native: 'PLS' },
+  { id: 4663, name: 'Robinhood', native: 'ETH' },
   { id: 999, name: 'HyperEVM', native: 'HYPE' },
   { id: 1, name: 'Ethereum', native: 'ETH' },
   { id: 8453, name: 'Base', native: 'ETH' },

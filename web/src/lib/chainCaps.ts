@@ -28,6 +28,9 @@
  * | Base (8453)  | ~25,000,000    | Sequencer soft-cap (OP-Stack, May 2026)   | 1000            |
  * | HyperEVM     | 30,000,000     | Big-block cap (small block is 3M; painters | 998             |
  * |   (999)      |  (big block)   | must enable big blocks). 31x31 max square. |                 |
+ * | Robinhood    | 32,000,000     | Arbitrum Nitro per-tx execution cap (the   | 1065            |
+ * |   (4663)     |                | 2^50 block gasLimit is cosmetic). 32x32    |                 |
+ * |              |                | max square.                                |                 |
  * | PulseChain   | none (block-   | Pre-Fusaka fork; 45M block limit; paint    | 1500 (contract  |
  * |   (369)      |  limit bound)  | uses ~78% of a block — high but accepted   |  ceiling)       |
  * | PulseChain   | none           | v4 testnet, same EVM rules as mainnet      | 1500            |
@@ -52,6 +55,7 @@ const PULSECHAIN = 369
 const PULSECHAIN_TESTNET = 943
 const BASE = 8453
 const HYPEREVM = 999
+const ROBINHOOD = 4663
 const LOCAL_ANVIL = 31337
 const LOCAL_HARDHAT = 1337
 
@@ -66,6 +70,10 @@ const CHAIN_PIXEL_CAP: Record<number, number> = {
   // Note: even 998px requires the painter to enable HyperEVM "big blocks";
   // the 3M small block fits only ~128px.
   [HYPEREVM]: 998,
+  // Arbitrum Nitro caps per-tx execution gas at 32M regardless of the
+  // advertised block gasLimit; floor((32M*0.80 - 341,601)/23,695) = 1065,
+  // which makes 32x32 the largest single-tx square.
+  [ROBINHOOD]: 1065,
   [PULSECHAIN]: 1500,
   [PULSECHAIN_TESTNET]: 1500,
   [LOCAL_ANVIL]: 1500,

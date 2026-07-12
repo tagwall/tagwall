@@ -7,7 +7,7 @@ import { useAccount, useChainId } from 'wagmi'
  * import that would result from `viewerChain.ts ↔ wagmi.ts`. If a new
  * chain is added to the wagmi config, add it here too.
  */
-export type ChainId = 1 | 369 | 8453 | 56 | 999 | 31337 | 943
+export type ChainId = 1 | 369 | 8453 | 56 | 999 | 4663 | 31337 | 943
 
 /**
  * Chain selector for "view-only" browsing.
@@ -41,6 +41,8 @@ const CHAIN_BY_SLUG: Record<string, number> = {
   hyperevm: 999,
   hyperliquid: 999,
   hype: 999,
+  robinhood: 4663,
+  hood: 4663,
   anvil: 31337,
 }
 
@@ -50,6 +52,7 @@ const SLUG_BY_CHAIN: Record<number, string> = {
   8453: 'base',
   56: 'bsc',
   999: 'hyperevm',
+  4663: 'robinhood',
   31337: 'anvil',
 }
 

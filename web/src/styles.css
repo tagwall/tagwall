@@ -4741,6 +4741,89 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 }
 .comp-banner-cta { flex: 0 0 auto; font-weight: 800; }
 
+/* Launch-announcement bar for a freshly deployed chain (LaunchBanner).
+   Bigger + bolder than the comp-banner, in the launched chain's accent
+   (--tw-launch, set inline per chain) so it reads as a distinct "new
+   chain" moment. Self-hides after the launch window / on dismiss. */
+.launch-banner {
+  position: relative;
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--tw-launch, #00C805);
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tw-launch, #00C805), #000 12%),
+    var(--tw-launch, #00C805)
+  );
+}
+.launch-banner-main {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-width: 0;
+  padding: 13px 40px 13px 16px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: #07070b;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+.launch-banner-main:hover .launch-banner-cta { transform: translateX(2px); }
+.launch-banner-tag {
+  flex: 0 0 auto;
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #07070b;
+  color: var(--tw-launch, #00C805);
+  padding: 4px 9px;
+  border-radius: 4px;
+  animation: launch-banner-pulse 1.8s ease-in-out infinite;
+}
+@keyframes launch-banner-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.launch-banner-text { flex: 0 1 auto; min-width: 0; }
+.launch-banner-text strong { font-weight: 800; }
+.launch-banner-cta {
+  flex: 0 0 auto;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: transform 120ms;
+}
+.launch-banner-close {
+  flex: 0 0 auto;
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: #07070b;
+  font-size: 13px;
+  opacity: 0.65;
+}
+.launch-banner-close:hover { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .launch-banner-tag { animation: none; }
+  .launch-banner-cta { transition: none; }
+}
+
 /* Solana devnet demand-gauge bar: dark strip with a lime tweet button,
    sits above the comp-banner on /solana. Dark (not lime) so it reads as
    distinct from the contest banner directly below it. */

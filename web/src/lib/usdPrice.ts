@@ -28,6 +28,8 @@ const NATIVE_USD: Record<number, number> = {
   56: 500,
   // HyperEVM (HYPE). Fallback ~ the 2026-05-30 deploy snapshot ($66.87).
   999: 67,
+  // Robinhood Chain — priced in ETH like the other ETH-denominated chains.
+  4663: 2_300,
   // Anvil dev chain — uses ETH currency by default.
   31337: 2_300,
   // Solana (SOL), via the pseudo chain id. Rough 2026-06 ballpark; the

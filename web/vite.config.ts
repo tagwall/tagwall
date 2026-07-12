@@ -27,6 +27,15 @@ export default defineConfig({
   },
   plugins: [react()],
   resolve: {
+    // Resolve deps via the symlink path, not the realpath. Locally,
+    // `node_modules` is a symlink -> `node_modules.nosync` (the .nosync
+    // suffix keeps iCloud from syncing/corrupting the deps). Without this,
+    // vite dev canonicalizes to `node_modules.nosync/...`, which lacks the
+    // literal `/node_modules/` segment, so its oxc transform tries to
+    // compile deps (e.g. viem) as project source and fails with
+    // TSCONFIG_ERROR. Inert in CI/prod where node_modules is a real dir
+    // (no symlinks), and safe for npm's flat node_modules.
+    preserveSymlinks: true,
     alias: {
       // Bare `import 'buffer'` must resolve to the npm polyfill, not
       // Vite's externalized node-builtin stub (which is empty in the

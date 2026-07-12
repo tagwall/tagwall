@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import { useStoreAppName } from '../hooks/useStoreAppName'
+import { twitterHandleLabel } from '../lib/socialHandle'
 import {
   parseStoreLink,
   storeLabelWithName,
@@ -26,7 +27,10 @@ export function LinkLabel({ url, fallback }: { url: string; fallback: string }) 
   const syncLabel = link ? storeLinkLabelSync(link) : null
   const fetchedName = useStoreAppName(link && !syncLabel ? link : null)
 
-  if (!link) return <>{fallback}</>
+  // Not a store link: show "@username" for x.com/twitter links, else the
+  // caller's fallback. twitterHandleLabel is a pure fn (no hook), so calling
+  // it here keeps hook order stable across rows.
+  if (!link) return <>{twitterHandleLabel(url) ?? fallback}</>
   if (syncLabel) return <>{syncLabel}</>
   if (fetchedName) return <>{storeLabelWithName(link.platform, fetchedName)}</>
   return <>{storeLinkFallbackLabel(link)}</>

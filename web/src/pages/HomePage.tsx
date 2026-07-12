@@ -10,6 +10,7 @@ import { useViewerChainId } from '../lib/viewerChain'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { Leaderboard } from '../components/Leaderboard'
 import { CompetitionBanner } from '../components/CompetitionBanner'
+import { LaunchBanner } from '../components/LaunchBanner'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 import { MinimapOverlay } from '../components/MinimapOverlay'
@@ -848,6 +849,10 @@ function CanvasView({
 
   return (
     <section className="canvas-section" data-mobile-tab={mobileTab}>
+      {/* New-chain launch announcement. Sits at the very top; self-hides
+          after the launch window, on dismiss, or when already viewing the
+          launched chain (see LaunchBanner + lib/launch.ts). */}
+      <LaunchBanner />
       {/* Referral-contest promo bar. Sits above the ticker; self-hides
           once the contest is over (see CompetitionBanner). */}
       <CompetitionBanner />

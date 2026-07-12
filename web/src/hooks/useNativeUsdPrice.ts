@@ -10,6 +10,7 @@ const COINGECKO_IDS: Partial<Record<number, string>> = {
   369:   'pulsechain',
   943:   'pulsechain',  // PulseChain v4 testnet, same token
   999:   'hyperliquid', // HyperEVM: HYPE-denominated
+  4663:  'ethereum',    // Robinhood Chain: ETH-denominated
   31337: 'ethereum',   // Anvil dev chain
   [SOLANA_PSEUDO_CHAIN_ID]: 'solana', // Solana canvas (pseudo chain id)
 }

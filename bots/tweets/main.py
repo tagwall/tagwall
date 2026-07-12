@@ -36,6 +36,7 @@ Env (all optional; only CANVAS_ADDRESS is strictly required):
   BASE_RPC_URL           — override for Base (default base.publicnode.com)
   BSC_RPC_URL            — override for BSC (default bsc-dataseed.binance.org)
   HYPEREVM_RPC_URL       — override for HyperEVM (default hyperliquid.rpc.blxrbdn.com)
+  ROBINHOOD_RPC_URL      — override for Robinhood Chain (default rpc.mainnet.chain.robinhood.com)
   TAGWALL_BASE_URL       — defaults to https://tagwall.io
   TWEETS_MIN_PIXELS      — defaults to 100 (alias: MANUAL_QUEUE_MIN_PIXELS)
   TWEETS_MAX_PER_RUN     — defaults to 50  (alias: MANUAL_QUEUE_MAX_PER_RUN)
@@ -177,6 +178,26 @@ CHAINS = [
         # used to freeze every chain's data, not just HyperEVM's).
         "logs_window": 900,
     },
+    {
+        "id": 4663,
+        "name": "Robinhood",
+        "rpc_env": "ROBINHOOD_RPC_URL",
+        # Official Robinhood Chain RPC (Arbitrum Orbit L2). Only public
+        # endpoint verified so far; no observed eth_getLogs range cap
+        # (a 6M-block probe succeeded, 2026-07-12).
+        "rpc_default": "https://rpc.mainnet.chain.robinhood.com",
+        "native": "ETH",
+        "explorer_tx": "https://robinhoodchain.blockscout.com/tx/",
+        # Robinhood runs the v1.2 Canvas build at its own CREATE2 address
+        # (the chain-4663 constructor branch shifts the init-code hash).
+        "canvas_address": "0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C",
+        # v1.2 deploy block (2026-07-12, tx 0x43148827…).
+        "deploy_block": 7_648_180,
+        # ~0.1s blocks mean a 7-day window is ~6M blocks. The RPC accepts
+        # wide ranges, so a large window keeps the weekly scan to ~12-13
+        # get_logs calls instead of the default window's ~1,200.
+        "logs_window": 500_000,
+    },
 ]
 
 HERE = Path(__file__).parent
@@ -231,7 +252,7 @@ SUMMARY_WINDOW_SECONDS = 7 * 24 * 60 * 60
 # silently invisible (the only existing BSC paint was missed for
 # exactly this reason; user-reported as a "BSC bug" 2026-05-28).
 # Erring small here costs more RPC chunks but never drops events.
-CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 0.5, 999: 1}
+CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 0.5, 999: 1, 4663: 0.1}
 # Overpaint heuristic threshold: if a paint's pricePerPixel is more than
 # this multiple of the chain's startingPrice (floor), at least one
 # pixel was painted over (compounded at +10% per overwrite). 1.05 gives

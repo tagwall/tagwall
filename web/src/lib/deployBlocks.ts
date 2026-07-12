@@ -25,6 +25,7 @@ const PULSECHAIN = 369
 const PULSECHAIN_TESTNET = 943
 const BASE = 8453
 const HYPEREVM = 999
+const ROBINHOOD = 4663
 const LOCAL_ANVIL = 31337
 const LOCAL_HARDHAT = 1337
 
@@ -41,6 +42,9 @@ const CHAIN_DEPLOY_BLOCK: Record<number, bigint> = {
   [PULSECHAIN_TESTNET]: 0n,
   // HyperEVM (v1.1 build, 0xbe68…). Deployed 2026-05-31, tx 0x8b8b7f6d….
   [HYPEREVM]: 36_585_579n,
+  // Robinhood Chain (v1.2 build, 0x280f…). Deployed 2026-07-12,
+  // tx 0x43148827…, block 7,648,180.
+  [ROBINHOOD]: 7_648_180n,
   // Local chains: every test fixture deploys fresh, so 0n is the right
   // default. Operator's anvil runs are short-lived.
   [LOCAL_ANVIL]: 0n,
@@ -68,6 +72,13 @@ export function deployBlockFor(chainId: number | undefined): bigint {
  */
 const LOGS_CHUNK_BY_CHAIN: Record<number, bigint> = {
   [HYPEREVM]: 1_000n,
+  // Robinhood mints ~10 blocks/s (~6M blocks/week), so the paginator's
+  // ~9.5k default would cost ~630 getLogs calls per week of history. The
+  // official RPC accepted a 6M-block range without complaint when probed
+  // (2026-07-12), so use a wide chunk to keep cold-scan call counts low;
+  // Nitro caps results (not ranges), and Painted events stay sparse while
+  // the canvas is young. Revisit with an indexer if the chain gets busy.
+  [ROBINHOOD]: 500_000n,
 }
 
 export function logsChunkSizeFor(chainId: number | undefined): bigint | undefined {
