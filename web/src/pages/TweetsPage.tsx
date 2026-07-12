@@ -561,7 +561,7 @@ tagwall.io/founders`,
   {
     id: 'hyperevm',
     label: 'HyperEVM',
-    text: `HyperEVM is the newest Tagwall chain, so all 100 Genesis slots are still wide open.
+    text: `HyperEVM is the newest tagwall chain, so all 100 Genesis slots are still wide open.
 
 Genesis #1 through #100: unclaimed. A few cents and one pixel locks your number into the chain permanently.
 

@@ -168,7 +168,7 @@ function EvmEmbed() {
   return (
     <div className="embed">
       <canvas ref={baseRef} style={{ display: 'none' }} aria-hidden />
-      <canvas ref={viewportRef} className="embed-canvas" aria-label={`Tagwall region ${regionLabel}`} />
+      <canvas ref={viewportRef} className="embed-canvas" aria-label={`tagwall region ${regionLabel}`} />
       <footer className="embed-footer">
         <span className="embed-region">{regionLabel}</span>
         {startingPrice !== null && (
@@ -179,11 +179,11 @@ function EvmEmbed() {
           href={paintHref}
           target="_top"
           rel="noopener"
-          title={ref ? `Paint (referral: ${ref})` : 'Paint this region on Tagwall'}
+          title={ref ? `Paint (referral: ${ref})` : 'Paint this region on tagwall'}
         >
-          Paint on Tagwall ↗
+          Paint on tagwall ↗
         </a>
-        <Link to="/" target="_top" className="embed-brand">Tagwall</Link>
+        <Link to="/" target="_top" className="embed-brand">tagwall</Link>
       </footer>
     </div>
   )
@@ -270,8 +270,8 @@ function SolanaEmbed({ params }: { params: URLSearchParams }) {
           {isLoading
             ? 'loading…'
             : config
-              ? `Tagwall on Solana · floor ${formatEther(config.startingPrice * 1_000_000_000n)} SOL/px`
-              : 'Tagwall on Solana'}
+              ? `tagwall on Solana · floor ${formatEther(config.startingPrice * 1_000_000_000n)} SOL/px`
+              : 'tagwall on Solana'}
         </span>
         <Link to={paintHref} target="_blank" rel="noopener noreferrer">
           Paint this wall ↗

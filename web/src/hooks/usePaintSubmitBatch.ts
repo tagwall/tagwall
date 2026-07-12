@@ -362,7 +362,7 @@ export function usePaintSubmitBatch() {
           progress: null,
           hash: null,
           decodedError: {
-            friendly: 'Tagwall has no canvas deployment on this chain. Switch chains to paint.',
+            friendly: 'tagwall has no canvas deployment on this chain. Switch chains to paint.',
             raw: `no canvas address for chain ${chainId}`,
           },
         })

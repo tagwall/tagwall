@@ -128,7 +128,7 @@ function PixelHoverTooltip({
               type="button"
               className="pixel-tooltip-link"
               onClick={() => onRequestOutbound(linkUrl)}
-              title="Opens a confirmation dialog before leaving Tagwall"
+              title="Opens a confirmation dialog before leaving tagwall"
             >
               {linkUrl}
             </button>
@@ -815,7 +815,7 @@ function CanvasView({
    *
    * Fires only when (a) no draft is being placed (otherwise click = place
    * intent, not navigate) and (b) the hovered pixel has a link. Routes
-   * through the OutboundLinkModal (PRD §6) so users see a "leaving Tagwall"
+   * through the OutboundLinkModal (PRD §6) so users see a "leaving tagwall"
    * interstitial and the URL scheme is re-validated as defense-in-depth
    * before any window.open call.
    */
@@ -909,11 +909,11 @@ function CanvasView({
               !isConnected
                 ? 'Connect your wallet to paint.'
                 : !walletChainSupported
-                  ? `Your wallet is on chain ${walletChainId ?? 'unknown'}, which Tagwall does not deploy to. Switch chains to paint.`
+                  ? `Your wallet is on chain ${walletChainId ?? 'unknown'}, which tagwall does not deploy to. Switch chains to paint.`
                   : !walletMatchesViewer
                     ? 'Your wallet chain does not match the canvas you are viewing. Switch your wallet to this chain to paint.'
                     : !isDeployed
-                      ? 'Tagwall is not yet deployed on this chain. Switch to PulseChain v4 testnet to paint.'
+                      ? 'tagwall is not yet deployed on this chain. Switch to PulseChain v4 testnet to paint.'
                       : undefined
             }
             defaultReferrer={sharedReferrer}

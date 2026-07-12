@@ -117,7 +117,7 @@ export function AppLayout() {
       <footer className="site-footer">
         <div className="site-footer-left">
           <small>
-            Tagwall is an immutable 1,000,000-pixel on-chain graffiti wall.
+            tagwall is an immutable 1,000,000-pixel on-chain graffiti wall.
             {footerCanvasAddr && (
               <>
                 {' '}Canvas at{' '}
@@ -140,7 +140,7 @@ export function AppLayout() {
               href={TWITTER_URL}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Tagwall on X (Twitter)"
+              aria-label="tagwall on X (Twitter)"
               title="X / Twitter"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
@@ -154,7 +154,7 @@ export function AppLayout() {
               href={TELEGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Tagwall on Telegram"
+              aria-label="tagwall on Telegram"
               title="Telegram"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>

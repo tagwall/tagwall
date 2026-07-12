@@ -12,7 +12,7 @@ interface Props {
 /**
  * Safety interstitial shown before any outbound navigation from a pixel's
  * attached link (PRD §6: "Click-through interstitial when a user clicks a
- * pixel's link, shows destination URL, 'you are leaving Tagwall' warning,
+ * pixel's link, shows destination URL, 'you are leaving tagwall' warning,
  * proceed/cancel"). The user confirms destination before the browser
  * actually navigates.
  *
@@ -28,7 +28,7 @@ interface Props {
  *   2. Hostname safety check via Cloudflare Security DNS (see
  *      `web/src/lib/urlSafety.ts`). Free public DoH endpoint, no API
  *      key. Fails open: while the check is in flight or if the network
- *      is unavailable, we still show the standard "leaving Tagwall"
+ *      is unavailable, we still show the standard "leaving tagwall"
  *      warning rather than blocking the user from a legitimate link.
  */
 function isSafeHttpsUrl(raw: string): boolean {
@@ -77,7 +77,7 @@ export function OutboundLinkModal({ url, onClose }: Props) {
   // Block unconditionally if the URL fails the protocol guard, Cloudflare
   // flags the hostname, OR the operator's static list has the linkHash.
   // Anything else (safe, unknown, checking) renders the standard
-  // "leaving Tagwall" interstitial.
+  // "leaving tagwall" interstitial.
   const blocked = !protocolSafe || safety === 'blocked' || linkHashBlocked
 
   let hostname = ''
@@ -91,7 +91,7 @@ export function OutboundLinkModal({ url, onClose }: Props) {
       return
     }
     // rel=noopener strips the opener reference; noreferrer also strips the
-    // Referer header so Tagwall isn't auto-reported to the destination.
+    // Referer header so tagwall isn't auto-reported to the destination.
     window.open(url, '_blank', 'noopener,noreferrer')
     onClose()
   }
@@ -99,16 +99,16 @@ export function OutboundLinkModal({ url, onClose }: Props) {
   return (
     <div className="outbound-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="outbound-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{blocked ? 'Blocked: unsafe link' : "You're leaving Tagwall"}</h3>
+        <h3>{blocked ? 'Blocked: unsafe link' : "You're leaving tagwall"}</h3>
         <p className="outbound-modal-body">
           {!protocolSafe ? (
             <>
               This pixel's link is not a standard <code>https://</code> URL.
-              For your safety, Tagwall refuses to open it.
+              For your safety, tagwall refuses to open it.
             </>
           ) : linkHashBlocked ? (
             <>
-              This URL is on the Tagwall block list (manual operator
+              This URL is on the tagwall block list (manual operator
               takedown). The on-chain link is unchanged; this frontend
               refuses to open it. Mirror operators may apply a different
               list — see <code>cpa-brief.md</code> §2.5.
@@ -117,11 +117,11 @@ export function OutboundLinkModal({ url, onClose }: Props) {
             <>
               Cloudflare's security DNS does not resolve <code>{hostname}</code>.
               The hostname may be on a malware or phishing block list, or the
-              domain may no longer exist. Tagwall refuses to open it.
+              domain may no longer exist. tagwall refuses to open it.
             </>
           ) : (
             <>
-              Canvas links are placed by anyone who painted a pixel. Tagwall does
+              Canvas links are placed by anyone who painted a pixel. tagwall does
               not review or endorse destinations. Proceed only if you trust the site.
               {isChecking ? ' (Checking hostname safety…)' : ''}
             </>

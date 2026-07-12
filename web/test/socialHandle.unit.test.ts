@@ -36,6 +36,15 @@ describe('twitterHandleLabel', () => {
     expect(twitterHandleLabel('https://x.com/search?q=foo')).toBeNull()
   })
 
+  it('labels an X community URL as "X Community"', () => {
+    expect(twitterHandleLabel('https://x.com/i/communities/2032676625603534861')).toBe('X Community')
+    expect(twitterHandleLabel('https://twitter.com/i/communities/123')).toBe('X Community')
+  })
+
+  it('does not treat a non-numeric /i/communities/ path as a community', () => {
+    expect(twitterHandleLabel('https://x.com/i/communities/foo')).toBeNull()
+  })
+
   it('returns null for the bare domain (no handle)', () => {
     expect(twitterHandleLabel('https://x.com')).toBeNull()
     expect(twitterHandleLabel('https://x.com/')).toBeNull()

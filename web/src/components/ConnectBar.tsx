@@ -218,7 +218,7 @@ export function ConnectBar() {
       {!solanaActive && onUnsupportedChain && recoveryChain && (
         <div className="wrong-chain-banner" role="status">
           <span>
-            Your wallet is on chain {walletChainId ?? 'unknown'}, which Tagwall does not deploy to.
+            Your wallet is on chain {walletChainId ?? 'unknown'}, which tagwall does not deploy to.
             Switch to {recoveryChain.name} to paint.
           </span>
           <button
@@ -233,7 +233,7 @@ export function ConnectBar() {
       {showNotDeployedBanner && (
         <div className="wrong-chain-banner" role="status">
           <span>
-            Tagwall is not yet deployed on {currentChain?.name ?? `chain ${chainId}`}.
+            tagwall is not yet deployed on {currentChain?.name ?? `chain ${chainId}`}.
             Switch to {FALLBACK_DEPLOYED_CHAIN_NAME} to paint.
           </span>
           {fallbackInList && isConnected && (

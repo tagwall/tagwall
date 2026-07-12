@@ -195,7 +195,7 @@ function SolPixelTooltip({
           type="button"
           className="pixel-tooltip-link"
           onClick={() => onRequestOutbound(linkUrl)}
-          title="Opens a confirmation dialog before leaving Tagwall"
+          title="Opens a confirmation dialog before leaving tagwall"
         >
           {linkUrl}
         </button>
@@ -881,7 +881,7 @@ export function SolanaCanvasView({
             ref={baseRef}
             className="tagwall-canvas base"
             role="img"
-            aria-label={`Tagwall Solana canvas, ${W} by ${H} pixels`}
+            aria-label={`tagwall Solana canvas, ${W} by ${H} pixels`}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}

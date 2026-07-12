@@ -173,7 +173,7 @@ export default function SharePage() {
 
   // Embed snippet, with a 200×200 region as a defensible default.
   const embedSnippet = validated
-    ? `<iframe\n  src="${origin}/embed?x=400&y=300&w=200&h=200&ref=${validated}"\n  width="600"\n  height="450"\n  style="border:0"\n  loading="lazy"\n  referrerpolicy="no-referrer-when-downgrade"\n  title="Tagwall"\n></iframe>`
+    ? `<iframe\n  src="${origin}/embed?x=400&y=300&w=200&h=200&ref=${validated}"\n  width="600"\n  height="450"\n  style="border:0"\n  loading="lazy"\n  referrerpolicy="no-referrer-when-downgrade"\n  title="tagwall"\n></iframe>`
     : null
 
   // Track the last copied template-id (or 'url' / 'embed') for the
@@ -307,7 +307,7 @@ export default function SharePage() {
       </section>
 
       <section className="share-embed" aria-label="Embed snippet">
-        <h2>Embed Tagwall on your site</h2>
+        <h2>Embed tagwall on your site</h2>
         <p>
           The most durable affiliate surface. Paste this into any HTML page and every paint
           from that embed pays your address, indefinitely. Adjust <code>x</code>,{' '}
