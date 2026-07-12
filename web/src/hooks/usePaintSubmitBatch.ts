@@ -485,18 +485,37 @@ export function usePaintSubmitBatch() {
       const gasFor = async (
         data: Hex,
         txValue: bigint,
-      ): Promise<{ gas?: bigint }> => {
+      ): Promise<{
+        gas?: bigint
+        maxFeePerGas?: bigint
+        maxPriorityFeePerGas?: bigint
+      }> => {
         if (!chainNeedsExplicitGas(chainId) || !publicClient || !address || !canvasAddr) {
           return {}
         }
         try {
-          const est = await publicClient.estimateGas({
-            account: address,
-            to: canvasAddr,
-            data,
-            value: txValue,
-          })
-          return { gas: (est * 3n) / 2n }
+          const [est, gasPrice] = await Promise.all([
+            publicClient.estimateGas({
+              account: address,
+              to: canvasAddr,
+              data,
+              value: txValue,
+            }),
+            publicClient.getGasPrice(),
+          ])
+          // Pin the fee fields too, not just the gas limit. Arbitrum Orbit
+          // has no priority fee (eth_maxPriorityFeePerGas = 0), and the
+          // wallet's own attempt to fetch fee data for this unrecognised
+          // chain fails, which is what leaves "network fee unavailable".
+          // Supplying maxFeePerGas + maxPriorityFeePerGas gives the wallet
+          // everything it needs to render the real fee. maxFee at 2x the
+          // current price is headroom against base-fee movement; Arbitrum
+          // charges the base fee and refunds the rest, so it's not extra cost.
+          return {
+            gas: (est * 3n) / 2n,
+            maxFeePerGas: gasPrice * 2n,
+            maxPriorityFeePerGas: 0n,
+          }
         } catch {
           return {}
         }
