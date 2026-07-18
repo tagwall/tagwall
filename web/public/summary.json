@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-17T23:23:18Z",
+  "generatedAt": "2026-07-18T00:54:59Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -10,10 +10,6 @@
     "weeklyActivePainters": 2,
     "gini": 0.4091,
     "dailyActivity": [
-      {
-        "date": "2026-07-11",
-        "paints": 0
-      },
       {
         "date": "2026-07-12",
         "paints": 11
@@ -37,6 +33,10 @@
       {
         "date": "2026-07-17",
         "paints": 0
+      },
+      {
+        "date": "2026-07-18",
+        "paints": 0
       }
     ]
   },
@@ -57,7 +57,7 @@
       "chainId": 1,
       "chain": "Ethereum",
       "native": "ETH",
-      "caughtUp": false,
+      "caughtUp": true,
       "claimed": 1,
       "genesisClaimed": 1,
       "founderClaimed": 0,
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 26997010,
-      "windowEndBlock": 27057490,
+      "windowStartBlock": 26997547,
+      "windowEndBlock": 27058027,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -128,10 +128,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 PLS",
       "dailyActivity": [
-        {
-          "date": "2026-07-11",
-          "paints": 0
-        },
         {
           "date": "2026-07-12",
           "paints": 0
@@ -154,6 +150,10 @@
         },
         {
           "date": "2026-07-17",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-18",
           "paints": 0
         }
       ],
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25505276,
-      "windowEndBlock": 25555676,
+      "windowStartBlock": 25505732,
+      "windowEndBlock": 25556132,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -173,10 +173,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-07-11",
-          "paints": 0
-        },
         {
           "date": "2026-07-12",
           "paints": 0
@@ -199,6 +195,10 @@
         },
         {
           "date": "2026-07-17",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-18",
           "paints": 0
         }
       ],
@@ -209,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 48468242,
-      "windowEndBlock": 48770642,
+      "windowStartBlock": 48470982,
+      "windowEndBlock": 48773382,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -218,10 +218,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-07-11",
-          "paints": 0
-        },
         {
           "date": "2026-07-12",
           "paints": 0
@@ -244,6 +240,10 @@
         },
         {
           "date": "2026-07-17",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-18",
           "paints": 0
         }
       ],
@@ -254,8 +254,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 40138016,
-      "windowEndBlock": 40742816,
+      "windowStartBlock": 40143590,
+      "windowEndBlock": 40748390,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -263,10 +263,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 HYPE",
       "dailyActivity": [
-        {
-          "date": "2026-07-11",
-          "paints": 0
-        },
         {
           "date": "2026-07-12",
           "paints": 0
@@ -290,6 +286,10 @@
         {
           "date": "2026-07-17",
           "paints": 0
+        },
+        {
+          "date": "2026-07-18",
+          "paints": 0
         }
       ],
       "biggestByPixels": null,
@@ -299,8 +299,8 @@
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 6465955,
-      "windowEndBlock": 12513955,
+      "windowStartBlock": 6520728,
+      "windowEndBlock": 12568728,
       "paintCount": 11,
       "overpaintCount": 0,
       "uniquePainters": 2,
@@ -308,10 +308,6 @@
       "gini": 0.4091,
       "totalVolumeFormatted": "0.1697 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-07-11",
-          "paints": 0
-        },
         {
           "date": "2026-07-12",
           "paints": 11
@@ -334,6 +330,10 @@
         },
         {
           "date": "2026-07-17",
+          "paints": 0
+        },
+        {
+          "date": "2026-07-18",
           "paints": 0
         }
       ],
