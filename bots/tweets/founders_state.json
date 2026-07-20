@@ -1,8 +1,8 @@
 {
   "1": {
     "count": 1,
-    "lastBlock": 25569877,
-    "lastScarcityDate": "2026-07-19",
+    "lastBlock": 25571108,
+    "lastScarcityDate": "2026-07-20",
     "milestonesFired": [],
     "painters": [
       "0xf42d6249e370dbc647ab33d68b15aeca47be0fe9"
@@ -10,7 +10,7 @@
   },
   "369": {
     "count": 3,
-    "lastBlock": 27075217,
+    "lastBlock": 27075296,
     "lastScarcityDate": "2026-07-20",
     "milestonesFired": [],
     "painters": [
@@ -21,7 +21,7 @@
   },
   "4663": {
     "count": 2,
-    "lastBlock": 14354011,
+    "lastBlock": 14362756,
     "lastScarcityDate": "2026-07-20",
     "milestonesFired": [],
     "painters": [
@@ -31,7 +31,7 @@
   },
   "56": {
     "count": 1,
-    "lastBlock": 111013701,
+    "lastBlock": 111015661,
     "lastScarcityDate": "2026-07-20",
     "milestonesFired": [],
     "painters": [
@@ -40,7 +40,7 @@
   },
   "8453": {
     "count": 1,
-    "lastBlock": 48863152,
+    "lastBlock": 48863593,
     "lastScarcityDate": "2026-07-20",
     "milestonesFired": [],
     "painters": [
