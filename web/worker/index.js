@@ -646,6 +646,19 @@ async function handleSnapshotStatus(env) {
   return json({ turn: Number((await env.SNAPSHOTS.get('snapshot:turn')) ?? '0'), chains })
 }
 
+/**
+ * Is this chain close enough to head that one cheap pass keeps it current?
+ *
+ * True for a complete snapshot, and for one whose remaining backlog fits in a
+ * single pass. Uses the head recorded on the last pass, so it costs nothing.
+ */
+function isNearHead(chainId, state) {
+  if (state.complete) return true
+  const cfg = CANVAS_BY_CHAIN[chainId]
+  if (!cfg || typeof state.head !== 'number' || typeof state.snapshotBlock !== 'number') return false
+  return state.head - state.snapshotBlock <= cfg.chunk * SCAN_CONCURRENCY
+}
+
 async function refreshSnapshots(env) {
   if (!env.SNAPSHOTS) return
   let budget = CRON_SUBREQUEST_BUDGET
@@ -657,15 +670,21 @@ async function refreshSnapshots(env) {
     states.push([chainId, raw ? safeParse(raw) : null])
   }
 
-  // Phase 1: keep finished snapshots fresh.
+  // Phase 1: keep caught-up snapshots fresh, every run.
+  //
+  // "Caught up" deliberately includes chains that are merely close to head,
+  // not just complete ones. A single transient getLogs failure sets complete
+  // to false, and on a strict reading that demoted a finished chain into the
+  // backfill rotation behind BSC's thousand-chunk walk, where it waited turns
+  // to recover from a blip it could have cleared in one pass.
   for (const [chainId, state] of states) {
-    if (!state?.complete) continue
+    if (!state || !isNearHead(chainId, state)) continue
     if (budget <= 2) return
-    budget -= await advanceSnapshot(chainId, state, env, Math.min(budget, 6))
+    budget -= await advanceSnapshot(chainId, state, env, Math.min(budget, 8))
   }
 
-  // Phase 2: one backfill, rotated so every chain gets its turn.
-  const pending = states.filter(([, state]) => !state?.complete)
+  // Phase 2: one real backfill, rotated so every chain gets its turn.
+  const pending = states.filter(([chainId, state]) => !state || !isNearHead(chainId, state))
   if (!pending.length || budget <= 2) return
   const turn = Number((await env.SNAPSHOTS.get('snapshot:turn')) ?? '0')
   await env.SNAPSHOTS.put('snapshot:turn', String((turn + 1) % 1_000_000))
@@ -714,9 +733,15 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
 
   const regions = state?.regions ?? []
   let cursor = state?.cursor ?? cfg.deployBlock
-  // Re-scan the last stretch each pass so a paint that landed near the head of
-  // the previous run, and could still have been reorged out, is re-resolved.
-  if (state?.complete) cursor = Math.max(cfg.deployBlock, head - REORG_DEPTH * 4)
+  // Rewind a little each pass so a paint that landed near the previous run's
+  // head, and could still have been reorged out, is re-resolved.
+  //
+  // The rewind may only ever move the cursor BACKWARDS. Setting it to
+  // `head - REORG_DEPTH * 4` outright skipped blocks on a fast chain:
+  // Robinhood mints ~600 blocks a minute and the cron runs every two, so each
+  // pass jumped ~1,200 blocks forward while rewinding only 512, silently
+  // leaving ~700 unscanned. A paint landing in that gap would never appear.
+  cursor = Math.min(cursor, Math.max(cfg.deployBlock, head - REORG_DEPTH * 4))
   const seen = new Set(regions.map((r) => `${r.txHash}:${r.logIndex}`))
 
   let scannedTo = state?.snapshotBlock ?? cfg.deployBlock - 1
@@ -805,6 +830,9 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
     snapshotBlock: scannedTo,
     cursor,
     complete,
+    // Chain head as of this pass. Lets the scheduler judge how far behind a
+    // chain is without spending a subrequest to ask.
+    head,
     generatedAt: new Date().toISOString(),
     regionCount: regions.length,
     regions,
