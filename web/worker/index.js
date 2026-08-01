@@ -581,6 +581,48 @@ const CRON_TIME_BUDGET_MS = 120_000
  */
 const SCAN_CONCURRENCY = 4
 
+/** Cron interval, milliseconds. Must match the `crons` entry in wrangler.toml;
+ *  used to derive the backfill rotation index from the clock. */
+const CRON_PERIOD_MS = 5 * 60_000
+
+/**
+ * How stale a snapshot may get before we rewrite it even though nothing
+ * material changed.
+ *
+ * Workers KV on the free plan allows 1,000 writes a day. The first cut of this
+ * cron rewrote every near-head chain on every run purely to advance
+ * `snapshotBlock` by a few blocks, which burned ~3,100 writes a day and
+ * exhausted the quota in an afternoon. Nothing needed that: a stale
+ * `snapshotBlock` only means the browser scans a slightly longer range
+ * forward, and even a full day of drift is one getLogs chunk on every chain we
+ * run. So writes now happen when something real changed (a new paint, decoded
+ * pixels, completion, or a chunk's worth of backfill progress) and otherwise
+ * at most once an hour per chain.
+ */
+const SNAPSHOT_HEARTBEAT_MS = 60 * 60_000
+
+/**
+ * Is this new payload worth a KV write?
+ *
+ * Deliberately conservative about what counts as "material": anything a
+ * consumer could actually observe. A new or removed region, a region that
+ * gained decoded pixels, a change in completeness, or enough scan progress to
+ * matter. Timestamp-only churn is not material.
+ */
+function snapshotWorthWriting(prev, next, cfg) {
+  if (!prev) return true
+  if (prev.complete !== next.complete) return true
+  // Clearing a recorded failure is material: otherwise /api/canvas/status
+  // would keep reporting an error the chain has already recovered from.
+  if (prev.lastError && !next.lastError) return true
+  if ((prev.regions?.length ?? 0) !== next.regions.length) return true
+  const pending = (list) => (list ?? []).filter((r) => !r.pixels && !r.pixelsUnavailable).length
+  if (pending(prev.regions) !== pending(next.regions)) return true
+  if (next.snapshotBlock - (prev.snapshotBlock ?? 0) >= cfg.chunk) return true
+  const writtenAt = Date.parse(prev.generatedAt ?? '')
+  return !(Number.isFinite(writtenAt) && Date.now() - writtenAt < SNAPSHOT_HEARTBEAT_MS)
+}
+
 async function handleSnapshot(chainId, env) {
   if (!CANVAS_BY_CHAIN[chainId]) return json({ error: `unsupported chain ${chainId}` }, 404)
   if (!env.SNAPSHOTS) return json({ error: 'snapshot store not bound' }, 503)
@@ -684,10 +726,13 @@ async function refreshSnapshots(env) {
   }
 
   // Phase 2: one real backfill, rotated so every chain gets its turn.
+  //
+  // The rotation index comes from the clock, not from a counter in KV. The
+  // counter cost one KV write on every single run, which on the free plan's
+  // 1,000 writes/day was 720 of them spent purely on bookkeeping.
   const pending = states.filter(([chainId, state]) => !state || !isNearHead(chainId, state))
   if (!pending.length || budget <= 2) return
-  const turn = Number((await env.SNAPSHOTS.get('snapshot:turn')) ?? '0')
-  await env.SNAPSHOTS.put('snapshot:turn', String((turn + 1) % 1_000_000))
+  const turn = Math.floor(Date.now() / CRON_PERIOD_MS)
   const [chainId, state] = pending[turn % pending.length]
   await advanceSnapshot(chainId, state, env, budget)
 }
@@ -717,17 +762,24 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
   const head = await currentHead(chainId, upstreams)
   spent += 1
   if (head === null) {
-    // Persist the failure rather than returning silently: without this a chain
+    // Record the failure rather than returning silently: without this a chain
     // whose upstreams are all down is indistinguishable from one that simply
     // has not had its rotation turn yet. Surfaced by /api/canvas/status.
-    await env.SNAPSHOTS.put(
-      `snapshot:${chainId}`,
-      JSON.stringify({
-        ...(state ?? { chainId: Number(chainId), regions: [], complete: false, snapshotBlock: null }),
-        lastError: `no head from ${upstreams.length} upstream(s)`,
-        generatedAt: new Date().toISOString(),
-      }),
-    )
+    //
+    // Only on the transition into failure, though. A chain whose upstreams
+    // stay down would otherwise rewrite this on every run forever, which is
+    // exactly the kind of idle churn that exhausted the KV write quota.
+    const lastError = `no head from ${upstreams.length} upstream(s)`
+    if (!state || state.lastError !== lastError) {
+      await env.SNAPSHOTS.put(
+        `snapshot:${chainId}`,
+        JSON.stringify({
+          ...(state ?? { chainId: Number(chainId), regions: [], complete: false, snapshotBlock: null }),
+          lastError,
+          generatedAt: new Date().toISOString(),
+        }),
+      )
+    }
     return spent
   }
 
@@ -837,7 +889,9 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
     regionCount: regions.length,
     regions,
   }
-  await env.SNAPSHOTS.put(`snapshot:${chainId}`, JSON.stringify(payload))
+  if (snapshotWorthWriting(state, payload, cfg)) {
+    await env.SNAPSHOTS.put(`snapshot:${chainId}`, JSON.stringify(payload))
+  }
   return spent
 }
 

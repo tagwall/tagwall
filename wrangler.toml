@@ -38,9 +38,17 @@ id = "2a4a62f0a5e94d92839be683e4d81443"
 
 # Snapshot builder. Each run advances every chain's scan by a bounded number
 # of subrequests, so a cold backfill converges over successive runs rather
-# than blowing the per-invocation subrequest cap. Two minutes is chosen for
-# the initial backfill; once every chain reports complete:true this can be
-# relaxed (the frontend scans forward from snapshotBlock, so snapshot lag
-# never hides a new paint).
+# than blowing the per-invocation subrequest cap.
+#
+# Five minutes, not two. At two the cron alone burned ~3,100 Workers KV writes
+# a day against the free plan's 1,000, and exhausted the quota by mid-
+# afternoon. Most of that was idle churn, now fixed in the Worker, but the
+# interval is the other half: it bounds the worst case at roughly 290 writes a
+# day even if every chain were backfilling at once. Snapshot lag costs
+# nothing, because the frontend scans forward from snapshotBlock, so a new
+# paint still appears immediately regardless of this interval.
+#
+# CRON_PERIOD_MS in web/worker/index.js must match: the backfill rotation
+# index is derived from the clock rather than a counter in KV.
 [triggers]
-crons = ["*/2 * * * *"]
+crons = ["*/5 * * * *"]
