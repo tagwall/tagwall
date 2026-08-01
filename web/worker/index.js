@@ -13,20 +13,87 @@
 const CORS_HEADERS = { 'access-control-allow-origin': '*' }
 const DAY = 86400
 
-// Per-chain RPC for reading paint calldata (public endpoints; read-only).
-const RPC_BY_CHAIN = {
-  '369': 'https://rpc.pulsechain.com',
-  '1': 'https://eth.llamarpc.com',
-  '8453': 'https://mainnet.base.org',
-  '56': 'https://bsc-dataseed.binance.org',
-  '999': 'https://rpc.hyperliquid.xyz/evm',
-  '4663': 'https://rpc.mainnet.chain.robinhood.com',
+/**
+ * Per-chain upstream RPC pools (public endpoints, read-only).
+ *
+ * Mirrors web/src/lib/rpcPool.ts — keep the two in step. Every URL was probed
+ * on 2026-08-01 for correct chainId, CORS, and a real `eth_getLogs` at the
+ * deploy-block window. The previous single-URL map here had rotted:
+ * eth.llamarpc.com now answers Cloudflare 521, and bsc-dataseed.binance.org
+ * prunes logs, so /api/tag-image was already failing on Ethereum and BSC.
+ *
+ * Maintaining the pool here as well as in the frontend is deliberate: a dead
+ * upstream can be swapped by redeploying the Worker alone, with no frontend
+ * build, and browsers dialling /api/rpc pick the change up immediately.
+ */
+const RPC_POOL = {
+  '369': ['https://rpc-pulsechain.g4mm4.io', 'https://rpc.pulsechain.com'],
+  '1': [
+    'https://rpc.mevblocker.io',
+    'https://eth.drpc.org',
+    'https://0xrpc.io/eth',
+    'https://eth.api.onfinality.io/public',
+  ],
+  '8453': [
+    'https://base.gateway.tenderly.co',
+    'https://mainnet.base.org',
+    'https://base.lava.build',
+    'https://developer-access-mainnet.base.org',
+  ],
+  '56': ['https://bsc.rpc.blxrbdn.com'],
+  '999': [
+    'https://rpc.hypurrscan.io',
+    'https://hyperliquid.rpc.blxrbdn.com',
+    'https://rpc.purroofgroup.com',
+    'https://hyperliquid-json-rpc.stakely.io',
+    'https://rpc.hyperlend.finance',
+  ],
+  '4663': ['https://rpc.mainnet.chain.robinhood.com'],
+  '943': ['https://rpc-testnet-pulsechain.g4mm4.io'],
 }
+
+/**
+ * Methods /api/rpc will forward. The proxy is a public endpoint on
+ * tagwall.io, so it stays read-only: no `eth_sendRawTransaction`, no
+ * `personal_*`, no `debug_*`. Paints are signed and broadcast by the user's
+ * own wallet provider, never through this path, so nothing legitimate needs
+ * write access here.
+ */
+const RPC_METHOD_ALLOWLIST = new Set([
+  'eth_blockNumber',
+  'eth_call',
+  'eth_chainId',
+  'eth_estimateGas',
+  'eth_feeHistory',
+  'eth_gasPrice',
+  'eth_getBalance',
+  'eth_getBlockByNumber',
+  'eth_getCode',
+  'eth_getLogs',
+  'eth_getTransactionByHash',
+  'eth_getTransactionCount',
+  'eth_getTransactionReceipt',
+  'eth_maxPriorityFeePerGas',
+  'net_version',
+])
+
+/** Body cap. A full tile multicall is ~120 KB of aggregate3 calldata; 2 MB
+ *  leaves generous headroom without letting the proxy be used as a pipe. */
+const MAX_RPC_BODY = 2 * 1024 * 1024
+
+/** Blocks behind head that we treat as reorg-safe. A getLogs window entirely
+ *  below head - this can never change, so it is cached immutably at the edge.
+ *  Deliberately generous: a stale-but-correct cache entry costs nothing, a
+ *  cached reorged log would be wrong forever. */
+const REORG_DEPTH = 128
+
+/** Rotation cursor for upstream selection, per isolate. */
+let poolCursor = 0
 const PAINT_SELECTOR = '67640514' // paint(uint32,uint32,uint32,uint32,uint32[],string,address,bytes32,uint256,uint256)
 const TRANSPARENT = 0xffffffff
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
     if (url.pathname === '/api/app-name') {
       return handleAppName(url)
@@ -34,9 +101,198 @@ export default {
     if (url.pathname === '/api/tag-image') {
       return handleTagImage(url)
     }
+    const rpcMatch = url.pathname.match(/^\/api\/rpc\/(\d+)$/)
+    if (rpcMatch) {
+      return handleRpc(request, rpcMatch[1], ctx)
+    }
+    const snapMatch = url.pathname.match(/^\/api\/canvas\/(\d+)\/snapshot$/)
+    if (snapMatch) {
+      return handleSnapshot(snapMatch[1], env)
+    }
+    if (url.pathname === '/api/canvas/status') {
+      return handleSnapshotStatus(env)
+    }
     // Everything else: static assets (with SPA not-found handling).
     return env.ASSETS.fetch(request)
   },
+
+  /** Cron entrypoint: advances each chain's paint snapshot. See buildSnapshot. */
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(refreshSnapshots(env))
+  },
+}
+
+/* ------------------------------------------------------------------ *
+ * POST /api/rpc/<chainId>
+ *
+ * Same-origin, read-only JSON-RPC proxy over the chain's upstream pool.
+ * Exists for three reasons:
+ *
+ *   1. Rotation and failover happen server-side, so a dead upstream can be
+ *      swapped by redeploying the Worker with no frontend build.
+ *   2. Historical `eth_getLogs` windows are immutable once they sit below the
+ *      reorg horizon, so they are cached at Cloudflare's edge. The first
+ *      visitor to a chain warms it for everyone else. On BSC, whose only
+ *      usable public endpoint takes 15-24s per 9.5k-block chunk, this is the
+ *      difference between an unusable cold load and a fast one.
+ *   3. It gives chains with a thin public landscape (PulseChain, BSC,
+ *      Robinhood) an extra dial target that is not a single point of failure
+ *      in the same way a lone direct endpoint is.
+ * ------------------------------------------------------------------ */
+async function handleRpc(request, chainId, ctx) {
+  const preflight = {
+    ...CORS_HEADERS,
+    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'access-control-max-age': '86400',
+  }
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: preflight })
+  if (request.method !== 'POST') {
+    return json({ error: 'POST only' }, 405)
+  }
+  const upstreams = RPC_POOL[chainId]
+  if (!upstreams) return json({ error: `unsupported chain ${chainId}` }, 404)
+
+  const raw = await request.text()
+  if (raw.length > MAX_RPC_BODY) return json({ error: 'body too large' }, 413)
+
+  let body
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    return rpcError(null, -32700, 'Parse error')
+  }
+  // Batch requests are not forwarded: they would let one call fan out past
+  // the allowlist check and complicate cacheability for no benefit here.
+  if (Array.isArray(body)) return rpcError(null, -32600, 'Batch requests not supported')
+  const method = body?.method
+  if (typeof method !== 'string' || !RPC_METHOD_ALLOWLIST.has(method)) {
+    return rpcError(body?.id ?? null, -32601, `Method not supported: ${method}`)
+  }
+
+  const cacheKey = await immutableCacheKey(chainId, method, body.params, upstreams)
+  if (cacheKey) {
+    const hit = await caches.default.match(cacheKey)
+    if (hit) return withCors(hit, 'HIT')
+  }
+
+  const upstreamResponse = await poolFetch(upstreams, raw)
+  if (!upstreamResponse) {
+    return rpcError(body?.id ?? null, -32603, 'All upstream RPCs failed')
+  }
+  const text = await upstreamResponse.text()
+
+  const response = new Response(text, {
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': cacheKey ? `public, max-age=${DAY}, immutable` : 'no-store',
+      ...CORS_HEADERS,
+    },
+  })
+  // Only cache successful, error-free payloads. A cached -32602 would pin an
+  // upstream's policy error in front of every visitor for a day.
+  if (cacheKey && !text.includes('"error"')) {
+    ctx.waitUntil(caches.default.put(cacheKey, response.clone()))
+  }
+  return withCors(response, cacheKey ? 'MISS' : 'BYPASS')
+}
+
+function withCors(response, cacheStatus) {
+  const out = new Response(response.body, response)
+  out.headers.set('access-control-allow-origin', '*')
+  out.headers.set('x-tagwall-cache', cacheStatus)
+  return out
+}
+
+function rpcError(id, code, message) {
+  return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }), {
+    status: 200,
+    headers: { 'content-type': 'application/json; charset=utf-8', ...CORS_HEADERS },
+  })
+}
+
+/**
+ * Cache key for a request whose answer can never change, or null if it can.
+ *
+ * Only `eth_getLogs` over a window that ends below the reorg horizon
+ * qualifies. Everything else (`eth_call` at latest, head queries) is served
+ * fresh. Determining the horizon costs one `eth_blockNumber`, which is itself
+ * cheap and heavily deduplicated by the edge.
+ */
+async function immutableCacheKey(chainId, method, params, upstreams) {
+  if (method !== 'eth_getLogs') return null
+  const filter = params?.[0]
+  const toBlock = filter?.toBlock
+  if (typeof toBlock !== 'string' || !toBlock.startsWith('0x')) return null
+  const head = await currentHead(chainId, upstreams)
+  if (head === null || parseInt(toBlock, 16) > head - REORG_DEPTH) return null
+  // Key on the semantic content, not the raw body, so differing whitespace or
+  // JSON-RPC ids still hit the same entry.
+  const canonical = JSON.stringify({ chainId, method, filter })
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return new Request(`https://tagwall.io/__rpccache/${chainId}/${hex}`)
+}
+
+const headCache = new Map()
+
+/** Chain head, memoised for 12s per isolate so a burst of tile requests does
+ *  not turn into a burst of eth_blockNumber calls. */
+async function currentHead(chainId, upstreams) {
+  const cached = headCache.get(chainId)
+  if (cached && Date.now() - cached.at < 12_000) return cached.head
+  const res = await poolFetch(
+    upstreams,
+    JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+  )
+  if (!res) return null
+  try {
+    const result = (await res.json())?.result
+    if (typeof result !== 'string') return null
+    const head = parseInt(result, 16)
+    headCache.set(chainId, { head, at: Date.now() })
+    return head
+  } catch {
+    return null
+  }
+}
+
+/**
+ * POST `body` to the pool, rotating the starting upstream and failing over on
+ * transport errors or JSON-RPC errors. Returns the first clean response, or
+ * null if every upstream failed.
+ *
+ * Failing over on a JSON-RPC *error* (not just a transport failure) is the
+ * point: the endpoints that broke this app returned HTTP 200 with a -32602 or
+ * -32601 body. A proxy that only failed over on network errors would have
+ * dutifully served those through.
+ */
+async function poolFetch(upstreams, body, { timeoutMs = 25_000 } = {}) {
+  const start = poolCursor++ % upstreams.length
+  let lastOk = null
+  for (let i = 0; i < upstreams.length; i++) {
+    const url = upstreams[(start + i) % upstreams.length]
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (!res.ok) continue
+      const text = await res.text()
+      if (text.includes('"error"')) {
+        // Keep it as a last resort: an execution revert is a legitimate answer
+        // and should be returned if no upstream does better.
+        lastOk = text
+        continue
+      }
+      return new Response(text, { headers: { 'content-type': 'application/json' } })
+    } catch {
+      // try the next upstream
+    }
+  }
+  return lastOk ? new Response(lastOk, { headers: { 'content-type': 'application/json' } }) : null
 }
 
 function json(body, status = 200) {
@@ -245,4 +501,328 @@ function concat(arrays) {
     off += a.length
   }
   return out
+}
+
+/* ------------------------------------------------------------------ *
+ * GET /api/canvas/<chainId>/snapshot
+ *
+ * The cold-load fix.
+ *
+ * Reconstructing the canvas from chain state alone means walking every
+ * Painted event from the deploy block (a serial `eth_getLogs` paginate) and
+ * then reading every painted pixel back with `pixelAt`. Both halves have aged
+ * badly: on BSC the log walk is 1,385 chunks at 15-24s each, and a full-canvas
+ * tile load was issuing ~200 concurrent multicalls holding ~40 MB of calldata.
+ *
+ * Neither is necessary. A paint's pixel colours are already in its own
+ * transaction calldata, which `decodePaint` above has always known how to
+ * read. So a cron job walks the logs once, decodes each paint's colours, and
+ * parks the result in KV. The browser fetches one JSON, renders the whole
+ * historical canvas from it, and only scans chain state forward from
+ * `snapshotBlock`.
+ *
+ * Progress is incremental and resumable. Each cron run advances the scan by a
+ * bounded number of subrequests and writes back what it got, so a chain whose
+ * backfill needs hundreds of calls converges over successive runs instead of
+ * blowing the per-invocation subrequest limit. Partial snapshots are served
+ * happily: the frontend just scans forward from whatever `snapshotBlock` it
+ * is given, so a half-built snapshot is strictly better than none.
+ * ------------------------------------------------------------------ */
+
+/** Painted(address,address,bytes32,uint32,uint32,uint32,uint32,uint32,uint256,uint32) */
+const PAINTED_TOPIC = '0x5d25316e707ac9e251fa4433187862ac94eb0cae501474a1473bee69e546f899'
+
+/** Canvas address and deploy block per chain. Mirrors web/src/contracts/canvas.ts
+ *  and web/src/lib/deployBlocks.ts. */
+const CANVAS_BY_CHAIN = {
+  '1': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 25161961, chunk: 9500 },
+  '56': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 100071283, chunk: 9500 },
+  '369': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 26606708, chunk: 9500 },
+  '8453': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 46399049, chunk: 9500 },
+  '999': { address: '0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4', deployBlock: 36585579, chunk: 1000 },
+  '4663': { address: '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C', deployBlock: 7648180, chunk: 500000 },
+}
+
+/**
+ * Subrequest budget for one cron invocation, shared across all chains.
+ *
+ * Workers caps subrequests per invocation at 50 on the free plan and 1000 on
+ * Workers Paid. 45 is the safe figure; raise it toward ~900 on Paid and the
+ * backfills finish in a couple of runs instead of over an hour. The budget is
+ * spent on `eth_getLogs` chunks plus one `eth_getTransactionByHash` per newly
+ * seen paint.
+ */
+const CRON_SUBREQUEST_BUDGET = 45
+
+/**
+ * Wall-clock budget for one cron pass, milliseconds.
+ *
+ * A run only writes KV once, at the end of `advanceSnapshot`, so anything the
+ * platform kills mid-pass is work thrown away. BSC's sole usable endpoint
+ * answers a 9.5k-block chunk in 15-24s, so a full 45-subrequest pass there
+ * would run ~15 minutes and sit right on the invocation limit. Stopping at 20s
+ * and persisting what we have keeps every pass durable: the next run resumes
+ * from the stored cursor.
+ */
+const CRON_TIME_BUDGET_MS = 20_000
+
+async function handleSnapshot(chainId, env) {
+  if (!CANVAS_BY_CHAIN[chainId]) return json({ error: `unsupported chain ${chainId}` }, 404)
+  if (!env.SNAPSHOTS) return json({ error: 'snapshot store not bound' }, 503)
+  const stored = await env.SNAPSHOTS.get(`snapshot:${chainId}`)
+  if (!stored) {
+    // Nothing built yet. Not an error: the frontend falls back to scanning
+    // from the deploy block, exactly as it did before snapshots existed.
+    return json({ chainId: Number(chainId), snapshotBlock: null, regions: [], pending: true })
+  }
+  return new Response(stored, {
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      // Short TTL: a new paint should show up quickly. The heavy history
+      // inside is what we are avoiding refetching, not the freshness.
+      'cache-control': 'public, max-age=30',
+      ...CORS_HEADERS,
+    },
+  })
+}
+
+/**
+ * One cron pass.
+ *
+ * Two-phase, because the two jobs have very different costs. Keeping a
+ * finished snapshot current costs about two calls (head, plus one log chunk
+ * covering the reorg window). Backfilling one from the deploy block costs
+ * hundreds, and on BSC over a thousand. Interleaving them naively let the
+ * first chain in the map swallow the whole budget every run, so the rest
+ * never started at all.
+ *
+ * So: top up every complete chain first, then hand the entire remaining
+ * budget to a single backfilling chain, rotating which one across runs. That
+ * finishes backfills as fast as the budget allows instead of advancing six of
+ * them a few chunks at a time, while never letting a long backfill stall the
+ * freshness of the chains that are already done.
+ */
+/**
+ * GET /api/canvas/status
+ *
+ * Backfill progress for every chain, without the region payloads. Answers
+ * "is the snapshot for chain X built yet, and if not how far along is it",
+ * which is otherwise invisible: the cron runs detached and a failing chain
+ * looks identical to one that has not had its turn.
+ */
+async function handleSnapshotStatus(env) {
+  if (!env.SNAPSHOTS) return json({ error: 'snapshot store not bound' }, 503)
+  const chains = {}
+  for (const chainId of Object.keys(CANVAS_BY_CHAIN)) {
+    const raw = await env.SNAPSHOTS.get(`snapshot:${chainId}`)
+    const state = raw ? safeParse(raw) : null
+    chains[chainId] = state
+      ? {
+          snapshotBlock: state.snapshotBlock,
+          cursor: state.cursor,
+          complete: state.complete,
+          regionCount: state.regionCount,
+          pixelsPending: (state.regions ?? []).filter((r) => !r.pixels && !r.pixelsUnavailable).length,
+          generatedAt: state.generatedAt,
+          lastError: state.lastError ?? null,
+        }
+      : null
+  }
+  return json({ turn: Number((await env.SNAPSHOTS.get('snapshot:turn')) ?? '0'), chains })
+}
+
+async function refreshSnapshots(env) {
+  if (!env.SNAPSHOTS) return
+  let budget = CRON_SUBREQUEST_BUDGET
+
+  const chains = Object.keys(CANVAS_BY_CHAIN)
+  const states = []
+  for (const chainId of chains) {
+    const raw = await env.SNAPSHOTS.get(`snapshot:${chainId}`)
+    states.push([chainId, raw ? safeParse(raw) : null])
+  }
+
+  // Phase 1: keep finished snapshots fresh.
+  for (const [chainId, state] of states) {
+    if (!state?.complete) continue
+    if (budget <= 2) return
+    budget -= await advanceSnapshot(chainId, state, env, Math.min(budget, 6))
+  }
+
+  // Phase 2: one backfill, rotated so every chain gets its turn.
+  const pending = states.filter(([, state]) => !state?.complete)
+  if (!pending.length || budget <= 2) return
+  const turn = Number((await env.SNAPSHOTS.get('snapshot:turn')) ?? '0')
+  await env.SNAPSHOTS.put('snapshot:turn', String((turn + 1) % 1_000_000))
+  const [chainId, state] = pending[turn % pending.length]
+  await advanceSnapshot(chainId, state, env, budget)
+}
+
+function safeParse(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Advance one chain's snapshot. Returns the number of subrequests spent.
+ *
+ * Regions are appended in (blockNumber, logIndex) order, which is also the
+ * order the canvas must be replayed in: for any overlapping pixel the later
+ * paint wins, so a consumer painting regions in array order lands on the same
+ * state the chain is in.
+ */
+async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now() + CRON_TIME_BUDGET_MS) {
+  const cfg = CANVAS_BY_CHAIN[chainId]
+  const upstreams = RPC_POOL[chainId]
+  if (!cfg || !upstreams) return 0
+
+  let spent = 0
+  const head = await currentHead(chainId, upstreams)
+  spent += 1
+  if (head === null) {
+    // Persist the failure rather than returning silently: without this a chain
+    // whose upstreams are all down is indistinguishable from one that simply
+    // has not had its rotation turn yet. Surfaced by /api/canvas/status.
+    await env.SNAPSHOTS.put(
+      `snapshot:${chainId}`,
+      JSON.stringify({
+        ...(state ?? { chainId: Number(chainId), regions: [], complete: false, snapshotBlock: null }),
+        lastError: `no head from ${upstreams.length} upstream(s)`,
+        generatedAt: new Date().toISOString(),
+      }),
+    )
+    return spent
+  }
+
+  const regions = state?.regions ?? []
+  let cursor = state?.cursor ?? cfg.deployBlock
+  // Re-scan the last stretch each pass so a paint that landed near the head of
+  // the previous run, and could still have been reorged out, is re-resolved.
+  if (state?.complete) cursor = Math.max(cfg.deployBlock, head - REORG_DEPTH * 4)
+  const seen = new Set(regions.map((r) => `${r.txHash}:${r.logIndex}`))
+
+  let scannedTo = state?.snapshotBlock ?? cfg.deployBlock - 1
+  while (cursor <= head && spent < budget - 1 && Date.now() < deadline) {
+    const to = Math.min(cursor + cfg.chunk - 1, head)
+    const res = await poolFetch(
+      upstreams,
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getLogs',
+        params: [{
+          address: cfg.address,
+          topics: [PAINTED_TOPIC],
+          fromBlock: '0x' + cursor.toString(16),
+          toBlock: '0x' + to.toString(16),
+        }],
+      }),
+    )
+    spent += 1
+    if (!res) break
+    const logs = (await res.json())?.result
+    if (!Array.isArray(logs)) break
+
+    for (const log of logs) {
+      const key = `${log.transactionHash}:${parseInt(log.logIndex, 16)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const region = decodePaintedLog(log)
+      if (region) regions.push(region)
+    }
+    scannedTo = to
+    cursor = to + 1
+  }
+
+  // Fill in pixel colours for regions that do not have them yet, newest first
+  // so a fresh paint becomes renderable before an old backfill completes.
+  const missing = regions.filter((r) => !r.pixels)
+  missing.sort((a, b) => b.blockNumber - a.blockNumber)
+  for (const region of missing) {
+    if (spent >= budget || Date.now() >= deadline) break
+    const res = await poolFetch(
+      upstreams,
+      JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [region.txHash] }),
+    )
+    spent += 1
+    if (!res) continue
+    const input = (await res.json())?.result?.input
+    const decoded = decodePaint(input)
+    // A paint tx submitted through a router or multicall would not decode
+    // here; leaving pixels null is fine, the frontend reads those from chain
+    // state as before.
+    if (decoded && decoded.w === region.w && decoded.h === region.h) {
+      region.pixels = base64FromUint32(decoded.colors)
+    } else {
+      region.pixels = null
+      region.pixelsUnavailable = true
+    }
+  }
+
+  regions.sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex)
+
+  const complete = cursor > head
+  const payload = {
+    chainId: Number(chainId),
+    address: cfg.address,
+    snapshotBlock: scannedTo,
+    cursor,
+    complete,
+    generatedAt: new Date().toISOString(),
+    regionCount: regions.length,
+    regions,
+  }
+  await env.SNAPSHOTS.put(`snapshot:${chainId}`, JSON.stringify(payload))
+  return spent
+}
+
+/** Painted log -> region record. Data layout is the non-indexed tail:
+ *  x, y, w, h, pixelsPainted, pricePaid, linkId. */
+function decodePaintedLog(log) {
+  const data = typeof log.data === 'string' ? log.data.slice(2) : ''
+  if (data.length < 7 * 64) return null
+  const word = (i) => parseInt(data.slice(i * 64, (i + 1) * 64), 16)
+  const topicAddress = (t) => '0x' + String(t).slice(26)
+  const w = word(2)
+  const h = word(3)
+  if (!(w > 0 && h > 0)) return null
+  return {
+    blockNumber: parseInt(log.blockNumber, 16),
+    logIndex: parseInt(log.logIndex, 16),
+    txHash: log.transactionHash,
+    painter: topicAddress(log.topics?.[1]),
+    referrer: topicAddress(log.topics?.[2]),
+    metadataHash: log.topics?.[3] ?? null,
+    x: word(0),
+    y: word(1),
+    w,
+    h,
+    pixelsPainted: word(4),
+    // pricePaid can exceed Number.MAX_SAFE_INTEGER in wei, so keep it as the
+    // hex string and let the consumer BigInt it.
+    pricePaid: '0x' + data.slice(5 * 64, 6 * 64).replace(/^0+/, ''),
+    linkId: word(6),
+    pixels: null,
+  }
+}
+
+/** uint32 colours -> base64 of big-endian 4-byte words. */
+function base64FromUint32(colors) {
+  const bytes = new Uint8Array(colors.length * 4)
+  for (let i = 0; i < colors.length; i++) {
+    const c = colors[i] >>> 0
+    bytes[i * 4] = (c >>> 24) & 0xff
+    bytes[i * 4 + 1] = (c >>> 16) & 0xff
+    bytes[i * 4 + 2] = (c >>> 8) & 0xff
+    bytes[i * 4 + 3] = c & 0xff
+  }
+  let binary = ''
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
 }

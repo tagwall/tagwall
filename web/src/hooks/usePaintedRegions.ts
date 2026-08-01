@@ -9,6 +9,7 @@ import { deployBlockFor, logsChunkSizeFor } from '../lib/deployBlocks'
 import { rectsIntersect } from '../lib/filterList'
 import { getLogsPaginated, type DroppedRange } from '../lib/paginatedLogs'
 import { useViewerChainId } from '../lib/viewerChain'
+import { useCanvasSnapshot, type SnapshotRegion } from './useCanvasSnapshot'
 import { useOfacSanctioned } from './useOfacSanctioned'
 import { useStaticFilterList } from './useStaticFilterList'
 
@@ -31,6 +32,13 @@ export interface PaintedRegion {
   pixelsPainted: number
   pricePaid: bigint
   linkId: number
+  /**
+   * Row-major w*h colours when this region came from the Worker snapshot,
+   * which decodes them from the paint's own transaction calldata. Undefined
+   * for regions resolved by scanning chain state, whose colours useTilePixels
+   * still reads back with `pixelAt`.
+   */
+  pixels?: Uint32Array | null
 }
 
 // Explicit ABI item: keeps the getLogs return type narrow and lets us avoid
@@ -45,6 +53,27 @@ const PAINTED_EVENT = parseAbiItem(
 // RPC failure can't permanently hide a slice of paint history. Module
 // level (not hook state) so every mounted instance shares one queue.
 const droppedRangesByChain = new Map<number, DroppedRange[]>()
+
+/** Snapshot JSON (numbers, hex strings) -> PaintedRegion (bigints). */
+function toRegion(r: SnapshotRegion): PaintedRegion {
+  return {
+    blockNumber: BigInt(r.blockNumber),
+    logIndex: r.logIndex,
+    txHash: r.txHash,
+    painter: r.painter,
+    referrer: r.referrer,
+    metadataHash: r.metadataHash ?? '0x',
+    x: r.x,
+    y: r.y,
+    w: r.w,
+    h: r.h,
+    pixelsPainted: r.pixelsPainted,
+    // The Worker strips leading zeroes, so "0x" is a legitimate encoding of 0.
+    pricePaid: BigInt(r.pricePaid === '0x' ? '0x0' : r.pricePaid),
+    linkId: r.linkId,
+    pixels: r.pixels,
+  }
+}
 
 /**
  * Fetches historical Painted events from the current chain and returns them
@@ -72,8 +101,16 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
   // useViewerChainId returns the wallet chain so paint UX stays aligned.
   const chainId = useViewerChainId()
   const publicClient = usePublicClient({ chainId })
-  const fromBlock = options?.fromBlock ?? deployBlockFor(chainId)
   const address = canvasAddress(chainId)
+
+  // Snapshot covers history up to `snapshotBlock`; we only scan forward from
+  // there. When there is no snapshot (mirror deployments, a chain the cron has
+  // not reached yet, /api unavailable) this falls back to the deploy block and
+  // the behaviour is exactly what it was before snapshots existed.
+  const snapshot = useCanvasSnapshot()
+  const snapshotFrom =
+    snapshot.snapshotBlock !== null ? BigInt(snapshot.snapshotBlock) + 1n : undefined
+  const fromBlock = options?.fromBlock ?? snapshotFrom ?? deployBlockFor(chainId)
 
   const query = useQuery({
     queryKey: ['painted-regions', chainId, address, String(fromBlock)],
@@ -167,27 +204,49 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
   // so we never apply a tampered list to render. Implemented at the
   // source so every consumer (canvas tiles, ActivityFeed, Leaderboard,
   // NavMetrics, etc.) inherits the same filtered view automatically.
-  const addresses = useMemo<Address[]>(() => {
-    if (!query.data) return []
-    const out: Address[] = []
+  // Snapshot history + the forward scan, in one chain-ordered list.
+  //
+  // Merged here rather than inside queryFn so that a snapshot arriving (or
+  // gaining decoded pixels on a later cron pass) flows straight through
+  // without waiting for a refetch. Deduped by (txHash, logIndex) because the
+  // scan's fromBlock and the snapshot's coverage can overlap by a block on a
+  // reorg re-resolve.
+  const merged = useMemo<PaintedRegion[] | undefined>(() => {
+    if (!query.data) return snapshot.regions.length ? snapshot.regions.map(toRegion) : undefined
+    if (!snapshot.regions.length) return query.data
+    const out = snapshot.regions.map(toRegion)
+    const seen = new Set(out.map((r) => `${r.txHash}:${r.logIndex}`))
     for (const r of query.data) {
+      if (seen.has(`${r.txHash}:${r.logIndex}`)) continue
+      out.push(r)
+    }
+    return out.sort((a, b) => {
+      if (a.blockNumber !== b.blockNumber) return a.blockNumber < b.blockNumber ? -1 : 1
+      return a.logIndex - b.logIndex
+    })
+  }, [query.data, snapshot.regions])
+
+  const addresses = useMemo<Address[]>(() => {
+    if (!merged) return []
+    const out: Address[] = []
+    for (const r of merged) {
       try { out.push(getAddress(r.painter)) } catch { /* skip malformed */ }
       try { out.push(getAddress(r.referrer)) } catch { /* skip malformed */ }
     }
     return out
-  }, [query.data])
+  }, [merged])
 
   const sanctioned = useOfacSanctioned(addresses)
   const staticList = useStaticFilterList()
 
   const filtered = useMemo(() => {
-    if (!query.data) return query.data
+    if (!merged) return merged
     const noFilters =
       sanctioned.size === 0 &&
       staticList.blockedAddresses.size === 0 &&
       staticList.blockedPixelRects.length === 0
-    if (noFilters) return query.data
-    return query.data.filter((r) => {
+    if (noFilters) return merged
+    return merged.filter((r) => {
       try {
         const painter = getAddress(r.painter)
         const referrer = getAddress(r.referrer)
@@ -204,11 +263,11 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
       }
       return true
     })
-  }, [query.data, sanctioned, staticList])
+  }, [merged, sanctioned, staticList])
 
   // `rawData` is the unfiltered chain order (same array reference as the
   // query result, no duplication). Founder ranks are computed from it so
   // a filter-list change can't shift anyone's "Genesis #N"; everything
   // user-facing should keep consuming the filtered `data`.
-  return { ...query, data: filtered, rawData: query.data }
+  return { ...query, data: filtered, rawData: merged }
 }

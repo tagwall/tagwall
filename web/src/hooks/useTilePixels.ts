@@ -6,12 +6,38 @@ import { canvasAddress, canvasAbi } from '../contracts/canvas'
 import { useViewerChainId } from '../lib/viewerChain'
 import type { PaintedRegion } from './usePaintedRegions'
 
-/** Tile edge length in canvas pixels. 128 keeps a full tile at 16,384 px,
- *  which fits in two 8,192-entry Multicall3 sub-batches (matches the
- *  batchSize in the multicall() call). Smaller tiles multiply the query
- *  count for no bandwidth benefit; larger tiles delay the first visible
- *  blit because more pixels must land before the tile renders. */
+/** Tile edge length in canvas pixels. Smaller tiles multiply the query count
+ *  for no bandwidth benefit; larger tiles delay the first visible blit
+ *  because more pixels must land before the tile renders. */
 export const TILE_SIZE = 128
+
+/**
+ * Multicall chunk size, in **bytes of inner calldata** — not entries.
+ *
+ * This was set to 8_192 on the belief that it counted entries, so a full
+ * 128x128 tile would cost two requests. viem actually compares it against
+ * `(callData.length - 2) / 2` (see viem's multicall.js), and one `pixelAt`
+ * call is 68 bytes of calldata, so 8_192 meant ~120 reads per request. On a
+ * canvas holding ~21k painted pixels that produced ~207 concurrent HTTP
+ * requests per full-canvas load, which is what buried the RPC pool and left
+ * the loading scanner spinning on slower connections.
+ *
+ * 32_768 gives ~480 reads per request (~123 KB of aggregate3 calldata once
+ * the Multicall3 envelope is counted, roughly 4x the inner byte count). That
+ * is a deliberate middle: fewer, larger requests beat many small ones here,
+ * but going much higher pushes a single request past what a mobile uplink can
+ * deliver inside the transport timeout.
+ *
+ * The real fix for cold loads is the snapshot endpoint, which serves historic
+ * pixel colours decoded from paint calldata and removes these reads for
+ * everything at or below `snapshotBlock`. This path only covers paints newer
+ * than the snapshot, plus anything the snapshot could not serve.
+ */
+const MULTICALL_BATCH_BYTES = 32_768
+
+/** Colour value meaning "submitted but skipped on-chain". Matches the
+ *  contract's sentinel and the Worker's decodePaint. */
+const TRANSPARENT = 0xffffffff
 
 export interface PixelState {
   x: number
@@ -171,13 +197,12 @@ export function useTilePixels(
             return { x: x0, y: y0, w: tileW, h: tileH, colors }
           }
 
-          // Intersect every region with this tile's rect, collecting the
-          // unique local (dx, dy) positions that fall inside. `pixelAt`
-          // returns the live chain state at (x, y), which is always the
-          // latest write — so overpainted pixels only need one read.
-          const seen = new Uint8Array(tileW * tileH)
-          const coords: Array<{ x: number; y: number; local: number }> = []
-          for (const r of regions) {
+          // Resolve which region owns each pixel of this tile. `regions` is in
+          // chain order, so a later paint overwrites an earlier one simply by
+          // being assigned second — the same rule the chain applies.
+          const owner = new Int32Array(tileW * tileH).fill(-1)
+          for (let ri = 0; ri < regions.length; ri++) {
+            const r = regions[ri]
             const rx0 = Math.max(r.x, x0)
             const ry0 = Math.max(r.y, y0)
             const rx1 = Math.min(r.x + r.w, x1)
@@ -185,12 +210,38 @@ export function useTilePixels(
             if (rx0 >= rx1 || ry0 >= ry1) continue
             for (let yi = ry0; yi < ry1; yi++) {
               for (let xi = rx0; xi < rx1; xi++) {
-                const local = (yi - y0) * tileW + (xi - x0)
-                if (seen[local]) continue
-                seen[local] = 1
-                coords.push({ x: xi, y: yi, local })
+                owner[(yi - y0) * tileW + (xi - x0)] = ri
               }
             }
+          }
+
+          // Regions carrying snapshot pixels are painted straight in. Only
+          // pixels whose winning region has no snapshot colours (paints newer
+          // than the snapshot, or calldata the Worker could not decode) still
+          // need a `pixelAt` read. On a warm snapshot this empties `coords`
+          // completely and the tile costs zero RPC calls.
+          const coords: Array<{ x: number; y: number; local: number }> = []
+          for (let local = 0; local < owner.length; local++) {
+            const ri = owner[local]
+            if (ri < 0) continue
+            const r = regions[ri]
+            const px = r.pixels
+            if (px) {
+              const gx = x0 + (local % tileW)
+              const gy = y0 + ((local / tileW) | 0)
+              const c = px[(gy - r.y) * r.w + (gx - r.x)]
+              // 0xffffffff is the transparent sentinel: the pixel was
+              // submitted but skipped on-chain, so it stays unpainted.
+              if (c !== undefined && c !== TRANSPARENT) {
+                colors[local] = (c & 0xffffff) | 0x01000000
+              }
+              continue
+            }
+            coords.push({
+              x: x0 + (local % tileW),
+              y: y0 + ((local / tileW) | 0),
+              local,
+            })
           }
           if (coords.length === 0) {
             return { x: x0, y: y0, w: tileW, h: tileH, colors }
@@ -216,7 +267,7 @@ export function useTilePixels(
             const results = await publicClient.multicall({
               contracts: calls,
               allowFailure: true,
-              batchSize: 8192,
+              batchSize: MULTICALL_BATCH_BYTES,
             })
             // Drop this fetch's work if we were superseded while the RPC
             // was in flight — prevents a late-arriving response from

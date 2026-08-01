@@ -7,80 +7,22 @@ import {
   pulsechainV4 as pulsechainV4Default,
 } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
-import { defineChain, fallback } from 'viem'
+import { defineChain } from 'viem'
 
-// Two-deep RPC stack per chain. Public RPCs flap; a single-URL config
-// turns any operator outage into a frontend outage. Each pair is two
-// independent operators so a single-vendor problem doesn't down both.
-//
-// Both URLs are listed on the chain's `rpcUrls.default.http` so MetaMask
-// gets a working URL when adding the network via `wallet_addEthereumChain`,
-// and stacked in a viem `fallback` transport so a mid-session flap on
-// the primary falls through to the secondary transparently.
-//
-// Latencies measured 2026-05-04; reorder in this list if one operator
-// becomes consistently faster or more reliable.
-const PULSECHAIN_RPC_URLS = [
-  'https://rpc-pulsechain.g4mm4.io',
-  'https://pulsechain-rpc.publicnode.com',
-] as const
-const PULSECHAIN_V4_RPC_URLS = [
-  'https://rpc-testnet-pulsechain.g4mm4.io',
-  'https://pulsechain-testnet-rpc.publicnode.com',
-] as const
-// Ethereum primary swapped 2026-05-24 (Day-0): cloudflare-eth.com was
-// rate-limiting (429) with no CORS headers, blocking browser access
-// entirely. eth.merkle.io (Flashbots-operated) returns CORS=* and has
-// solid uptime per public dashboards.
-const ETHEREUM_RPC_URLS = [
-  'https://eth.merkle.io',
-  'https://ethereum-rpc.publicnode.com',
-] as const
-// Base secondary swapped 2026-05-24 (Day-0): base.llamarpc.com was
-// returning HTTP 526 (Cloudflare bad-origin) with no CORS. base.drpc.org
-// mirrors the BSC primary pattern (bsc.drpc.org) for consistency.
-const BASE_RPC_URLS = [
-  'https://base-rpc.publicnode.com',
-  'https://base.drpc.org',
-] as const
-// BSC stack rebuilt 2026-05-25 after the canvas hit "history has been
-// pruned" errors from publicnode and 400/408s from drpc.org. BSC's free
-// public RPCs are unusable for `eth_getLogs` across most of the public
-// landscape: publicnode + dataseeds prune logs after ~24h, dataseed1-4
-// rate-limit, blast caps at 10 blocks, drpc.org caps at 10k blocks (but
-// also flaps with 400s under load), nodies.app caps at 500 blocks. The
-// only public BSC endpoint that actually returns canvas-deploy-block
-// logs without arbitrary range caps or pruning is Bloxroute's
-// bsc.rpc.blxrbdn.com (also CORS-clean and fast: 35-120ms).
-//
-// Secondary is drpc.org despite the flake risk — its 10k-block range
-// limit is above our 9.5k paginated chunk, and it's at least functional
-// for write-side RPC calls (eth_sendRawTransaction, eth_call). When
-// Bloxroute is up (the common case), drpc never gets hit.
-const BSC_RPC_URLS = [
-  'https://bsc.rpc.blxrbdn.com',
-  'https://bsc.drpc.org',
-] as const
-// HyperEVM (chain 999) RPCs, both free/public (no paid service). Primary is
-// Bloxroute, the same operator we use for BSC: CORS-clean, fast, and
-// critically returns canvas-deploy-block eth_getLogs without the arbitrary
-// range caps or log pruning that hobble most free endpoints. drpc is the
-// secondary — its ~10k-block range cap sits above our 9.5k paginated chunk,
-// so it's a functional fallback for reads + write-side RPC. We deliberately
-// avoid rpc.hyperliquid.xyz/evm as a primary: the official endpoint is
-// rate-limited to 100 req/min/IP (since 2026-08), which the read-heavy canvas
-// refresh would exhaust.
-const HYPEREVM_RPC_URLS = [
-  'https://hyperliquid.rpc.blxrbdn.com',
-  'https://hyperliquid.drpc.org',
-] as const
-// Robinhood Chain (4663) is young enough that the official RPC is the only
-// public endpoint we've verified (CORS-clean, no observed eth_getLogs range
-// cap even at 6M blocks, probed 2026-07-12). Single-operator fragility is a
-// known gap; add a second independent operator here as soon as one exists.
-const ROBINHOOD_RPC_URLS = [
-  'https://rpc.mainnet.chain.robinhood.com',
-] as const
+import { directRpcs, rotatingTransport } from './lib/rpcPool'
+
+// Per-chain RPC pools live in lib/rpcPool.ts, which also owns the rotating
+// transport that spreads reads across them. The lists there are the ones
+// MetaMask sees via `wallet_addEthereumChain` (the Worker proxy is
+// same-origin and therefore useless to a wallet, so `directRpcs` excludes
+// it) as well as the ones the app itself dials.
+const PULSECHAIN_RPC_URLS = directRpcs(369)
+const PULSECHAIN_V4_RPC_URLS = directRpcs(943)
+const ETHEREUM_RPC_URLS = directRpcs(1)
+const BASE_RPC_URLS = directRpcs(8453)
+const BSC_RPC_URLS = directRpcs(56)
+const HYPEREVM_RPC_URLS = directRpcs(999)
+const ROBINHOOD_RPC_URLS = directRpcs(4663)
 
 // Per-chain RPC overrides. wagmi/chains ships single-URL defaults for
 // each chain that all suffer the same single-vendor-flap fragility; we
@@ -202,13 +144,13 @@ export const config = createConfig({
   chains,
   transports: {
     [anvilLocal.id]: http('http://127.0.0.1:8545'),
-    [pulsechain.id]: fallback(PULSECHAIN_RPC_URLS.map((u) => http(u))),
-    [mainnet.id]: fallback(ETHEREUM_RPC_URLS.map((u) => http(u))),
-    [base.id]: fallback(BASE_RPC_URLS.map((u) => http(u))),
-    [bsc.id]: fallback(BSC_RPC_URLS.map((u) => http(u))),
-    [hyperevm.id]: fallback(HYPEREVM_RPC_URLS.map((u) => http(u))),
-    [robinhood.id]: fallback(ROBINHOOD_RPC_URLS.map((u) => http(u))),
-    [pulsechainV4.id]: fallback(PULSECHAIN_V4_RPC_URLS.map((u) => http(u))),
+    [pulsechain.id]: rotatingTransport(pulsechain.id),
+    [mainnet.id]: rotatingTransport(mainnet.id),
+    [base.id]: rotatingTransport(base.id),
+    [bsc.id]: rotatingTransport(bsc.id),
+    [hyperevm.id]: rotatingTransport(hyperevm.id),
+    [robinhood.id]: rotatingTransport(robinhood.id),
+    [pulsechainV4.id]: rotatingTransport(pulsechainV4.id),
   },
   connectors: [
     // `injected` picks up MetaMask and other EIP-6963-compatible wallets.

@@ -16,6 +16,7 @@ import { Link, NavLink, useSearchParams } from 'react-router-dom'
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
 import { competitionFeatured } from '../lib/contest'
 import { shortenAddress } from '../lib/format'
+import { advanceRpcRotation } from '../lib/rpcPool'
 import { useViewerChainId, useSetViewerChain } from '../lib/viewerChain'
 import { useActiveChain, useSelectSolana } from '../lib/activeChain'
 import { useSolanaWallet } from '../solana/SolanaWalletProvider'
@@ -153,6 +154,11 @@ export function ConnectBar() {
   const onRefresh = useCallback(async () => {
     if (refreshing) return
     setRefreshing(true)
+    // Start this pass on the next endpoint in the pool. Two reasons: a
+    // refresh is the user telling us the last read looked wrong, so trying a
+    // different operator is the useful response; and it keeps a single free
+    // endpoint from absorbing every tile read of every refresh.
+    advanceRpcRotation()
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['painted-regions'] }),
