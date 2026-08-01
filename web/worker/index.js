@@ -564,7 +564,22 @@ const CRON_SUBREQUEST_BUDGET = 45
  * and persisting what we have keeps every pass durable: the next run resumes
  * from the stored cursor.
  */
-const CRON_TIME_BUDGET_MS = 20_000
+const CRON_TIME_BUDGET_MS = 120_000
+
+/**
+ * Concurrent `eth_getLogs` chunks per backfill pass.
+ *
+ * Sequential scanning cannot finish BSC. Its only usable endpoint answers a
+ * 9.5k window in 10-24s and refuses wider ranges (a 50k window hits the
+ * node's own 30s timeout), so one chunk per 20s against 1,385 chunks is a
+ * multi-day backfill.
+ *
+ * Probed 2026-08-01: that endpoint serves 4 concurrent chunks cleanly (all
+ * four returned inside 20s) and collapses at 8, where half time out. So 4 is
+ * the measured ceiling, not a guess. The other chains are far faster and
+ * nowhere near any limit at this width.
+ */
+const SCAN_CONCURRENCY = 4
 
 async function handleSnapshot(chainId, env) {
   if (!CANVAS_BY_CHAIN[chainId]) return json({ error: `unsupported chain ${chainId}` }, 404)
@@ -705,9 +720,20 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
   const seen = new Set(regions.map((r) => `${r.txHash}:${r.logIndex}`))
 
   let scannedTo = state?.snapshotBlock ?? cfg.deployBlock - 1
-  while (cursor <= head && spent < budget - 1 && Date.now() < deadline) {
-    const to = Math.min(cursor + cfg.chunk - 1, head)
-    const res = await poolFetch(
+  // Scan in concurrent batches. The batch advances `scannedTo` only as far as
+  // its longest unbroken run of successes, so a failure mid-batch rewinds the
+  // cursor to just before it rather than leaving a hole that nothing revisits.
+  scan: while (cursor <= head && spent < budget - 1 && Date.now() < deadline) {
+    const windows = []
+    for (let i = 0; i < SCAN_CONCURRENCY && cursor <= head && spent < budget - 1; i++) {
+      const to = Math.min(cursor + cfg.chunk - 1, head)
+      windows.push({ from: cursor, to })
+      spent += 1
+      cursor = to + 1
+    }
+    if (!windows.length) break
+
+    const responses = await Promise.all(windows.map((w) => poolFetch(
       upstreams,
       JSON.stringify({
         jsonrpc: '2.0',
@@ -716,49 +742,57 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
         params: [{
           address: cfg.address,
           topics: [PAINTED_TOPIC],
-          fromBlock: '0x' + cursor.toString(16),
-          toBlock: '0x' + to.toString(16),
+          fromBlock: '0x' + w.from.toString(16),
+          toBlock: '0x' + w.to.toString(16),
         }],
       }),
-    )
-    spent += 1
-    if (!res) break
-    const logs = (await res.json())?.result
-    if (!Array.isArray(logs)) break
+    )))
 
-    for (const log of logs) {
-      const key = `${log.transactionHash}:${parseInt(log.logIndex, 16)}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      const region = decodePaintedLog(log)
-      if (region) regions.push(region)
+    for (let i = 0; i < windows.length; i++) {
+      const res = responses[i]
+      const logs = res ? (await res.json())?.result : null
+      if (!Array.isArray(logs)) {
+        // Resume from this window next pass and drop the rest of the batch.
+        cursor = windows[i].from
+        break scan
+      }
+      for (const log of logs) {
+        const key = `${log.transactionHash}:${parseInt(log.logIndex, 16)}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        const region = decodePaintedLog(log)
+        if (region) regions.push(region)
+      }
+      scannedTo = windows[i].to
     }
-    scannedTo = to
-    cursor = to + 1
   }
 
   // Fill in pixel colours for regions that do not have them yet, newest first
   // so a fresh paint becomes renderable before an old backfill completes.
-  const missing = regions.filter((r) => !r.pixels)
+  const missing = regions.filter((r) => !r.pixels && !r.pixelsUnavailable)
   missing.sort((a, b) => b.blockNumber - a.blockNumber)
-  for (const region of missing) {
+  for (let i = 0; i < missing.length; i += SCAN_CONCURRENCY) {
     if (spent >= budget || Date.now() >= deadline) break
-    const res = await poolFetch(
+    const batch = missing.slice(i, i + SCAN_CONCURRENCY)
+    spent += batch.length
+    const responses = await Promise.all(batch.map((region) => poolFetch(
       upstreams,
       JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [region.txHash] }),
-    )
-    spent += 1
-    if (!res) continue
-    const input = (await res.json())?.result?.input
-    const decoded = decodePaint(input)
-    // A paint tx submitted through a router or multicall would not decode
-    // here; leaving pixels null is fine, the frontend reads those from chain
-    // state as before.
-    if (decoded && decoded.w === region.w && decoded.h === region.h) {
-      region.pixels = base64FromUint32(decoded.colors)
-    } else {
-      region.pixels = null
-      region.pixelsUnavailable = true
+    )))
+    for (let j = 0; j < batch.length; j++) {
+      const res = responses[j]
+      if (!res) continue
+      const input = (await res.json())?.result?.input
+      const decoded = decodePaint(input)
+      // A paint tx submitted through a router or multicall would not decode
+      // here; leaving pixels null is fine, the frontend reads those from chain
+      // state as before. Marking it unavailable stops us retrying it forever.
+      if (decoded && decoded.w === batch[j].w && decoded.h === batch[j].h) {
+        batch[j].pixels = base64FromUint32(decoded.colors)
+      } else {
+        batch[j].pixels = null
+        batch[j].pixelsUnavailable = true
+      }
     }
   }
 
