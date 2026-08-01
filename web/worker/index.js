@@ -678,6 +678,15 @@ async function handleSnapshotStatus(env) {
           snapshotBlock: state.snapshotBlock,
           cursor: state.cursor,
           complete: state.complete,
+          head: state.head ?? null,
+          // Blocks still to scan, and whether the chain is close enough to
+          // head that the cheap keep-current pass covers it. Exposed because
+          // without them "why is this chain being rewritten every run" is
+          // guesswork, which is what made the KV write-quota burn hard to see.
+          backlog: typeof state.head === 'number' && typeof state.snapshotBlock === 'number'
+            ? state.head - state.snapshotBlock
+            : null,
+          nearHead: isNearHead(chainId, state),
           regionCount: state.regionCount,
           pixelsPending: (state.regions ?? []).filter((r) => !r.pixels && !r.pixelsUnavailable).length,
           generatedAt: state.generatedAt,
