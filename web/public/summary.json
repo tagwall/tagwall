@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-19T13:42:03Z",
+  "generatedAt": "2026-08-19T14:31:34Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 5,
+    "chainCount": 4,
     "totalPaints": 0,
     "totalOverpaints": 0,
     "uniquePainters": 0,
@@ -57,7 +57,7 @@
       "chainId": 1,
       "chain": "Ethereum",
       "native": "ETH",
-      "caughtUp": false,
+      "caughtUp": true,
       "claimed": 1,
       "genesisClaimed": 1,
       "founderClaimed": 0,
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 27266836,
-      "windowEndBlock": 27327316,
+      "windowStartBlock": 27267088,
+      "windowEndBlock": 27327568,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25739124,
-      "windowEndBlock": 25789524,
+      "windowStartBlock": 25739371,
+      "windowEndBlock": 25789771,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -209,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 49876416,
-      "windowEndBlock": 50178816,
+      "windowStartBlock": 49877896,
+      "windowEndBlock": 50180296,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -251,56 +251,11 @@
       "biggestByPrice": null
     },
     {
-      "chain": "HyperEVM",
-      "chainId": 999,
-      "native": "HYPE",
-      "windowStartBlock": 43000949,
-      "windowEndBlock": 43605749,
-      "paintCount": 0,
-      "overpaintCount": 0,
-      "uniquePainters": 0,
-      "uniqueReferrers": 0,
-      "gini": 0.0,
-      "totalVolumeFormatted": "0.000000 HYPE",
-      "dailyActivity": [
-        {
-          "date": "2026-08-13",
-          "paints": 0
-        },
-        {
-          "date": "2026-08-14",
-          "paints": 0
-        },
-        {
-          "date": "2026-08-15",
-          "paints": 0
-        },
-        {
-          "date": "2026-08-16",
-          "paints": 0
-        },
-        {
-          "date": "2026-08-17",
-          "paints": 0
-        },
-        {
-          "date": "2026-08-18",
-          "paints": 0
-        },
-        {
-          "date": "2026-08-19",
-          "paints": 0
-        }
-      ],
-      "biggestByPixels": null,
-      "biggestByPrice": null
-    },
-    {
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 34557897,
-      "windowEndBlock": 40605897,
+      "windowStartBlock": 34585072,
+      "windowEndBlock": 40633072,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
