@@ -1,6 +1,17 @@
 {
-  "generatedAt": "2026-08-23T02:43:29Z",
+  "generatedAt": "2026-08-23T16:51:18Z",
   "entries": [
+    {
+      "id": "scarcity-56-2026-08-23",
+      "kind": "scarcity",
+      "chain": "BSC",
+      "chainId": 56,
+      "queuedAt": "2026-08-23T16:51:18Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
     {
       "id": "scarcity-1-2026-08-23",
       "kind": "scarcity",
@@ -43,17 +54,6 @@
       "tier": "genesis",
       "label": "98 of 100 Genesis left",
       "tweet": "98 of 100 Genesis founder slots left on Robinhood. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
-    },
-    {
-      "id": "scarcity-56-2026-08-21",
-      "kind": "scarcity",
-      "chain": "BSC",
-      "chainId": 56,
-      "queuedAt": "2026-08-21T01:12:17Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
       "foundersUrl": "https://tagwall.io/founders"
     },
     {
