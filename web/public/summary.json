@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-25T19:57:49Z",
+  "generatedAt": "2026-08-25T20:34:40Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 3,
+    "chainCount": 4,
     "totalPaints": 0,
     "totalOverpaints": 0,
     "uniquePainters": 0,
@@ -119,8 +119,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25784065,
-      "windowEndBlock": 25834465,
+      "windowStartBlock": 25784248,
+      "windowEndBlock": 25834648,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -164,8 +164,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 50146965,
-      "windowEndBlock": 50449365,
+      "windowStartBlock": 50148063,
+      "windowEndBlock": 50450463,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -206,11 +206,56 @@
       "biggestByPrice": null
     },
     {
+      "chain": "HyperEVM",
+      "chainId": 999,
+      "native": "HYPE",
+      "windowStartBlock": 43553230,
+      "windowEndBlock": 44158030,
+      "paintCount": 0,
+      "overpaintCount": 0,
+      "uniquePainters": 0,
+      "uniqueReferrers": 0,
+      "gini": 0.0,
+      "totalVolumeFormatted": "0.000000 HYPE",
+      "dailyActivity": [
+        {
+          "date": "2026-08-19",
+          "paints": 0
+        },
+        {
+          "date": "2026-08-20",
+          "paints": 0
+        },
+        {
+          "date": "2026-08-21",
+          "paints": 0
+        },
+        {
+          "date": "2026-08-22",
+          "paints": 0
+        },
+        {
+          "date": "2026-08-23",
+          "paints": 0
+        },
+        {
+          "date": "2026-08-24",
+          "paints": 0
+        },
+        {
+          "date": "2026-08-25",
+          "paints": 0
+        }
+      ],
+      "biggestByPixels": null,
+      "biggestByPrice": null
+    },
+    {
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 39951442,
-      "windowEndBlock": 45999442,
+      "windowStartBlock": 39985584,
+      "windowEndBlock": 46033584,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
