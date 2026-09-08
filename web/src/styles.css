@@ -4969,3 +4969,110 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .sol-error { color: #ff6b6b; font-size: 12px; margin: 0; word-break: break-word; }
 .sol-success { color: var(--accent, #a8ff2e); font-size: 12px; margin: 0; }
 .sol-hint { font-size: 11px; margin: 4px 0 0; }
+
+/* ======================================================================
+   /articles — the "building tagwall" series. Static, wallet-free, long
+   form. Lowercase headings per brand; body text a little larger than the
+   app chrome because these pages are read, not scanned.
+   ====================================================================== */
+.articles-page { padding-top: 8px; padding-bottom: 48px; }
+.articles-kicker {
+  margin: 0 0 6px;
+  font-family: var(--tw-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--tw-accent);
+}
+.articles-kicker a { color: inherit; text-decoration: none; }
+.articles-kicker a:hover { text-decoration: underline; }
+.articles-header h1, .article h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  line-height: 1.15;
+  color: var(--text-bright);
+}
+.articles-header p { margin: 0; max-width: 640px; color: var(--text-dim); line-height: 1.55; }
+
+.articles-list { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 14px; }
+.articles-item-link {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 120ms, background-color 120ms;
+}
+.articles-item-link:hover { border-color: var(--tw-accent); background: var(--bg-panel-hi); }
+.articles-item-cover { width: 100%; aspect-ratio: 5 / 2; object-fit: cover; border-radius: 4px; display: block; }
+.articles-item-part, .articles-item-meta, .article-meta {
+  font-family: var(--tw-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.articles-item-text h2 { margin: 4px 0 6px; font-size: 18px; line-height: 1.25; color: var(--text-bright); }
+.articles-item-text p { margin: 0 0 6px; color: var(--text); line-height: 1.45; }
+@media (max-width: 640px) {
+  .articles-item-link { grid-template-columns: 1fr; }
+}
+
+.article { max-width: 720px; }
+.article-subtitle { margin: 0 0 6px; font-size: 17px; color: var(--text); line-height: 1.45; }
+.article-meta { margin: 0 0 22px; }
+.article-cover { width: 100%; aspect-ratio: 5 / 2; object-fit: cover; border-radius: 6px; display: block; margin-bottom: 30px; }
+.article-body { font-size: 16px; line-height: 1.7; color: var(--text); }
+.article-body p { margin: 0 0 18px; }
+.article-body h2 { margin: 36px 0 12px; font-size: 20px; line-height: 1.3; color: var(--tw-accent); }
+.article-body h3 { margin: 26px 0 10px; font-size: 16px; color: var(--text-bright); }
+.article-body a { color: var(--tw-accent); }
+.article-body code {
+  font-family: var(--tw-mono);
+  font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-panel-hi);
+  color: var(--text-bright);
+}
+.article-body pre {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.article-body pre code { padding: 0; background: none; font-size: inherit; }
+.article-body ul, .article-body ol { margin: 0 0 18px; padding-left: 22px; }
+.article-body li { margin-bottom: 6px; }
+.article-body blockquote {
+  margin: 0 0 18px;
+  padding: 4px 0 4px 16px;
+  border-left: 3px solid var(--tw-accent);
+  color: var(--text-bright);
+}
+.article-footer { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--border); }
+.article-footer p { margin: 0 0 20px; color: var(--text-dim); }
+.article-footer a { color: var(--tw-accent); }
+.article-nav { display: flex; justify-content: space-between; gap: 16px; }
+.article-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 48%;
+  color: var(--text-bright);
+  text-decoration: none;
+  line-height: 1.3;
+}
+.article-nav-link span { font-family: var(--tw-mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; }
+.article-nav-link:hover { color: var(--tw-accent); }
+.article-nav-next { text-align: right; margin-left: auto; }
+
+.site-footer-articles { color: var(--tw-accent); text-decoration: none; }
+.site-footer-articles:hover { text-decoration: underline; }

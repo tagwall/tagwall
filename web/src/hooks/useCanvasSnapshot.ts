@@ -42,6 +42,10 @@ export interface SnapshotRegion {
   /** Row-major w*h colours, or null when the paint's calldata could not be
    *  decoded (e.g. submitted via a router). Null falls back to a chain read. */
   pixels: Uint32Array | null
+  /** Unix seconds of the paint's block, resolved once by the Worker. Absent
+   *  on older snapshots or until the cron's next pass; the browser fetches
+   *  only blocks missing here. */
+  blockTimestamp?: number
 }
 
 export interface CanvasSnapshot {
@@ -51,9 +55,31 @@ export interface CanvasSnapshot {
   /** False while the Worker's cron is still backfilling history. */
   complete: boolean
   regions: SnapshotRegion[]
+  /**
+   * True until the fetch has resolved one way or the other (data, 404,
+   * network error, or timeout). Consumers that would otherwise fall back to
+   * a deploy-block scan must wait for this to clear: starting the scan before
+   * the snapshot lands meant every cold load walked the whole chain history
+   * (77 getLogs chunks on PulseChain, growing ~9/day) and threw the result
+   * away once the snapshot arrived.
+   */
+  pending: boolean
 }
 
-const EMPTY: CanvasSnapshot = { chainId: 0, snapshotBlock: null, complete: false, regions: [] }
+const EMPTY: CanvasSnapshot = {
+  chainId: 0,
+  snapshotBlock: null,
+  complete: false,
+  regions: [],
+  pending: false,
+}
+
+/**
+ * Upper bound on how long the canvas waits for the snapshot before scanning
+ * chain state directly. Generous because the alternative is ~80 RPC calls,
+ * but finite so a hung /api can never leave the wall blank.
+ */
+const SNAPSHOT_FETCH_TIMEOUT_MS = 15_000
 
 /** base64 of big-endian uint32 words -> Uint32Array. */
 function decodePixels(b64: string): Uint32Array {
@@ -86,22 +112,38 @@ export function useCanvasSnapshot(): CanvasSnapshot {
     refetchOnReconnect: false,
     retry: false,
     queryFn: async ({ signal }): Promise<CanvasSnapshot> => {
-      const res = await fetch(`/api/canvas/${chainId}/snapshot`, { signal })
-      if (!res.ok) return { ...EMPTY, chainId }
-      const body = await res.json()
-      if (!body || !Array.isArray(body.regions)) return { ...EMPTY, chainId }
-      return {
-        chainId,
-        snapshotBlock: typeof body.snapshotBlock === 'number' ? body.snapshotBlock : null,
-        complete: !!body.complete,
-        regions: body.regions.map(
-          (r: Record<string, unknown>): SnapshotRegion => ({
-            ...(r as unknown as SnapshotRegion),
-            pixels: typeof r.pixels === 'string' ? decodePixels(r.pixels) : null,
-          }),
-        ),
+      // Abort on either the query's own signal or the timeout. Any failure
+      // resolves to EMPTY rather than throwing, so `pending` clears and the
+      // regions hook falls through to the deploy-block scan.
+      const ctl = new AbortController()
+      const timer = setTimeout(() => ctl.abort(), SNAPSHOT_FETCH_TIMEOUT_MS)
+      const onOuter = () => ctl.abort()
+      signal?.addEventListener('abort', onOuter)
+      try {
+        const res = await fetch(`/api/canvas/${chainId}/snapshot`, { signal: ctl.signal })
+        if (!res.ok) return { ...EMPTY, chainId }
+        const body = await res.json()
+        if (!body || !Array.isArray(body.regions)) return { ...EMPTY, chainId }
+        return {
+          chainId,
+          snapshotBlock: typeof body.snapshotBlock === 'number' ? body.snapshotBlock : null,
+          complete: !!body.complete,
+          pending: false,
+          regions: body.regions.map(
+            (r: Record<string, unknown>): SnapshotRegion => ({
+              ...(r as unknown as SnapshotRegion),
+              pixels: typeof r.pixels === 'string' ? decodePixels(r.pixels) : null,
+            }),
+          ),
+        }
+      } catch {
+        return { ...EMPTY, chainId }
+      } finally {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', onOuter)
       }
     },
   })
-  return query.data ?? { ...EMPTY, chainId }
+  if (query.data) return query.data
+  return { ...EMPTY, chainId, pending: query.isPending }
 }

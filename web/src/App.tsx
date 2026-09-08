@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppLayout } from './components/AppLayout'
+import ArticlesPage from './pages/ArticlesPage'
 import CanvasRouter from './pages/CanvasRouter'
 import CompetitionPage from './pages/CompetitionPage'
 import EmbedPage from './pages/EmbedPage'
@@ -49,6 +50,11 @@ export default function App() {
               left" scarcity counter. Derived from on-chain paint order;
               no contract coupling. Linked from the top bar. */}
           <Route path="/founders" element={<FoundersPage />} />
+          {/* /articles: the "building tagwall" long-form series, compiled
+              in from marketing/articles/*.md at build time. Static and
+              wallet-free; the non-X landing for HN / Reddit traffic. */}
+          <Route path="/articles" element={<ArticlesPage />} />
+          <Route path="/articles/:slug" element={<ArticlesPage />} />
           {/* /competition: live referral-contest page. Prize pool (80% of
               referred-paint volume, 7.77M PLS floor) + Top Referrers board,
               both read live from on-chain Painted events. */}

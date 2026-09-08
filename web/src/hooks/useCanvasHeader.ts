@@ -1,6 +1,7 @@
-import { useChainId, useReadContracts } from 'wagmi'
+import { useReadContracts } from 'wagmi'
 
 import { canvasAddress, canvasAbi } from '../contracts/canvas'
+import { useViewerChainId, type ChainId } from '../lib/viewerChain'
 
 /**
  * Canonical batched read of the Canvas's constant header state. Used by
@@ -11,14 +12,18 @@ import { canvasAddress, canvasAbi } from '../contracts/canvas'
  * Kept as a tuple (not a named-keys object) because wagmi's
  * useReadContracts returns a positional array.
  *
- * The optional `chainId` arg pins the read to a specific chain so
- * callers (e.g. NavMetrics) can follow the viewer chain even when
- * disconnected. Without it, wagmi falls back to the first chain in
- * config which mismatched the dropdown's chain on no-wallet sessions.
+ * Defaults to the viewer chain (dropdown selection, or the wallet chain
+ * once connected) so a no-wallet visitor browsing `?chain=base` reads
+ * Base's header, and so every mounted copy of this hook builds the same
+ * query key. Earlier, callers that omitted `chainId` fell back to wagmi's
+ * first configured chain, which both mismatched the dropdown on
+ * no-wallet sessions and produced a second, identical multicall alongside
+ * the callers that did pass it.
  */
-export function useCanvasHeader(chainId?: number) {
-  const connected = useChainId()
-  const address = canvasAddress(chainId ?? connected)
+export function useCanvasHeader(chainId?: ChainId) {
+  const viewer = useViewerChainId()
+  const id = chainId ?? viewer
+  const address = canvasAddress(id)
   const calls = [
     { address, abi: canvasAbi, functionName: 'width' as const },
     { address, abi: canvasAbi, functionName: 'height' as const },
@@ -30,9 +35,11 @@ export function useCanvasHeader(chainId?: number) {
     { address, abi: canvasAbi, functionName: 'maxPixelsPerTx' as const },
     { address, abi: canvasAbi, functionName: 'linkCount' as const },
   ]
-  return useReadContracts(
-    chainId !== undefined
-      ? { contracts: calls.map((c) => ({ ...c, chainId })) }
-      : { contracts: calls },
-  )
+  return useReadContracts({
+    contracts: calls.map((c) => ({ ...c, chainId: id })),
+    // Constructor constants plus two slow-moving counters. The counters are
+    // refreshed on explicit invalidation like everything else; nothing here
+    // needs focus/mount refetching.
+    query: { staleTime: 60_000, refetchOnWindowFocus: false },
+  })
 }

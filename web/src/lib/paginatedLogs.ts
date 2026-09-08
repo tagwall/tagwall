@@ -53,6 +53,12 @@ export interface PaginatedLogsArgs<E extends AbiEvent> {
    * on chains whose RPC providers cap below the default.
    */
   chunkSize?: bigint
+  /**
+   * Optional abort signal. Checked between chunks: once aborted the walk
+   * stops and throws, so a caller whose query key changed mid-scan does
+   * not keep issuing requests for a result it will discard.
+   */
+  signal?: AbortSignal
 }
 
 /** A block range that failed even at MIN_CHUNK_SIZE and was skipped. */
@@ -81,7 +87,7 @@ export interface PaginatedLogsResult<E extends AbiEvent> {
 export async function getLogsPaginated<E extends AbiEvent>(
   args: PaginatedLogsArgs<E>,
 ): Promise<PaginatedLogsResult<E>> {
-  const { publicClient, address, event, fromBlock, toBlock } = args
+  const { publicClient, address, event, fromBlock, toBlock, signal } = args
   const initialChunk = args.chunkSize ?? DEFAULT_CHUNK_SIZE
 
   if (toBlock < fromBlock) {
@@ -100,6 +106,9 @@ export async function getLogsPaginated<E extends AbiEvent>(
     let chunkSize = initialChunk
     let succeeded = false
     while (chunkSize >= MIN_CHUNK_SIZE) {
+      if (signal?.aborted) {
+        throw new DOMException('getLogsPaginated aborted', 'AbortError')
+      }
       const chunkEnd = cursor + chunkSize - 1n > toBlock ? toBlock : cursor + chunkSize - 1n
       try {
         const logs = await publicClient.getLogs({

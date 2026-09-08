@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import type * as React from 'react'
 import { useAccount, useChainId } from 'wagmi'
 
@@ -123,7 +123,8 @@ export function AppLayout() {
                 {' '}Canvas at{' '}
                 <code title={footerCanvasAddr}>{shortenAddress(footerCanvasAddr)}</code>.
               </>
-            )}
+            )}{' '}
+            <Link to="/articles" className="site-footer-articles">how and why it was built</Link>
           </small>
           <small className="site-footer-build" title={`Built ${__BUILD_TIME__}`}>
             build {formatBuildTime(__BUILD_TIME__)} · <code>{__BUILD_COMMIT__}</code>

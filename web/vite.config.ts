@@ -48,6 +48,10 @@ export default defineConfig({
     include: ['buffer'],
   },
   server: {
+    // lib/articles.ts globs ../marketing/articles/*.md (outside the web/
+    // root). The production build inlines them; the dev server needs
+    // permission to serve files from the repo root.
+    fs: { allow: ['..'] },
     // /api/* is served by the Cloudflare Worker (web/worker/index.js) in
     // prod. In `vite dev` there's no Worker, so proxy /api to a local
     // `wrangler dev` (default below) when it's running; otherwise these

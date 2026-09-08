@@ -8,7 +8,7 @@ import { useAccount, useChains } from 'wagmi'
 import { useViewerChainId } from '../lib/viewerChain'
 
 import { ActivityFeed } from '../components/ActivityFeed'
-import { Leaderboard } from '../components/Leaderboard'
+import { Leaderboard, useLinkUrls } from '../components/Leaderboard'
 import { CompetitionBanner } from '../components/CompetitionBanner'
 import { LaunchBanner } from '../components/LaunchBanner'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
@@ -169,9 +169,9 @@ const MAX_PIXELS_PER_TX = 1_500
 // surfaced in the cost line so users see the tradeoff.
 const MAX_STAMP_SIDE = 100
 
-// Stable empty reference so useBlockTimestamps doesn't see a new array
-// identity every render while regions are still loading.
-const EMPTY_BLOCKS: bigint[] = []
+// Stable empty reference so useLinkUrls doesn't see a new array identity
+// every render while regions are still loading.
+const EMPTY_LINK_IDS: number[] = []
 
 function CanvasView({
   startingPrice,
@@ -260,8 +260,14 @@ function CanvasView({
   // forcing the draft to re-load.
   const { data: regions, isLoading: regionsLoading, isFetching: regionsFetching } = usePaintedRegions()
   // Block timestamps for the activity feed's human-readable "time since
-  // paint" column. Empty array (not undefined) keeps the hook order stable.
-  const blockTimestamps = useBlockTimestamps(regions?.map((r) => r.blockNumber) ?? EMPTY_BLOCKS)
+  // paint" column. Snapshot regions carry theirs; only newer blocks are read.
+  const blockTimestamps = useBlockTimestamps(regions)
+  // One `links()` multicall for every region on the wall, shared by the
+  // ticker, leaderboard and activity feed via `linkUrlsOverride`. Left to
+  // themselves each resolved its own subset (top-10 twice, all rows once),
+  // which was two identical-content multicalls per load.
+  const allLinkIds = useMemo(() => regions?.map((r) => r.linkId) ?? EMPTY_LINK_IDS, [regions])
+  const linkUrls = useLinkUrls(allLinkIds)
 
   const paint = usePaintDraft({
     canvasWidth,
@@ -862,7 +868,12 @@ function CanvasView({
           `usePaintedRegions` call — avoids a duplicate query that
           tripped on StrictMode in AppLayout. Self-hides when zero
           regions (fresh-chain or filtered-empty). */}
-      <LeaderboardTicker regions={regions} nativeSymbol={nativeSymbol} onRequestOutbound={setOutboundUrl} />
+      <LeaderboardTicker
+        regions={regions}
+        nativeSymbol={nativeSymbol}
+        onRequestOutbound={setOutboundUrl}
+        linkUrlsOverride={linkUrls}
+      />
       <div className="canvas-wrap">
         <div className="canvas-col">
         <div data-mobile-panel="paint" className="mobile-panel-wrap">
@@ -1122,6 +1133,7 @@ function CanvasView({
           nativeSymbol={nativeSymbol}
           chainId={chainId}
           onRequestOutbound={setOutboundUrl}
+          linkUrlsOverride={linkUrls}
         />
         <ActivityFeed
           regions={regions}
@@ -1130,6 +1142,7 @@ function CanvasView({
           nativeSymbol={nativeSymbol}
           blockTimestamps={blockTimestamps}
           onRequestOutbound={setOutboundUrl}
+          linkUrlsOverride={linkUrls}
         />
         {/* Sibling to the per-paint Leaderboard. Data source is entirely
             independent — the tweets bot computes it server-side from

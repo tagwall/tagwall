@@ -62,22 +62,28 @@ function regionKey(r: PaintedRegion): string {
  * e.g. the genesis (0,0) grey paint shows up green after an overwrite.
  *
  * Source of truth: the `paint(x, y, w, h, colors[], …)` calldata of the
- * paint transaction. We fetch each region's tx, decode the input, and
- * map `colors[dy*w + dx]` (row-major, matches the submit path in
- * usePaintDraft.ts) onto canvas coordinates. One RPC per region beats
- * w*h pixelAt reads, so this is also much cheaper than the previous
- * per-pixel multicall.
+ * paint transaction, mapped `colors[dy*w + dx]` (row-major, matches the
+ * submit path in usePaintDraft.ts) onto canvas coordinates.
+ *
+ * Regions that came from the Worker snapshot already carry exactly this
+ * decoding in `region.pixels`, so they cost nothing here. Only regions the
+ * snapshot could not decode, or that are newer than it, fetch their tx.
+ * On a warm snapshot that is zero RPC calls instead of one per row.
  */
 export function useThumbnailPixels(regions: readonly PaintedRegion[]) {
-  const publicClient = usePublicClient()
-  const address = canvasAddress(publicClient?.chain.id)
+  // Viewer chain, not wallet chain: the regions (and their tx hashes) come
+  // from whichever canvas is being browsed, which may differ from the chain
+  // a connected wallet happens to be on.
+  const chainId = useViewerChainId()
+  const publicClient = usePublicClient({ chainId })
+  const address = canvasAddress(chainId)
 
   return useQuery({
     queryKey: [
       'leaderboard-pixels',
-      publicClient?.chain.id,
+      chainId,
       address,
-      regions.map((r) => `${regionKey(r)}:${r.txHash}`).join(','),
+      regions.map((r) => `${regionKey(r)}:${r.txHash}:${r.pixels ? 's' : 'c'}`).join(','),
     ],
     enabled: !!publicClient && regions.length > 0,
     // Calldata is immutable, so once decoded the result never changes.
@@ -87,8 +93,15 @@ export function useThumbnailPixels(regions: readonly PaintedRegion[]) {
     queryFn: async (): Promise<Map<string, PixelState[]>> => {
       if (!publicClient || regions.length === 0) return new Map()
 
+      const fromSnapshot: Array<{ region: PaintedRegion; colors: ArrayLike<number> }> = []
+      const needTx: PaintedRegion[] = []
+      for (const r of regions) {
+        if (r.pixels && r.pixels.length === r.w * r.h) fromSnapshot.push({ region: r, colors: r.pixels })
+        else needTx.push(r)
+      }
+
       const txs = await Promise.all(
-        regions.map((r) =>
+        needTx.map((r) =>
           publicClient
             .getTransaction({ hash: r.txHash as Hex })
             .then(
@@ -97,21 +110,22 @@ export function useThumbnailPixels(regions: readonly PaintedRegion[]) {
             ),
         ),
       )
-
-      const map = new Map<string, PixelState[]>()
       for (const { region: r, input } of txs) {
         if (!input) continue
-        let colors: readonly number[]
         try {
           const decoded = decodeFunctionData({ abi: canvasAbi, data: input })
           if (decoded.functionName !== 'paint') continue
           // paint(x, y, w, h, colors, link, referrer, metadataHash, …)
-          colors = decoded.args[4] as readonly number[]
+          const colors = decoded.args[4] as readonly number[]
+          if (colors.length !== r.w * r.h) continue
+          fromSnapshot.push({ region: r, colors })
         } catch {
           continue
         }
-        const expected = r.w * r.h
-        if (colors.length !== expected) continue
+      }
+
+      const map = new Map<string, PixelState[]>()
+      for (const { region: r, colors } of fromSnapshot) {
         const key = regionKey(r)
         const list: PixelState[] = []
         for (let dy = 0; dy < r.h; dy++) {

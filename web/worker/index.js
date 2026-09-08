@@ -549,8 +549,8 @@ const CANVAS_BY_CHAIN = {
  * Workers caps subrequests per invocation at 50 on the free plan and 1000 on
  * Workers Paid. 45 is the safe figure; raise it toward ~900 on Paid and the
  * backfills finish in a couple of runs instead of over an hour. The budget is
- * spent on `eth_getLogs` chunks plus one `eth_getTransactionByHash` per newly
- * seen paint.
+ * spent on `eth_getLogs` chunks, one `eth_getTransactionByHash` per newly
+ * seen paint, and one `eth_getBlockByNumber` per newly seen block.
  */
 const CRON_SUBREQUEST_BUDGET = 45
 
@@ -618,6 +618,9 @@ function snapshotWorthWriting(prev, next, cfg) {
   if ((prev.regions?.length ?? 0) !== next.regions.length) return true
   const pending = (list) => (list ?? []).filter((r) => !r.pixels && !r.pixelsUnavailable).length
   if (pending(prev.regions) !== pending(next.regions)) return true
+  // A region gaining its block timestamp is observable (activity feed).
+  const noTs = (list) => (list ?? []).filter((r) => typeof r.blockTimestamp !== 'number').length
+  if (noTs(prev.regions) !== noTs(next.regions)) return true
   if (next.snapshotBlock - (prev.snapshotBlock ?? 0) >= cfg.chunk) return true
   const writtenAt = Date.parse(prev.generatedAt ?? '')
   return !(Number.isFinite(writtenAt) && Date.now() - writtenAt < SNAPSHOT_HEARTBEAT_MS)
@@ -879,6 +882,45 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
         batch[j].pixels = null
         batch[j].pixelsUnavailable = true
       }
+    }
+  }
+
+  // Resolve block timestamps for regions that lack one, newest first. One
+  // `eth_getBlockByNumber` per unique block, once, here, instead of one per
+  // block per visitor: the activity feed's "time since paint" column used to
+  // issue a getBlock for every row on every page load (26 calls on PulseChain
+  // today, scaling 1:1 with tag count up to its 120-row cap).
+  const byBlock = new Map()
+  for (const r of regions) {
+    if (typeof r.blockTimestamp === 'number') continue
+    const list = byBlock.get(r.blockNumber)
+    if (list) list.push(r)
+    else byBlock.set(r.blockNumber, [r])
+  }
+  const blocksMissingTs = [...byBlock.keys()].sort((a, b) => b - a)
+  for (let i = 0; i < blocksMissingTs.length; i += SCAN_CONCURRENCY) {
+    if (spent >= budget || Date.now() >= deadline) break
+    const batch = blocksMissingTs.slice(i, i + SCAN_CONCURRENCY)
+    spent += batch.length
+    const responses = await Promise.all(batch.map((bn) => poolFetch(
+      upstreams,
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getBlockByNumber',
+        params: ['0x' + bn.toString(16), false],
+      }),
+    )))
+    for (let j = 0; j < batch.length; j++) {
+      const res = responses[j]
+      if (!res) continue
+      let ts = null
+      try {
+        const hex = (await res.json())?.result?.timestamp
+        if (typeof hex === 'string') ts = parseInt(hex, 16)
+      } catch { /* leave null, retried next pass */ }
+      if (!Number.isFinite(ts)) continue
+      for (const r of byBlock.get(batch[j])) r.blockTimestamp = ts
     }
   }
 

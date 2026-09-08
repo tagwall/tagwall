@@ -39,6 +39,8 @@ export interface PaintedRegion {
    * still reads back with `pixelAt`.
    */
   pixels?: Uint32Array | null
+  /** Unix seconds of the block, when the snapshot supplied it. */
+  blockTimestamp?: number
 }
 
 // Explicit ABI item: keeps the getLogs return type narrow and lets us avoid
@@ -72,6 +74,7 @@ function toRegion(r: SnapshotRegion): PaintedRegion {
     pricePaid: BigInt(r.pricePaid === '0x' ? '0x0' : r.pricePaid),
     linkId: r.linkId,
     pixels: r.pixels,
+    blockTimestamp: typeof r.blockTimestamp === 'number' ? r.blockTimestamp : undefined,
   }
 }
 
@@ -82,12 +85,13 @@ function toRegion(r: SnapshotRegion): PaintedRegion {
  * reconstructs the canvas's live state.
  *
  * Pagination:
- *   - Default fromBlock is the chain's recorded deploy block from
- *     `web/src/lib/deployBlocks.ts`. Caller can override via the option.
- *     Walking from genesis on a chain with millions of blocks is the
- *     pathological case that pagination is designed to make survivable,
- *     not a happy path — operators should update deployBlocks.ts at
- *     deploy time.
+ *   - Default fromBlock is `snapshotBlock + 1` from the Worker snapshot,
+ *     falling back to the chain's recorded deploy block from
+ *     `web/src/lib/deployBlocks.ts` only once the snapshot fetch has
+ *     settled without data. Caller can override via the option.
+ *     Walking from the deploy block on a chain with millions of blocks is
+ *     the pathological case that pagination is designed to make
+ *     survivable, not a happy path.
  *   - `getLogsPaginated` splits the [fromBlock, currentBlock] range into
  *     ~9_500-block chunks so public RPCs that cap eth_getLogs at 10k
  *     don't silently fail. On per-chunk failure the chunk size is halved
@@ -114,7 +118,14 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
 
   const query = useQuery({
     queryKey: ['painted-regions', chainId, address, String(fromBlock)],
-    enabled: !!publicClient && !!address,
+    // Wait for the snapshot fetch to settle before scanning. Without this the
+    // first render saw `snapshotBlock === null`, keyed the query on the deploy
+    // block, and walked the entire chain history (77 chunks on PulseChain)
+    // while the snapshot was still in flight; the re-keyed scan from
+    // snapshotBlock+1 then ran as well and the first result was discarded.
+    // A caller-supplied fromBlock is explicit and does not wait.
+    enabled:
+      !!publicClient && !!address && (options?.fromBlock !== undefined || !snapshot.pending),
     // Regions list mutates only when a new Painted event lands, which
     // useLivePaintedRefresh invalidates explicitly. No reason to auto-
     // refetch on window focus (a common UX pattern that was churning
@@ -127,7 +138,7 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
     refetchOnMount: false,
     refetchOnReconnect: false,
     gcTime: 60_000,
-    queryFn: async (): Promise<PaintedRegion[]> => {
+    queryFn: async ({ signal }): Promise<PaintedRegion[]> => {
       if (!publicClient || !address) return []
       // Resolve toBlock once to keep all chunks anchored to the same
       // head and avoid duplicate events that could land if `latest`
@@ -143,6 +154,9 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
         // don't burn ~4 failed calls per chunk halving down from the 9.5k
         // default. undefined elsewhere → paginator default.
         chunkSize: logsChunkSizeFor(chainId),
+        // Stop walking if the key changes under us (snapshot arrived, chain
+        // switched); a superseded scan otherwise runs every chunk to the end.
+        signal,
       })
 
       // Drain ranges dropped on earlier passes. The main scan above
@@ -161,6 +175,7 @@ export function usePaintedRegions(options?: { fromBlock?: bigint }) {
           fromBlock: range.fromBlock,
           toBlock: range.toBlock,
           chunkSize: logsChunkSizeFor(chainId),
+          signal,
         })
         allLogs.push(...retry.logs)
         stillDropped.push(...retry.droppedRanges)
