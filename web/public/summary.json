@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T22:53:01Z",
+  "generatedAt": "2026-09-09T01:03:04Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -10,10 +10,6 @@
     "weeklyActivePainters": 0,
     "gini": 0.0,
     "dailyActivity": [
-      {
-        "date": "2026-09-02",
-        "paints": 0
-      },
       {
         "date": "2026-09-03",
         "paints": 0
@@ -36,6 +32,10 @@
       },
       {
         "date": "2026-09-08",
+        "paints": 0
+      },
+      {
+        "date": "2026-09-09",
         "paints": 0
       }
     ]
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 27436392,
-      "windowEndBlock": 27496872,
+      "windowStartBlock": 27437146,
+      "windowEndBlock": 27497626,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -128,10 +128,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 PLS",
       "dailyActivity": [
-        {
-          "date": "2026-09-02",
-          "paints": 0
-        },
         {
           "date": "2026-09-03",
           "paints": 0
@@ -154,6 +150,10 @@
         },
         {
           "date": "2026-09-08",
+          "paints": 0
+        },
+        {
+          "date": "2026-09-09",
           "paints": 0
         }
       ],
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 25885361,
-      "windowEndBlock": 25935761,
+      "windowStartBlock": 25886007,
+      "windowEndBlock": 25936407,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -173,10 +173,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-09-02",
-          "paints": 0
-        },
         {
           "date": "2026-09-03",
           "paints": 0
@@ -199,6 +195,10 @@
         },
         {
           "date": "2026-09-08",
+          "paints": 0
+        },
+        {
+          "date": "2026-09-09",
           "paints": 0
         }
       ],
@@ -209,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 50756981,
-      "windowEndBlock": 51059381,
+      "windowStartBlock": 50760858,
+      "windowEndBlock": 51063258,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -218,10 +218,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-09-02",
-          "paints": 0
-        },
         {
           "date": "2026-09-03",
           "paints": 0
@@ -244,6 +240,10 @@
         },
         {
           "date": "2026-09-08",
+          "paints": 0
+        },
+        {
+          "date": "2026-09-09",
           "paints": 0
         }
       ],
@@ -254,8 +254,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 44791233,
-      "windowEndBlock": 45396033,
+      "windowStartBlock": 44799117,
+      "windowEndBlock": 45403917,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -263,10 +263,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 HYPE",
       "dailyActivity": [
-        {
-          "date": "2026-09-02",
-          "paints": 0
-        },
         {
           "date": "2026-09-03",
           "paints": 0
@@ -289,6 +285,10 @@
         },
         {
           "date": "2026-09-08",
+          "paints": 0
+        },
+        {
+          "date": "2026-09-09",
           "paints": 0
         }
       ],
@@ -299,8 +299,8 @@
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 52017796,
-      "windowEndBlock": 58065796,
+      "windowStartBlock": 52094538,
+      "windowEndBlock": 58142538,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -308,10 +308,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-09-02",
-          "paints": 0
-        },
         {
           "date": "2026-09-03",
           "paints": 0
@@ -334,6 +330,10 @@
         },
         {
           "date": "2026-09-08",
+          "paints": 0
+        },
+        {
+          "date": "2026-09-09",
           "paints": 0
         }
       ],
