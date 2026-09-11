@@ -62,21 +62,47 @@ export const DIRECT_RPCS: Record<number, readonly string[]> = {
     'https://0xrpc.io/eth',
     'https://eth.api.onfinality.io/public',
   ],
-  // Base (8453). base-rpc.publicnode.com was the primary and is archive-gated
-  // now; mainnet.base.org and its developer-access sibling are both Coinbase,
-  // so tenderly and lava carry the operator diversity.
+  // Base (8453). Re-probed 2026-09-11 after both Coinbase endpoints dropped
+  // their getLogs range to 2,000 blocks; `deployBlocks.ts` now declares that
+  // cap. publicnode is first on speed (~0.4s against ~0.9s) but is
+  // archive-gated, so the two Coinbase endpoints carry the cold-scan path and
+  // are the reason Base, unlike BSC, can still be scanned from its deploy
+  // block without a snapshot.
+  //
+  // Operator diversity is thinner than it looks: two of the three are
+  // Coinbase. tenderly (answers `invalid params` to every getLogs) and
+  // lava.build (discontinued) were the diversity and are both gone. Also
+  // rejected: drpc and meowrpc (rate-limited), blastapi (400), 1rpc,
+  // nodies and thirdweb (range or response-size caps), llamarpc, blockpi,
+  // omniatech, onfinality, subquery and notadegen (no DNS, 5xx, or TLS).
   8453: [
-    'https://base.gateway.tenderly.co',
+    'https://base-rpc.publicnode.com',
     'https://mainnet.base.org',
-    'https://base.lava.build',
     'https://developer-access-mainnet.base.org',
   ],
-  // BSC (56). Bloxroute remains the only public endpoint that will serve a
-  // deploy-block `eth_getLogs` at all, and it takes 15-24s per 9.5k chunk.
-  // BSC therefore depends on the snapshot endpoint for a usable cold load;
-  // see useCanvasSnapshot. Everything else free either prunes (dataseeds,
-  // publicnode), caps at 10 blocks (blastapi), or rate-limits (drpc).
-  56: ['https://bsc.rpc.blxrbdn.com'],
+  // BSC (56). Two deep, both probed 2026-09-11. Neither has archive depth, so
+  // BSC cannot be cold-scanned from its deploy block on free public RPC at
+  // all. The canvas survives that because it scans forward from
+  // `snapshotBlock + 1` (see usePaintedRegions) and only ever asks for the
+  // tail; a mirror running without the Worker snapshot genuinely cannot serve
+  // this chain. That is a property of BSC's free tier, not of this list.
+  //
+  // bloxroute was removed on 2026-09-11. It had been the only archive-capable
+  // entry, but it now server-side times out on `eth_getLogs` after 30s while
+  // answering `eth_call` and `eth_blockNumber` instantly: the same per-method
+  // rot this pool exists to route around. Leaving it in would have cost a 30s
+  // stall every time rotation sent a log query its way, in exchange for an
+  // archive path that no longer works. It had also tightened from 9,500-block
+  // ranges to 5,000 shortly before that, which is why `deployBlocks.ts`
+  // declares a 5,000 cap for this chain.
+  //
+  // Also rejected in the same probe: every bnbchain/defibit/ninicoin dataseed
+  // ("limit exceeded" even at 5k), 1rpc and blockrazor (harder range caps),
+  // blastapi and drpc (rate-limited), llamarpc, koge and subquery (no DNS).
+  56: [
+    'https://bsc-rpc.publicnode.com',
+    'https://rpc-bsc.48.club',
+  ],
   // HyperEVM (999). The one chain with a healthy free landscape. All five
   // serve getLogs at the 1000-block chunk the chain's RPCs cap at.
   999: [

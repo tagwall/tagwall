@@ -17,8 +17,8 @@ const DAY = 86400
  * Per-chain upstream RPC pools (public endpoints, read-only).
  *
  * Mirrors web/src/lib/rpcPool.ts — keep the two in step. Every URL was probed
- * on 2026-08-01 for correct chainId, CORS, and a real `eth_getLogs` at the
- * deploy-block window. The previous single-URL map here had rotted:
+ * on 2026-08-01, and the BSC entries again on 2026-09-11, for correct
+ * chainId, CORS, and a real `eth_getLogs`. The previous single-URL map here had rotted:
  * eth.llamarpc.com now answers Cloudflare 521, and bsc-dataseed.binance.org
  * prunes logs, so /api/tag-image was already failing on Ethereum and BSC.
  *
@@ -34,13 +34,20 @@ const RPC_POOL = {
     'https://0xrpc.io/eth',
     'https://eth.api.onfinality.io/public',
   ],
+  // Base re-probed 2026-09-11: tenderly and lava.build are gone, both
+  // Coinbase endpoints now cap getLogs at 2,000 blocks. See rpcPool.ts.
   '8453': [
-    'https://base.gateway.tenderly.co',
+    'https://base-rpc.publicnode.com',
     'https://mainnet.base.org',
-    'https://base.lava.build',
     'https://developer-access-mainnet.base.org',
   ],
-  '56': ['https://bsc.rpc.blxrbdn.com'],
+  // BSC re-probed 2026-09-11: bloxroute now times out server-side on
+  // eth_getLogs after 30s while serving eth_call fine, so it is out. Neither
+  // survivor has archive depth. See the pool comment in rpcPool.ts.
+  '56': [
+    'https://bsc-rpc.publicnode.com',
+    'https://rpc-bsc.48.club',
+  ],
   '999': [
     'https://rpc.hypurrscan.io',
     'https://hyperliquid.rpc.blxrbdn.com',

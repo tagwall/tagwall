@@ -8,8 +8,10 @@
  *   1. `eth_chainId` matches the chain we think we are dialling
  *   2. `Access-Control-Allow-Origin` admits tagwall.io (browsers dial these
  *      directly, so a CORS-less endpoint is useless no matter how fast)
- *   3. `eth_getLogs` succeeds over the deploy-block window, at the chunk size
- *      deployBlocks.ts actually uses for that chain
+ *   3. `eth_getLogs` succeeds over a recent window at the chunk size
+ *      deployBlocks.ts actually uses for that chain (the live path), and,
+ *      reported separately, over the deploy-block window (cold scan, which
+ *      only a mirror running without the Worker snapshot depends on)
  *   4. it answers inside the timeout
  *
  * Point 3 is the one that matters and the one that is easy to miss. The
@@ -43,14 +45,14 @@ const CHAINS = {
     'https://0xrpc.io/eth',
     'https://eth.api.onfinality.io/public',
   ]},
-  base: { id: 8453, address: V1, deployBlock: 46399049, chunk: 9500, urls: [
-    'https://base.gateway.tenderly.co',
+  base: { id: 8453, address: V1, deployBlock: 46399049, chunk: 2000, urls: [
+    'https://base-rpc.publicnode.com',
     'https://mainnet.base.org',
-    'https://base.lava.build',
     'https://developer-access-mainnet.base.org',
   ]},
-  bsc: { id: 56, address: V1, deployBlock: 100071283, chunk: 9500, urls: [
-    'https://bsc.rpc.blxrbdn.com',
+  bsc: { id: 56, address: V1, deployBlock: 100071283, chunk: 5000, urls: [
+    'https://bsc-rpc.publicnode.com',
+    'https://rpc-bsc.48.club',
   ]},
   hyperevm: { id: 999, address: V1_1, deployBlock: 36585579, chunk: 1000, urls: [
     'https://rpc.hypurrscan.io',
@@ -64,9 +66,11 @@ const CHAINS = {
   ]},
 }
 
-/** BSC's only usable endpoint answers a 9.5k window in 15-24s, so the timeout
- *  has to clear that or the probe reports a false failure. */
-const TIMEOUT_MS = 35_000
+/** Generous, because a slow endpoint is still a working one and a false
+ *  failure here sends someone hunting a problem that does not exist. Every
+ *  endpoint currently in the table answers in under two seconds; the headroom
+ *  is for the next one that does not. */
+const TIMEOUT_MS = 30_000
 
 async function rpc(url, body) {
   const started = Date.now()
@@ -100,17 +104,52 @@ async function probe(cfg, url) {
     return { url, ok: false, why: `no CORS for tagwall.io (ACAO=${id.cors})` }
   }
 
+  // Two different questions, and they have different answers on several
+  // chains, so ask both rather than collapsing them into one verdict.
+  //
+  //   live    getLogs over a *recent* window at the chain's chunk size. This
+  //           is what the canvas actually does: usePaintedRegions scans from
+  //           `snapshotBlock + 1`, so the live path only asks for the tail.
+  //           An endpoint that fails this is useless to the app.
+  //   archive getLogs over the *deploy-block* window. Only a deployment with
+  //           no Worker snapshot needs this, i.e. a self-hosted mirror doing
+  //           a cold scan. Failing it is a documented limitation on some
+  //           chains, not a broken endpoint.
+  const head = await rpc(url, { jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] })
+  if (head.fail) return { url, ok: false, why: head.fail }
+  if (head.json?.error) return { url, ok: false, why: errText(head.json.error) }
+  const headBlock = parseInt(head.json.result, 16)
+
+  // Back off from head before asking for the window. Anchoring on the head
+  // block races the node's own view: an endpoint that has just reported a
+  // height can still answer "block range extends beyond current head" for
+  // that same block a moment later.
+  const tip = headBlock - 10
+  const live = await getLogsWindow(url, cfg, tip - (cfg.chunk - 1), tip)
+  if (live.why) return { url, ok: false, why: `live getLogs: ${live.why}` }
+
+  const archive = await getLogsWindow(url, cfg, cfg.deployBlock, cfg.deployBlock + cfg.chunk - 1)
+
+  return {
+    url,
+    ok: true,
+    archive: !archive.why,
+    why: archive.why ? `live ok; no archive (${archive.why})` : `${archive.count} logs, archive ok`,
+    ms: live.ms,
+  }
+}
+
+async function getLogsWindow(url, cfg, fromBlock, toBlock) {
   const logs = await rpc(url, { jsonrpc: '2.0', id: 1, method: 'eth_getLogs', params: [{
     address: cfg.address,
     topics: [PAINTED_TOPIC],
-    fromBlock: '0x' + cfg.deployBlock.toString(16),
-    toBlock: '0x' + (cfg.deployBlock + cfg.chunk - 1).toString(16),
+    fromBlock: '0x' + Math.max(0, fromBlock).toString(16),
+    toBlock: '0x' + toBlock.toString(16),
   }] })
-  if (logs.fail) return { url, ok: false, why: `getLogs: ${logs.fail}` }
-  if (logs.json?.error) return { url, ok: false, why: `getLogs: ${errText(logs.json.error)}` }
-  if (!Array.isArray(logs.json?.result)) return { url, ok: false, why: 'getLogs: no result array' }
-
-  return { url, ok: true, why: `${logs.json.result.length} logs`, ms: logs.ms }
+  if (logs.fail) return { why: logs.fail }
+  if (logs.json?.error) return { why: errText(logs.json.error) }
+  if (!Array.isArray(logs.json?.result)) return { why: 'no result array' }
+  return { count: logs.json.result.length, ms: logs.ms }
 }
 
 function errText(error) {
@@ -138,8 +177,13 @@ for (const [name, cfg] of Object.entries(selected)) {
     console.log(`  ${mark} ${ms}  ${r.url.padEnd(46)} ${r.why}`)
   }
   const passing = results.filter((r) => r.ok).length
+  const archiving = results.filter((r) => r.archive).length
   const note = passing < 2 ? '  <- no redundancy, see the pool comment in rpcPool.ts' : ''
-  console.log(`  ${passing}/${results.length} usable${note}`)
+  console.log(`  ${passing}/${results.length} usable for the live scan${note}`)
+  if (passing > 0 && archiving === 0) {
+    console.log('       none can cold-scan from the deploy block: fine for tagwall.io,')
+    console.log('       which scans from the snapshot, but a mirror without one is stuck')
+  }
 }
 
 console.log(failures ? `\n${failures} endpoint(s) failed` : '\nall configured endpoints usable')

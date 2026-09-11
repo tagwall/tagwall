@@ -72,6 +72,19 @@ export function deployBlockFor(chainId: number | undefined): bigint {
  */
 const LOGS_CHUNK_BY_CHAIN: Record<number, bigint> = {
   [HYPEREVM]: 1_000n,
+  // BSC (56): every free endpoint that still serves getLogs caps the range at
+  // 5,000 blocks. Bloxroute tightened from 9,500 to 5,000 some time before
+  // 2026-09-11. Without this entry the paginator starts at its 9,500 default
+  // and burns a failed call plus a halving on every chunk, which on a chain
+  // this fast is a lot of wasted round trips. Declaring the real cap costs
+  // nothing: the live scan starts from snapshotBlock + 1 and spans minutes.
+  [BSC]: 5_000n,
+  // Base (8453): both Coinbase endpoints answer "eth_getLogs is limited to a
+  // 2,000 range" as of 2026-09-11; they accepted the 9,500 default as
+  // recently as 7 Sep. Same reasoning as BSC, and the same cost without it:
+  // the paginator would fail and halve three times per chunk before landing
+  // under the cap.
+  [BASE]: 2_000n,
   // Robinhood mints ~10 blocks/s (~6M blocks/week), so the paginator's
   // ~9.5k default would cost ~630 getLogs calls per week of history. The
   // official RPC accepted a 6M-block range without complaint when probed
