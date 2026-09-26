@@ -23,9 +23,14 @@ contracts/out/
 contracts/broadcast/
 contracts/.env
 
-# Node / frontend
-node_modules/
-dist/
+# Node / frontend. No trailing slashes: a trailing slash matches directories
+# only, and `web/node_modules` on the dev machine is a symlink to
+# `node_modules.nosync` (the iCloud keep-local workaround), which a slashed
+# pattern skips. It is currently covered by web/.gitignore; this makes the
+# root rule hold on its own for any future package directory.
+node_modules
+node_modules.nosync
+dist
 .env
 .env.local
 

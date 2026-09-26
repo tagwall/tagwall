@@ -34,9 +34,13 @@ const RPC_POOL = {
     'https://0xrpc.io/eth',
     'https://eth.api.onfinality.io/public',
   ],
-  // Base re-probed 2026-09-11: tenderly and lava.build are gone, both
-  // Coinbase endpoints now cap getLogs at 2,000 blocks. See rpcPool.ts.
+  // Base: both Coinbase endpoints answer 429 to Cloudflare's egress and
+  // publicnode is slow and archive-gated from a Worker, so tenderly goes first.
+  // It serves eth_getLogs up to 1,000 blocks (the frontend's 2,000 chunk is
+  // too wide for it, which is why the frontend pool rejected it). Probed from
+  // a Worker 2026-09-26.
   '8453': [
+    'https://base.gateway.tenderly.co',
     'https://base-rpc.publicnode.com',
     'https://mainnet.base.org',
     'https://developer-access-mainnet.base.org',
@@ -55,7 +59,11 @@ const RPC_POOL = {
     'https://hyperliquid-json-rpc.stakely.io',
     'https://rpc.hyperlend.finance',
   ],
-  '4663': ['https://rpc.mainnet.chain.robinhood.com'],
+  // Robinhood: the official RPC rate-limits Cloudflare's shared egress (429 on
+  // eth_call and eth_getLogs from a Worker, fine from a browser), so ordofi
+  // goes first. robinhood-rpc.publicnode.com serves eth_call but 429s getLogs;
+  // drpc and arrowrpc were unusable from a Worker. Probed 2026-09-26.
+  '4663': ['https://rpc.ordofi.network', 'https://rpc.mainnet.chain.robinhood.com'],
   '943': ['https://rpc-testnet-pulsechain.g4mm4.io'],
 }
 
@@ -540,15 +548,29 @@ function concat(arrays) {
 const PAINTED_TOPIC = '0x5d25316e707ac9e251fa4433187862ac94eb0cae501474a1473bee69e546f899'
 
 /** Canvas address and deploy block per chain. Mirrors web/src/contracts/canvas.ts
- *  and web/src/lib/deployBlocks.ts. */
+ *  and web/src/lib/deployBlocks.ts.
+ *
+ *  `chunk` is the widest `eth_getLogs` range the upstreams this Worker can
+ *  actually reach will serve, which is not always what the frontend uses.
+ *  BSC (48.club) caps at 5,000 and Base at 2,000; both were tightened in the
+ *  frontend on 2026-09-11 but not here, so every backfill chunk on those two
+ *  chains failed from then on. Base is 1,000 here because the only upstream a
+ *  Worker can reach reliably (tenderly) caps there. Robinhood's frontend chunk
+ *  is 500k against the official RPC, but that RPC answers 429 to Cloudflare's
+ *  egress on everything except eth_blockNumber, so the Worker scans through
+ *  ordofi, which caps at 10,000. Measured from a Worker on 2026-09-26. */
 const CANVAS_BY_CHAIN = {
   '1': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 25161961, chunk: 9500 },
-  '56': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 100071283, chunk: 9500 },
+  '56': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 100071283, chunk: 5000 },
   '369': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 26606708, chunk: 9500 },
-  '8453': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 46399049, chunk: 9500 },
+  '8453': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 46399049, chunk: 1000 },
   '999': { address: '0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4', deployBlock: 36585579, chunk: 1000 },
-  '4663': { address: '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C', deployBlock: 7648180, chunk: 500000 },
+  '4663': { address: '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C', deployBlock: 7648180, chunk: 10000 },
 }
+
+/** stampCount() selector. The contract increments it exactly once per
+ *  successful paint, in the same call that emits Painted. */
+const STAMP_COUNT_SELECTOR = '0x3974428f'
 
 /**
  * Subrequest budget for one cron invocation, shared across all chains.
@@ -816,6 +838,25 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
   const seen = new Set(regions.map((r) => `${r.txHash}:${r.logIndex}`))
 
   let scannedTo = state?.snapshotBlock ?? cfg.deployBlock - 1
+
+  // Skip a paint-free backlog instead of walking it.
+  //
+  // A chain that falls far behind can become unscannable: BSC's only usable
+  // endpoint has pruned the blocks its backlog starts in ("header not found"),
+  // so no amount of retrying would ever finish. But the contract counts its
+  // own paints, and that count is readable from any node at head, archive or
+  // not. If it equals the regions we already hold, nothing was painted in the
+  // gap, so the scan can resume one chunk short of head. A mismatch means a
+  // paint is in there somewhere and the gap is walked as before.
+  if (head - scannedTo > cfg.chunk * SCAN_CONCURRENCY) {
+    const count = await stampCount(cfg.address, upstreams)
+    spent += 1
+    const resumeAt = head - cfg.chunk
+    if (count !== null && count === regions.length && resumeAt > cursor) {
+      cursor = resumeAt
+      scannedTo = resumeAt - 1
+    }
+  }
   // Scan in concurrent batches. The batch advances `scannedTo` only as far as
   // its longest unbroken run of successes, so a failure mid-batch rewinds the
   // cursor to just before it rather than leaving a hole that nothing revisits.
@@ -951,6 +992,32 @@ async function advanceSnapshot(chainId, state, env, budget, deadline = Date.now(
     await env.SNAPSHOTS.put(`snapshot:${chainId}`, JSON.stringify(payload))
   }
   return spent
+}
+
+/** The canvas's `stampCount()` at the latest block, or null on any failure.
+ *  Read at `latest` rather than a pinned block so a non-archive node that has
+ *  already pruned the state at our recorded head can still answer. A node a
+ *  few blocks behind could miss a paint that just landed, which is why the
+ *  skip in advanceSnapshot resumes a full chunk short of head: anything that
+ *  recent is inside the window it rescans anyway. */
+async function stampCount(address, upstreams) {
+  const res = await poolFetch(
+    upstreams,
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_call',
+      params: [{ to: address, data: STAMP_COUNT_SELECTOR }, 'latest'],
+    }),
+  )
+  if (!res) return null
+  try {
+    const result = (await res.json())?.result
+    if (typeof result !== 'string' || !/^0x[0-9a-fA-F]{1,64}$/.test(result)) return null
+    return Number(BigInt(result))
+  } catch {
+    return null
+  }
 }
 
 /** Painted log -> region record. Data layout is the non-indexed tail:
