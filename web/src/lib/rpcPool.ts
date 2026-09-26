@@ -62,25 +62,23 @@ export const DIRECT_RPCS: Record<number, readonly string[]> = {
     'https://0xrpc.io/eth',
     'https://eth.api.onfinality.io/public',
   ],
-  // Base (8453). Re-probed 2026-09-11 after both Coinbase endpoints dropped
-  // their getLogs range to 2,000 blocks; `deployBlocks.ts` now declares that
-  // cap. publicnode is first on speed (~0.4s against ~0.9s) but is
-  // archive-gated, so the two Coinbase endpoints carry the cold-scan path and
-  // are the reason Base, unlike BSC, can still be scanned from its deploy
-  // block without a snapshot.
+  // Base (8453). Re-probed 2026-09-26. publicnode is out: from a browser it
+  // hung 16-26s per request before failing over, which made the Base wall
+  // take ~40s to appear. It is also archive-gated. tenderly is back in: it was
+  // rejected on 2026-09-11 for answering `invalid params` to getLogs, but that
+  // was the 2,000-block range; it serves 1,000-block windows in ~300ms, and
+  // `deployBlocks.ts` now declares that cap for Base. That also keeps a
+  // non-Coinbase operator in the list.
   //
-  // Operator diversity is thinner than it looks: two of the three are
-  // Coinbase. tenderly (answers `invalid params` to every getLogs) and
-  // lava.build (discontinued) were the diversity and are both gone. Also
-  // rejected: drpc and meowrpc (rate-limited), blastapi (400), 1rpc,
-  // nodies and thirdweb (range or response-size caps), llamarpc, blockpi,
-  // omniatech, onfinality, subquery and notadegen (no DNS, 5xx, or TLS).
+  // Also rejected on 2026-09-26: nodies (50-block cap), blastapi (10-block
+  // cap), baseazul (100-block cap), drpc, meowrpc, onfinality, omniatech and
+  // zan (rate-limited), llamarpc and blockpi (5xx), lava.build (discontinued).
   8453: [
-    'https://base-rpc.publicnode.com',
     'https://mainnet.base.org',
     'https://developer-access-mainnet.base.org',
+    'https://base.gateway.tenderly.co',
   ],
-  // BSC (56). Two deep, both probed 2026-09-11. Neither has archive depth, so
+  // BSC (56). Probed 2026-09-11. No endpoint has archive depth, so
   // BSC cannot be cold-scanned from its deploy block on free public RPC at
   // all. The canvas survives that because it scans forward from
   // `snapshotBlock + 1` (see usePaintedRegions) and only ever asks for the
@@ -99,10 +97,11 @@ export const DIRECT_RPCS: Record<number, readonly string[]> = {
   // Also rejected in the same probe: every bnbchain/defibit/ninicoin dataseed
   // ("limit exceeded" even at 5k), 1rpc and blockrazor (harder range caps),
   // blastapi and drpc (rate-limited), llamarpc, koge and subquery (no DNS).
-  56: [
-    'https://bsc-rpc.publicnode.com',
-    'https://rpc-bsc.48.club',
-  ],
+  //
+  // publicnode removed 2026-09-26: from a browser it hung for the full 30s
+  // timeout on every call before 48.club answered in ~200ms, so the BSC wall
+  // took ~38s to appear. One direct endpoint plus the Worker proxy.
+  56: ['https://rpc-bsc.48.club'],
   // HyperEVM (999). The one chain with a healthy free landscape. All five
   // serve getLogs at the 1000-block chunk the chain's RPCs cap at.
   999: [

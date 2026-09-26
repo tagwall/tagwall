@@ -81,10 +81,11 @@ const LOGS_CHUNK_BY_CHAIN: Record<number, bigint> = {
   [BSC]: 5_000n,
   // Base (8453): both Coinbase endpoints answer "eth_getLogs is limited to a
   // 2,000 range" as of 2026-09-11; they accepted the 9,500 default as
-  // recently as 7 Sep. Same reasoning as BSC, and the same cost without it:
-  // the paginator would fail and halve three times per chunk before landing
-  // under the cap.
-  [BASE]: 2_000n,
+  // recently as 7 Sep. tenderly, in the direct pool and first in the Worker's
+  // pool (Coinbase 429s Cloudflare), caps at 1,000, so that is the chunk
+  // (2026-09-26). The live scan starts from snapshotBlock + 1, so the smaller
+  // chunk costs nothing in practice.
+  [BASE]: 1_000n,
   // Robinhood mints ~10 blocks/s (~6M blocks/week), so the paginator's
   // ~9.5k default would cost ~630 getLogs calls per week of history. The
   // official RPC accepted a 6M-block range without complaint when probed

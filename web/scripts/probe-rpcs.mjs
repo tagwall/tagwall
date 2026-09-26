@@ -45,13 +45,12 @@ const CHAINS = {
     'https://0xrpc.io/eth',
     'https://eth.api.onfinality.io/public',
   ]},
-  base: { id: 8453, address: V1, deployBlock: 46399049, chunk: 2000, urls: [
-    'https://base-rpc.publicnode.com',
+  base: { id: 8453, address: V1, deployBlock: 46399049, chunk: 1000, urls: [
     'https://mainnet.base.org',
     'https://developer-access-mainnet.base.org',
+    'https://base.gateway.tenderly.co',
   ]},
   bsc: { id: 56, address: V1, deployBlock: 100071283, chunk: 5000, urls: [
-    'https://bsc-rpc.publicnode.com',
     'https://rpc-bsc.48.club',
   ]},
   hyperevm: { id: 999, address: V1_1, deployBlock: 36585579, chunk: 1000, urls: [

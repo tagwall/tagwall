@@ -35,23 +35,22 @@ const RPC_POOL = {
     'https://eth.api.onfinality.io/public',
   ],
   // Base: both Coinbase endpoints answer 429 to Cloudflare's egress and
-  // publicnode is slow and archive-gated from a Worker, so tenderly goes first.
+  // publicnode is slow and archive-gated (dropped 2026-09-26), so tenderly goes first.
   // It serves eth_getLogs up to 1,000 blocks (the frontend's 2,000 chunk is
   // too wide for it, which is why the frontend pool rejected it). Probed from
   // a Worker 2026-09-26.
   '8453': [
     'https://base.gateway.tenderly.co',
-    'https://base-rpc.publicnode.com',
     'https://mainnet.base.org',
     'https://developer-access-mainnet.base.org',
   ],
   // BSC re-probed 2026-09-11: bloxroute now times out server-side on
   // eth_getLogs after 30s while serving eth_call fine, so it is out. Neither
   // survivor has archive depth. See the pool comment in rpcPool.ts.
-  '56': [
-    'https://bsc-rpc.publicnode.com',
-    'https://rpc-bsc.48.club',
-  ],
+  // publicnode dropped 2026-09-26: it timed out (25s) from a Worker and,
+  // because poolFetch rotates its starting upstream, was first on every
+  // other call.
+  '56': ['https://rpc-bsc.48.club'],
   '999': [
     'https://rpc.hypurrscan.io',
     'https://hyperliquid.rpc.blxrbdn.com',
