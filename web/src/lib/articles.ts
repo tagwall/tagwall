@@ -1,6 +1,8 @@
 /**
  * The "building tagwall" article series, imported at build time from
- * marketing/articles/*.md (Vite `?raw` glob, no runtime fetch). Each file is:
+ * web/content/articles/*.md (Vite `?raw` glob, no runtime fetch). Those are
+ * trimmed copies of marketing/articles/*.md made by scripts/sync-articles.mjs,
+ * because the public repo ships web/ only. Each file is:
  *
  *   # title
  *   **subtitle:** ...  **read time:** ...  **cover spec:** ...  **series:** ...
@@ -30,7 +32,7 @@ export interface Article {
   body: string
 }
 
-const RAW = import.meta.glob('../../../marketing/articles/*.md', {
+const RAW = import.meta.glob('../../content/articles/*.md', {
   query: '?raw',
   import: 'default',
   eager: true,
