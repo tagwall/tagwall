@@ -8,6 +8,7 @@ import { OPS_CHAINS, useCrossChainLive, type ChainLive } from '../hooks/useCross
 import { useSolanaCanvas } from '../hooks/useSolanaCanvas'
 import { useAllChainsCoverage, type ChainCoverage } from '../hooks/useAllChainsCoverage'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
+import { OpsLinkClicks } from '../components/OpsLinkClicks'
 
 /**
  * /ops: operator cross-chain stats dashboard.
@@ -37,6 +38,10 @@ import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
  *      the expensive metric (one eth_call can't return distinct pixels), so
  *      it lives only on this operator page, runs once per session, and each
  *      chain fails soft to an offline row. See the hook for the rationale.
+ *
+ *   5. /api/ops/clicks: outbound link click counts from the Worker's D1
+ *      store. The only private data on the page; it needs the OPS_TOKEN
+ *      admin key (components/OpsLinkClicks.tsx).
  *
  * The 7-day trend stands in for cross-chain momentum.
  */
@@ -386,7 +391,7 @@ export default function OpsStatsPage() {
         </p>
         <p className="share-page-note">
           Public route, unlinked from nav. Everything here is derivable from public
-          chain state, so there's nothing to gate, but it's an operator tool.
+          chain state, except link clicks, which need the admin key.
         </p>
       </header>
 
@@ -448,6 +453,8 @@ export default function OpsStatsPage() {
       <SolanaOpsCards />
 
       {/* Cross-chain daily trend (the operator-chosen trend chart). */}
+      <OpsLinkClicks />
+
       <section className="ops-section ops-trend" aria-label="Daily activity trend">
         <header className="ops-section-head">
           <h2>Daily activity · last {summary?.windowDays ?? 7} days</h2>

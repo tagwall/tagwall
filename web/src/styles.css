@@ -4497,6 +4497,24 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 }
 .ops-kpi-sub { margin-top: 2px; font-size: 12px; color: var(--text-dim); }
 
+/* Link clicks: admin key form */
+.ops-clicks-key { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.ops-clicks-key-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ops-clicks-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.ops-section .ops-kpis { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 720px) {
+  .ops-section .ops-kpis { grid-template-columns: 1fr; }
+}
+
 /* Generic section block */
 .ops-section {
   margin-top: 28px;

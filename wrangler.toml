@@ -36,6 +36,19 @@ not_found_handling = "single-page-application"
 binding = "SNAPSHOTS"
 id = "2a4a62f0a5e94d92839be683e4d81443"
 
+# Outbound link click counts, written by POST /api/click and read by the
+# operator-only /api/ops/clicks (needs the OPS_TOKEN Worker secret, set with
+# `wrangler secret put OPS_TOKEN`). Per-day counts per link, nothing about the
+# viewer.
+#
+# Mirror operators: like the KV id above, this database lives in the
+# tagwall.io account. `wrangler d1 create <name>` and paste your id, or drop
+# the block: clicks are then simply not counted.
+[[d1_databases]]
+binding = "CLICKS"
+database_name = "tagwall-clicks"
+database_id = "9a4ab6b9-90b3-4058-ae3d-d710c785e8ea"
+
 # Snapshot builder. Each run advances every chain's scan by a bounded number
 # of subrequests, so a cold backfill converges over successive runs rather
 # than blowing the per-invocation subrequest cap.

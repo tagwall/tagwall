@@ -8,6 +8,8 @@
  *   - /api/tag-image  renders a painted tag (decoded from its paint tx
  *                     calldata) as an upscaled PNG, used to embed the image
  *                     in the paint-alert GitHub Discussions.
+ *   - /api/click      counts a confirmed outbound link click (see the click
+ *                     counter section at the end of this file).
  */
 
 const CORS_HEADERS = { 'access-control-allow-origin': '*' }
@@ -125,6 +127,12 @@ export default {
     }
     if (url.pathname === '/api/canvas/status') {
       return handleSnapshotStatus(env)
+    }
+    if (url.pathname === '/api/click') {
+      return handleClick(request, env)
+    }
+    if (url.pathname === '/api/ops/clicks') {
+      return handleClickStats(request, env)
     }
     // Everything else: static assets (with SPA not-found handling).
     return env.ASSETS.fetch(request)
@@ -1065,4 +1073,146 @@ function base64FromUint32(colors) {
     binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
   }
   return btoa(binary)
+}
+
+/* ------------------------------------------------------------------ *
+ * Outbound link click counter
+ *
+ * POST /api/click        {"chain": "369", "url": "https://..."} -> 204
+ * GET  /api/ops/clicks   operator only, Authorization: Bearer <OPS_TOKEN>
+ *
+ * The outbound-link interstitial sends one beacon when a viewer confirms
+ * "Proceed". What's stored is a per-day count for each (chain, link): no IP,
+ * no cookie, no user agent, nothing about the viewer. The counts aren't
+ * public; the read endpoint wants the OPS_TOKEN Worker secret, and answers
+ * 503 until one is set.
+ *
+ * Nothing checks that a URL is really painted on that chain, so anyone who
+ * scripts the POST can inflate a count. Fine for an internal signal of which
+ * tags get clicked; not something to quote as an audited number.
+ *
+ * Mirror operators: the CLICKS binding points at a D1 database in the
+ * tagwall.io account. Create your own with `wrangler d1 create <name>` and
+ * paste its id into wrangler.toml, or drop the binding: the beacon then gets
+ * a 204 and nothing is counted.
+ * ------------------------------------------------------------------ */
+
+/** Chains a click can be attributed to: the EVM canvases plus Solana. */
+const CLICK_CHAINS = new Set([...Object.keys(CANVAS_BY_CHAIN), '943', 'solana'])
+/** Same cap the contract puts on a link. */
+const MAX_CLICK_URL = 256
+
+const NO_STORE = { 'cache-control': 'no-store' }
+
+let clicksSchemaReady = false
+async function ensureClicksSchema(db) {
+  if (clicksSchemaReady) return
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS clicks (
+         day TEXT NOT NULL,
+         chain TEXT NOT NULL,
+         url TEXT NOT NULL,
+         n INTEGER NOT NULL DEFAULT 0,
+         PRIMARY KEY (day, chain, url)
+       )`,
+    )
+    .run()
+  clicksSchemaReady = true
+}
+
+async function handleClick(request, env) {
+  if (request.method !== 'POST') return new Response(null, { status: 405, headers: NO_STORE })
+  // The beacon is fire-and-forget, so every outcome below is a bare 204: a
+  // malformed or uncountable click isn't worth telling the browser about.
+  const done = new Response(null, { status: 204, headers: NO_STORE })
+  if (!env.CLICKS) return done
+  const text = await request.text()
+  if (text.length > 1024) return done
+  const body = safeParse(text)
+  const chain = typeof body?.chain === 'string' ? body.chain : ''
+  const link = typeof body?.url === 'string' ? body.url : ''
+  if (!CLICK_CHAINS.has(chain) || !link || link.length > MAX_CLICK_URL) return done
+  try {
+    if (new URL(link).protocol !== 'https:') return done
+  } catch {
+    return done
+  }
+  const day = new Date().toISOString().slice(0, 10)
+  try {
+    await ensureClicksSchema(env.CLICKS)
+    await env.CLICKS
+      .prepare(
+        `INSERT INTO clicks (day, chain, url, n) VALUES (?1, ?2, ?3, 1)
+         ON CONFLICT (day, chain, url) DO UPDATE SET n = n + 1`,
+      )
+      .bind(day, chain, link)
+      .run()
+  } catch (err) {
+    console.error('click count failed', err)
+  }
+  return done
+}
+
+/** Constant-time string compare, so the token can't be probed byte by byte. */
+function sameToken(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+function opsJson(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', ...NO_STORE },
+  })
+}
+
+async function handleClickStats(request, env) {
+  if (!env.OPS_TOKEN) return opsJson({ error: 'OPS_TOKEN is not set on this Worker' }, 503)
+  const auth = request.headers.get('authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  if (!sameToken(token, env.OPS_TOKEN)) return opsJson({ error: 'unauthorized' }, 401)
+  if (!env.CLICKS) return opsJson({ error: 'click store not bound' }, 503)
+
+  const dayAgo = (n) => new Date(Date.now() - n * DAY * 1000).toISOString().slice(0, 10)
+  const since7 = dayAgo(6)
+  const since30 = dayAgo(29)
+  await ensureClicksSchema(env.CLICKS)
+  const [links, daily, totals] = await env.CLICKS.batch([
+    env.CLICKS
+      .prepare(
+        `SELECT chain, url,
+                SUM(n) AS total,
+                SUM(CASE WHEN day >= ?1 THEN n ELSE 0 END) AS last7,
+                SUM(CASE WHEN day >= ?2 THEN n ELSE 0 END) AS last30,
+                MIN(day) AS firstDay, MAX(day) AS lastDay
+           FROM clicks GROUP BY chain, url
+          ORDER BY last30 DESC, total DESC LIMIT 500`,
+      )
+      .bind(since7, since30),
+    env.CLICKS
+      .prepare(`SELECT day, SUM(n) AS clicks FROM clicks WHERE day >= ?1 GROUP BY day ORDER BY day`)
+      .bind(since30),
+    env.CLICKS
+      .prepare(
+        `SELECT SUM(n) AS total,
+                SUM(CASE WHEN day >= ?1 THEN n ELSE 0 END) AS last7,
+                SUM(CASE WHEN day >= ?2 THEN n ELSE 0 END) AS last30,
+                MIN(day) AS since
+           FROM clicks`,
+      )
+      .bind(since7, since30),
+  ])
+  const t = totals.results[0] ?? {}
+  return opsJson({
+    generatedAt: new Date().toISOString(),
+    since: t.since ?? null,
+    total: t.total ?? 0,
+    last7: t.last7 ?? 0,
+    last30: t.last30 ?? 0,
+    daily: daily.results,
+    links: links.results,
+  })
 }

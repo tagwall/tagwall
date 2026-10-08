@@ -3,6 +3,8 @@ import { keccak256, stringToBytes } from 'viem'
 
 import { useStaticFilterList } from '../hooks/useStaticFilterList'
 import { useUrlSafety } from '../hooks/useUrlSafety'
+import { useActiveChain } from '../lib/activeChain'
+import { recordLinkClick } from '../lib/clicks'
 
 interface Props {
   url: string | null
@@ -51,6 +53,7 @@ export function OutboundLinkModal({ url, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [url, onClose])
 
+  const activeChain = useActiveChain()
   const protocolSafe = url ? isSafeHttpsUrl(url) : false
   // Only consult the DoH check for protocol-passable URLs; non-https
   // is already rejected and there's nothing to look up.
@@ -90,6 +93,9 @@ export function OutboundLinkModal({ url, onClose }: Props) {
       onClose()
       return
     }
+    // Counted only here, after the viewer confirms: an aggregate per-day
+    // count for the link, nothing about the viewer (lib/clicks.ts).
+    recordLinkClick(activeChain, url)
     // rel=noopener strips the opener reference; noreferrer also strips the
     // Referer header so tagwall isn't auto-reported to the destination.
     window.open(url, '_blank', 'noopener,noreferrer')
