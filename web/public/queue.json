@@ -1,23 +1,23 @@
 {
-  "generatedAt": "2026-10-07T11:17:09Z",
+  "generatedAt": "2026-10-08T02:32:13Z",
   "entries": [
     {
-      "id": "scarcity-369-2026-10-07",
+      "id": "scarcity-369-2026-10-08",
       "kind": "scarcity",
       "chain": "PulseChain",
       "chainId": 369,
-      "queuedAt": "2026-10-07T11:17:09Z",
+      "queuedAt": "2026-10-08T02:32:13Z",
       "tier": "genesis",
       "label": "97 of 100 Genesis left",
       "tweet": "97 of 100 Genesis founder slots left on PulseChain. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
       "foundersUrl": "https://tagwall.io/founders"
     },
     {
-      "id": "scarcity-4663-2026-10-07",
+      "id": "scarcity-4663-2026-10-08",
       "kind": "scarcity",
       "chain": "Robinhood",
       "chainId": 4663,
-      "queuedAt": "2026-10-07T04:28:04Z",
+      "queuedAt": "2026-10-08T02:32:13Z",
       "tier": "genesis",
       "label": "98 of 100 Genesis left",
       "tweet": "98 of 100 Genesis founder slots left on Robinhood. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
