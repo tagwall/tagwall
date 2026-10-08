@@ -10,7 +10,11 @@
  *                     in the paint-alert GitHub Discussions.
  *   - /api/click      counts a confirmed outbound link click (see the click
  *                     counter section at the end of this file).
+ *   - /ops            served only to a signed-in operator wallet (see the
+ *                     operator sign-in section at the end of this file).
  */
+
+import { recoverMessageAddress } from 'viem'
 
 const CORS_HEADERS = { 'access-control-allow-origin': '*' }
 const DAY = 86400
@@ -133,6 +137,19 @@ export default {
     }
     if (url.pathname === '/api/ops/clicks') {
       return handleClickStats(request, env)
+    }
+    if (url.pathname === '/api/ops/nonce') {
+      return handleOpsNonce(url, env)
+    }
+    if (url.pathname === '/api/ops/login') {
+      return handleOpsLogin(request, url, env)
+    }
+    if (url.pathname === '/api/ops/logout') {
+      return handleOpsLogout()
+    }
+    // wrangler.toml routes /ops here before the asset layer (run_worker_first).
+    if (url.pathname === '/ops' || url.pathname.startsWith('/ops/')) {
+      return handleOpsPage(request, env)
     }
     // Everything else: static assets (with SPA not-found handling).
     return env.ASSETS.fetch(request)
@@ -1079,13 +1096,14 @@ function base64FromUint32(colors) {
  * Outbound link click counter
  *
  * POST /api/click        {"chain": "369", "url": "https://..."} -> 204
- * GET  /api/ops/clicks   operator only, Authorization: Bearer <OPS_TOKEN>
+ * GET  /api/ops/clicks   operator only: a signed-in /ops session, or
+ *                        Authorization: Bearer <OPS_TOKEN>
  *
  * The outbound-link interstitial sends one beacon when a viewer confirms
  * "Proceed". What's stored is a per-day count for each (chain, link): no IP,
  * no cookie, no user agent, nothing about the viewer. The counts aren't
- * public; the read endpoint wants the OPS_TOKEN Worker secret, and answers
- * 503 until one is set.
+ * public; the read endpoint wants an operator session or the OPS_TOKEN
+ * Worker secret, and answers 503 until OPS_TOKEN is set.
  *
  * Nothing checks that a URL is really painted on that chain, so anyone who
  * scripts the POST can inflate a count. Fine for an internal signal of which
@@ -1171,9 +1189,12 @@ function opsJson(body, status = 200) {
 
 async function handleClickStats(request, env) {
   if (!env.OPS_TOKEN) return opsJson({ error: 'OPS_TOKEN is not set on this Worker' }, 503)
+  // A signed-in operator session (the /ops page), or the raw token as a
+  // bearer for scripts and curl.
   const auth = request.headers.get('authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
-  if (!sameToken(token, env.OPS_TOKEN)) return opsJson({ error: 'unauthorized' }, 401)
+  const allowed = sameToken(token, env.OPS_TOKEN) || (await opsSessionAddress(request, env)) !== null
+  if (!allowed) return opsJson({ error: 'unauthorized' }, 401)
   if (!env.CLICKS) return opsJson({ error: 'click store not bound' }, 503)
 
   const dayAgo = (n) => new Date(Date.now() - n * DAY * 1000).toISOString().slice(0, 10)
@@ -1215,4 +1236,191 @@ async function handleClickStats(request, env) {
     daily: daily.results,
     links: links.results,
   })
+}
+
+/* ------------------------------------------------------------------ *
+ * Operator sign-in for /ops
+ *
+ * /ops is served only to a browser holding a valid session cookie. Without
+ * one, the Worker answers with a small sign-in page: connect an injected
+ * wallet, sign a one-off text message (no transaction, nothing on-chain),
+ * and if the signer is on the allowlist the Worker sets the cookie.
+ *
+ *   GET  /api/ops/nonce    -> { message }   message to sign, valid 5 minutes
+ *   POST /api/ops/login    { message, signature } -> 204 + Set-Cookie
+ *   POST /api/ops/logout   -> 204, clears the cookie
+ *
+ * Stateless: the nonce and the session are both HMAC'd with OPS_TOKEN, so
+ * nothing is stored. The allowlist is the OPS_ADDRESSES Worker secret
+ * (comma-separated addresses), deliberately not in this file: the repo is
+ * public and the list shouldn't be.
+ *
+ * Mirror operators: set OPS_TOKEN and OPS_ADDRESSES with `wrangler secret
+ * put`, or leave them unset and /ops answers 503.
+ * ------------------------------------------------------------------ */
+
+const OPS_COOKIE = 'tw_ops'
+const OPS_SESSION_SECONDS = 7 * DAY
+const OPS_NONCE_SECONDS = 300
+
+const enc = new TextEncoder()
+
+async function hmacHex(secret, data) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+  ])
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(data)))
+  return [...sig].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function opsAllowlist(env) {
+  return new Set(
+    String(env.OPS_ADDRESSES ?? '')
+      .split(',')
+      .map((a) => a.trim().toLowerCase())
+      .filter((a) => /^0x[0-9a-f]{40}$/.test(a)),
+  )
+}
+
+function readCookie(request, name) {
+  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+    const [k, ...v] = part.trim().split('=')
+    if (k === name) return v.join('=')
+  }
+  return null
+}
+
+/** The signed-in operator address, or null. Re-checks the allowlist, so
+ *  removing an address from OPS_ADDRESSES ends its sessions at once. */
+async function opsSessionAddress(request, env) {
+  if (!env.OPS_TOKEN) return null
+  const raw = readCookie(request, OPS_COOKIE)
+  if (!raw) return null
+  const [addr, exp, mac] = raw.split('.')
+  if (!addr || !exp || !mac || Number(exp) < Date.now() / 1000) return null
+  if (!sameToken(mac, await hmacHex(env.OPS_TOKEN, `session|${addr}|${exp}`))) return null
+  return opsAllowlist(env).has(addr) ? addr : null
+}
+
+function opsMessage(host, nonce, issued) {
+  return `${host} operator sign-in\n\nSigning this proves you hold an operator wallet. It costs nothing and sends no transaction.\n\nNonce: ${nonce}\nIssued: ${issued}`
+}
+
+async function handleOpsNonce(url, env) {
+  if (!env.OPS_TOKEN) return opsJson({ error: 'operator sign-in is not configured' }, 503)
+  const exp = Math.floor(Date.now() / 1000) + OPS_NONCE_SECONDS
+  const rand = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, '0')).join('')
+  const mac = (await hmacHex(env.OPS_TOKEN, `nonce|${url.host}|${exp}|${rand}`)).slice(0, 32)
+  return opsJson({ message: opsMessage(url.host, `${exp}.${rand}.${mac}`, new Date().toISOString()) })
+}
+
+async function handleOpsLogin(request, url, env) {
+  if (request.method !== 'POST') return opsJson({ error: 'method not allowed' }, 405)
+  if (!env.OPS_TOKEN || opsAllowlist(env).size === 0) {
+    return opsJson({ error: 'operator sign-in is not configured' }, 503)
+  }
+  const body = safeParse(await request.text())
+  const message = typeof body?.message === 'string' ? body.message : ''
+  const signature = typeof body?.signature === 'string' ? body.signature : ''
+  if (!message.startsWith(`${url.host} operator sign-in\n`) || !/^0x[0-9a-fA-F]+$/.test(signature)) {
+    return opsJson({ error: 'bad request' }, 400)
+  }
+  const m = message.match(/\nNonce: (\d+)\.([0-9a-f]{24})\.([0-9a-f]{32})\n/)
+  if (!m || Number(m[1]) < Date.now() / 1000) return opsJson({ error: 'sign-in expired, try again' }, 401)
+  const mac = (await hmacHex(env.OPS_TOKEN, `nonce|${url.host}|${m[1]}|${m[2]}`)).slice(0, 32)
+  if (!sameToken(m[3], mac)) return opsJson({ error: 'bad nonce' }, 401)
+
+  let addr
+  try {
+    addr = (await recoverMessageAddress({ message, signature })).toLowerCase()
+  } catch {
+    return opsJson({ error: 'bad signature' }, 401)
+  }
+  if (!opsAllowlist(env).has(addr)) return opsJson({ error: 'this wallet is not an operator wallet' }, 403)
+
+  const exp = Math.floor(Date.now() / 1000) + OPS_SESSION_SECONDS
+  const session = `${addr}.${exp}.${await hmacHex(env.OPS_TOKEN, `session|${addr}|${exp}`)}`
+  return new Response(null, {
+    status: 204,
+    headers: {
+      ...NO_STORE,
+      'set-cookie': `${OPS_COOKIE}=${session}; Path=/; Max-Age=${OPS_SESSION_SECONDS}; HttpOnly; Secure; SameSite=Strict`,
+    },
+  })
+}
+
+function handleOpsLogout() {
+  return new Response(null, {
+    status: 204,
+    headers: { ...NO_STORE, 'set-cookie': `${OPS_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict` },
+  })
+}
+
+async function handleOpsPage(request, env) {
+  const headers = { ...NO_STORE, 'x-robots-tag': 'noindex', 'content-type': 'text/html; charset=utf-8' }
+  if (!env.OPS_TOKEN || opsAllowlist(env).size === 0) {
+    return new Response(OPS_PAGE('Operator sign-in is not configured on this deployment.', false), {
+      status: 503,
+      headers,
+    })
+  }
+  if (await opsSessionAddress(request, env)) {
+    // Signed in: hand over to the SPA. /ops isn't a file, so the asset layer
+    // answers with index.html (not_found_handling) and the router takes over.
+    const res = await env.ASSETS.fetch(request)
+    const out = new Response(res.body, res)
+    out.headers.set('cache-control', 'no-store')
+    out.headers.set('x-robots-tag', 'noindex')
+    return out
+  }
+  return new Response(OPS_PAGE('', true), { status: 401, headers })
+}
+
+/** The sign-in page. Self-contained (no bundle), talks to an injected wallet. */
+function OPS_PAGE(notice, withButton) {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>operator sign-in · tagwall</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0a0b0a; color: #e8ebe6;
+    font: 15px/1.5 Inter, system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
+  main { max-width: 380px; width: 100%; background: #121412; border: 1px solid #262a25; border-radius: 12px; padding: 24px; }
+  h1 { font: 700 18px/1.2 "JetBrains Mono", ui-monospace, monospace; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: #9aa196; font-size: 14px; }
+  button { width: 100%; padding: 11px; border: 0; border-radius: 8px; background: #A8FF2E; color: #0a0b0a;
+    font: 700 14px "JetBrains Mono", ui-monospace, monospace; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { margin: 14px 0 0; min-height: 1.5em; font-size: 13px; }
+</style></head>
+<body><main>
+  <h1>tagwall operator</h1>
+  <p>${notice || 'Connect an operator wallet and sign a short message. Signing is free and sends no transaction.'}</p>
+  ${withButton ? '<button id="go">Connect wallet and sign</button><p id="status"></p>' : ''}
+</main>
+${withButton ? `<script>
+const btn = document.getElementById('go'), status = document.getElementById('status')
+const say = (t) => { status.textContent = t }
+btn.onclick = async () => {
+  const eth = window.ethereum
+  if (!eth) return say('No wallet found. Open this page in a browser with a wallet extension.')
+  btn.disabled = true
+  try {
+    const [account] = await eth.request({ method: 'eth_requestAccounts' })
+    const { message } = await (await fetch('/api/ops/nonce', { cache: 'no-store' })).json()
+    say('Check your wallet to sign.')
+    const hex = '0x' + Array.from(new TextEncoder().encode(message), (b) => b.toString(16).padStart(2, '0')).join('')
+    const signature = await eth.request({ method: 'personal_sign', params: [hex, account] })
+    const res = await fetch('/api/ops/login', { method: 'POST', body: JSON.stringify({ message, signature }) })
+    if (res.status === 204) { say('Signed in.'); location.reload(); return }
+    const err = await res.json().catch(() => ({}))
+    say(err.error || 'Sign-in failed (' + res.status + ').')
+  } catch (e) {
+    say(e && e.code === 4001 ? 'Cancelled in the wallet.' : 'Sign-in failed: ' + ((e && e.message) || e))
+  }
+  btn.disabled = false
+}
+</script>` : ''}
+</body></html>`
 }

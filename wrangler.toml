@@ -19,6 +19,12 @@ command = "npm --prefix web ci && npm --prefix web run build"
 directory = "./web/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+# Paths the Worker sees before the asset layer. /api/* is its own routes.
+# /ops is operator-only: the Worker checks for a signed-in session before
+# anything is served (see the operator sign-in section of web/worker/index.js).
+# Listing paths here turns the SPA fallback on for everything else, so /api/*
+# has to be named or it gets index.html.
+run_worker_first = ["/api/*", "/ops", "/ops/*"]
 
 # Per-chain paint snapshots, built incrementally by the cron below and served
 # at /api/canvas/<chainId>/snapshot. Lets the browser render the historical

@@ -13,10 +13,11 @@ import { OpsLinkClicks } from '../components/OpsLinkClicks'
 /**
  * /ops: operator cross-chain stats dashboard.
  *
- * Public route, intentionally unlinked from nav (same posture as /tweets):
- * everything here is derived from public chain state or the tweets bot's
- * already-public JSON, so there's nothing private to gate, but it's an
- * operator tool so it stays known-by-URL.
+ * Operator-only: the Worker serves /ops only to a browser signed in with
+ * an allowlisted wallet (operator sign-in section of web/worker/index.js).
+ * Almost everything here is derived from public chain state or the tweets
+ * bot's already-public JSON; the gate is mainly for the link click counts
+ * and to keep the operator view out of casual reach.
  *
  * Three data sources, each chosen so the page is cheap on page load:
  *
@@ -40,8 +41,8 @@ import { OpsLinkClicks } from '../components/OpsLinkClicks'
  *      chain fails soft to an offline row. See the hook for the rationale.
  *
  *   5. /api/ops/clicks: outbound link click counts from the Worker's D1
- *      store. The only private data on the page; it needs the OPS_TOKEN
- *      admin key (components/OpsLinkClicks.tsx).
+ *      store. The only private data on the page; it needs the operator
+ *      session (components/OpsLinkClicks.tsx).
  *
  * The 7-day trend stands in for cross-chain momentum.
  */
@@ -295,6 +296,12 @@ function TrendChart({ series }: { series: DailyPoint[] }) {
   )
 }
 
+/** End the operator session; the Worker then serves the sign-in page. */
+async function signOut() {
+  await fetch('/api/ops/logout', { method: 'POST' }).catch(() => {})
+  window.location.reload()
+}
+
 export default function OpsStatsPage() {
   const live = useCrossChainLive()
   const [summary, setSummary] = useState<SummaryPayload | null>(null)
@@ -390,8 +397,11 @@ export default function OpsStatsPage() {
           chain you're viewing.
         </p>
         <p className="share-page-note">
-          Public route, unlinked from nav. Everything here is derivable from public
-          chain state, except link clicks, which need the admin key.
+          Operator only: the Worker serves this page to signed-in operator wallets.
+          Everything except link clicks is derivable from public chain state.{' '}
+          <button type="button" className="link-btn" onClick={signOut}>
+            Sign out
+          </button>
         </p>
       </header>
 

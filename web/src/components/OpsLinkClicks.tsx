@@ -1,13 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 
 import { OPS_CHAINS } from '../hooks/useCrossChainLive'
 import { SOLANA_CHAIN_LABEL } from '../solana/cluster'
 
 /**
- * /ops "Link clicks" section. Reads GET /api/ops/clicks, which wants the
- * OPS_TOKEN Worker secret as a bearer token, so the counts never appear for
- * someone who only knows the URL. The key is kept in this browser's
- * localStorage once entered; "forget key" clears it.
+ * /ops "Link clicks" section. Reads GET /api/ops/clicks with the operator
+ * session cookie the Worker set when this wallet signed in to /ops (see the
+ * operator sign-in section of web/worker/index.js). Without a session the
+ * page itself isn't served, so the only failure here is an expired one.
  */
 
 interface LinkRow {
@@ -31,29 +31,9 @@ interface ClickStats {
 }
 
 type State =
-  | { kind: 'need-key' }
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ok'; stats: ClickStats }
-
-const KEY_STORAGE = 'tagwall.opsToken'
-
-function readKey(): string {
-  try {
-    return localStorage.getItem(KEY_STORAGE) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-function writeKey(key: string | null) {
-  try {
-    if (key) localStorage.setItem(KEY_STORAGE, key)
-    else localStorage.removeItem(KEY_STORAGE)
-  } catch {
-    // Private window or blocked storage: the key just won't be remembered.
-  }
-}
 
 function chainName(chain: string): string {
   if (chain === 'solana') return SOLANA_CHAIN_LABEL
@@ -71,13 +51,10 @@ function shortUrl(url: string): string {
   }
 }
 
-async function fetchStats(token: string): Promise<State> {
+async function fetchStats(): Promise<State> {
   try {
-    const res = await fetch('/api/ops/clicks', {
-      headers: { authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
-    if (res.status === 401) return { kind: 'error', message: 'That key was rejected.' }
+    const res = await fetch('/api/ops/clicks', { cache: 'no-store', credentials: 'same-origin' })
+    if (res.status === 401) return { kind: 'error', message: 'Your sign-in has expired. Reload the page to sign in again.' }
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null
       return { kind: 'error', message: body?.error ?? `The click endpoint answered ${res.status}.` }
@@ -89,43 +66,23 @@ async function fetchStats(token: string): Promise<State> {
 }
 
 export function OpsLinkClicks() {
-  const [key, setKey] = useState(readKey)
-  const [draft, setDraft] = useState('')
-  const [state, setState] = useState<State>(() => (readKey() ? { kind: 'loading' } : { kind: 'need-key' }))
-
+  const [state, setState] = useState<State>({ kind: 'loading' })
   // A refresh counter so the Refresh button can re-run the effect.
   const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
-    if (!key) return
     let cancelled = false
-    void fetchStats(key).then((next) => {
+    void fetchStats().then((next) => {
       if (!cancelled) setState(next)
     })
     return () => {
       cancelled = true
     }
-  }, [key, nonce])
+  }, [nonce])
 
   function refresh() {
     setState({ kind: 'loading' })
     setNonce((n) => n + 1)
-  }
-
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    const k = draft.trim()
-    if (!k) return
-    writeKey(k)
-    setDraft('')
-    setState({ kind: 'loading' })
-    setKey(k)
-  }
-
-  function forget() {
-    writeKey(null)
-    setState({ kind: 'need-key' })
-    setKey('')
   }
 
   return (
@@ -137,31 +94,8 @@ export function OpsLinkClicks() {
         </span>
       </header>
 
-      {state.kind === 'need-key' || state.kind === 'error' ? (
-        <form className="ops-clicks-key" onSubmit={submit}>
-          {state.kind === 'error' && <p className="ops-trend-empty">{state.message}</p>}
-          <label className="ops-section-sub" htmlFor="ops-key">
-            Admin key (the OPS_TOKEN Worker secret)
-          </label>
-          <div className="ops-clicks-key-row">
-            <input
-              id="ops-key"
-              type="password"
-              autoComplete="off"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="ops-clicks-input"
-            />
-            <button type="submit" className="wallet-btn">
-              Unlock
-            </button>
-            {key && (
-              <button type="button" className="link-btn" onClick={forget}>
-                Forget key
-              </button>
-            )}
-          </div>
-        </form>
+      {state.kind === 'error' ? (
+        <p className="ops-trend-empty">{state.message}</p>
       ) : state.kind === 'loading' ? (
         <p className="ops-trend-empty">Loading click counts…</p>
       ) : (
@@ -222,9 +156,6 @@ export function OpsLinkClicks() {
             them as a signal of which tags get clicked, not as an audited figure.{' '}
             <button type="button" className="link-btn" onClick={refresh}>
               Refresh
-            </button>{' '}
-            <button type="button" className="link-btn" onClick={forget}>
-              Forget key
             </button>
           </p>
         </>
