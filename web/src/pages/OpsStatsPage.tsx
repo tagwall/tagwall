@@ -558,16 +558,15 @@ export default function OpsStatsPage() {
         )}
       </section>
 
-      {/* Canvas coverage for EVERY chain, scanned client-side on this
-          operator page (one Painted-log walk per chain, cached for the
-          session). Each chain fails soft to an "offline" row. */}
+      {/* Canvas coverage for EVERY chain, from the Worker's paint snapshots
+          (one fetch per chain). Each chain fails soft to an "offline" row. */}
       <section className="ops-section" aria-label="Canvas coverage">
         <header className="ops-section-head">
           <h2>Canvas coverage · all chains</h2>
           <span className="ops-section-sub">
             {coverage.isLoading
-              ? 'scanning every chain…'
-              : `${(coverage.totalCovered ?? 0).toLocaleString()} pixels painted across chains · exact, client-side`}
+              ? 'loading snapshots…'
+              : `${(coverage.totalCovered ?? 0).toLocaleString()} pixels painted across chains · from snapshots, up to 5 min old`}
           </span>
         </header>
         <div className="ops-table-wrap">
@@ -585,7 +584,7 @@ export default function OpsStatsPage() {
               {coverage.chains.length === 0 && coverage.isLoading ? (
                 <tr>
                   <td className="ops-td-chain" colSpan={5}>
-                    Scanning each chain's paint history…
+                    Loading each chain's paint snapshot…
                   </td>
                 </tr>
               ) : (
@@ -648,8 +647,13 @@ function CoverageRow({ row }: { row: ChainCoverage }) {
         <span className="ops-chain-dot" style={{ background: tint }} />
         {row.name}
         {!row.ok && (
-          <span className="ops-chain-down" title="RPC didn't respond">
+          <span className="ops-chain-down" title="snapshot unavailable">
             offline
+          </span>
+        )}
+        {row.ok && row.partial && (
+          <span className="ops-chain-down" title="snapshot still backfilling history; counts are a lower bound">
+            catching up
           </span>
         )}
       </td>

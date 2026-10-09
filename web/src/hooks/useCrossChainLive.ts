@@ -117,8 +117,11 @@ export interface CrossChainLive {
 export function useCrossChainLive(): CrossChainLive {
   const query = useQuery({
     queryKey: ['ops', 'cross-chain-live'],
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    // Every read goes through the Worker's RPC proxy, which shares the free
+    // plan's 100k requests a day with every visitor. Five minutes is plenty
+    // for an operator glance.
+    staleTime: 300_000,
+    refetchInterval: 300_000,
     queryFn: async (): Promise<ChainLive[]> => {
       const settled = await Promise.allSettled(OPS_CHAINS.map(readChain))
       return settled.map((res, i) => {

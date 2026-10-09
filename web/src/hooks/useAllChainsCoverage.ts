@@ -1,28 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
-import { getPublicClient } from '@wagmi/core'
-import type { Hex } from 'viem'
-import { parseAbiItem } from 'viem'
 
-import { config } from '../wagmi'
-import { canvasAddress } from '../contracts/canvas'
-import { deployBlockFor, logsChunkSizeFor } from '../lib/deployBlocks'
-import { getLogsPaginated, type GetLogsClient } from '../lib/paginatedLogs'
 import { OPS_CHAINS } from './useCrossChainLive'
 
 /**
- * All-time canvas coverage for EVERY chain, computed client-side on the
- * operator's /ops page.
+ * All-time canvas coverage for EVERY chain, for the operator's /ops page.
  *
- * This is the one cross-chain metric the original /ops design deliberately
- * left viewer-chain-only, because reconstructing coverage needs a full
- * Painted-event log scan per chain (one eth_call can't return distinct
- * painted pixels). It lives HERE, not on the main canvas, precisely because
- * /ops is an operator tool: a regular visitor never pays this cost, and the
- * page already fans out a 5-chain live read, so a 5-chain log scan is in
- * keeping. react-query caches the result for the session (staleTime 5 min,
- * no auto-refetch) so it runs once per visit, and each chain is wrapped in
- * allSettled so one flaky RPC degrades to a single offline row.
+ * Built from the Worker's paint snapshots (/api/canvas/<chainId>/snapshot,
+ * the same KV snapshot the canvas renders from): one request per chain.
  *
+ * It used to walk every chain's Painted log from the deploy block through
+ * /api/rpc. That was about 10,000 Worker requests per page load (BSC alone
+ * is ~5,200 log chunks) and ran for about an hour, so an /ops tab left open,
+ * or reloaded a few times, used up the Workers free plan's 100,000 requests
+ * a day and took the site down for visitors from 5 to 9 Oct 2026. Never put
+ * a full-history scan behind the Worker again.
+ *
+ * Trade-off: the snapshot trails the chain by up to one cron run (5 min),
+ * and a chain whose snapshot is still backfilling is flagged `partial`.
  * Counts are raw on-chain geometry (no OFAC / static-list filtering, unlike
  * the rendered canvas): an operator coverage stat should reflect what's
  * actually on-chain, not the filtered view.
@@ -40,10 +34,6 @@ const TOTAL_PIXELS = WALL_W * WALL_H
  */
 const CELL_BUDGET = 1_300_000
 
-const PAINTED_EVENT = parseAbiItem(
-  'event Painted(address indexed painter, address indexed referrer, bytes32 indexed metadataHash, uint32 x, uint32 y, uint32 w, uint32 h, uint32 pixelsPainted, uint256 pricePaid, uint32 linkId)',
-)
-
 export interface ChainCoverage {
   chainId: number
   name: string
@@ -58,36 +48,29 @@ export interface ChainCoverage {
   coveragePct: number
   /** False when the stamp area blew the budget and `covered` is an upper bound. */
   exact: boolean
+  /** True while the chain's snapshot is still backfilling history, so the
+   *  counts are a lower bound. */
+  partial: boolean
+}
+
+interface SnapshotGeometry {
+  complete?: boolean
+  snapshotBlock?: number | null
+  regions?: { x: number; y: number; w: number; h: number }[]
 }
 
 async function scanCoverage(c: (typeof OPS_CHAINS)[number]): Promise<ChainCoverage> {
-  const client = getPublicClient(config, { chainId: c.id })
-  if (!client) throw new Error(`no public client for chain ${c.id}`)
+  const res = await fetch(`/api/canvas/${c.id}/snapshot`)
+  if (!res.ok) throw new Error(`snapshot ${c.id}: HTTP ${res.status}`)
+  const snap = (await res.json()) as SnapshotGeometry
+  if (snap.snapshotBlock == null) throw new Error(`snapshot ${c.id}: not built yet`)
 
-  const address = canvasAddress(c.id)
-  if (!address) throw new Error(`no canvas address for chain ${c.id}`)
-
-  const toBlock = await client.getBlockNumber()
-  const { logs } = await getLogsPaginated({
-    publicClient: client as unknown as GetLogsClient,
-    address: address as Hex,
-    event: PAINTED_EVENT,
-    fromBlock: deployBlockFor(c.id),
-    toBlock,
-    chunkSize: logsChunkSizeFor(c.id),
-  })
-
-  const regions = logs.map((l) => ({
-    x: Number(l.args.x),
-    y: Number(l.args.y),
-    w: Number(l.args.w),
-    h: Number(l.args.h),
-  }))
+  const regions = (snap.regions ?? []).map((r) => ({ x: r.x, y: r.y, w: r.w, h: r.h }))
 
   let area = 0
   for (const r of regions) area += r.w * r.h
 
-  const base = { chainId: c.id, name: c.name, ok: true, stamps: regions.length }
+  const base = { chainId: c.id, name: c.name, ok: true, stamps: regions.length, partial: snap.complete !== true }
 
   if (area > CELL_BUDGET) {
     const upper = Math.min(area, TOTAL_PIXELS)
@@ -135,7 +118,7 @@ export interface AllChainsCoverage {
 export function useAllChainsCoverage(): AllChainsCoverage {
   const query = useQuery({
     queryKey: ['ops', 'all-chains-coverage'],
-    // Expensive scan: cache hard for the operator's session, no polling.
+    // Six snapshot fetches; no need to poll a 5-minute-old number.
     staleTime: 300_000,
     refetchInterval: false,
     refetchOnWindowFocus: false,
@@ -153,6 +136,7 @@ export function useAllChainsCoverage(): AllChainsCoverage {
           stamps: 0,
           coveragePct: 0,
           exact: true,
+          partial: false,
         }
       })
     },
