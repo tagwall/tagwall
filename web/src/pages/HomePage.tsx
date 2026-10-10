@@ -18,9 +18,11 @@ import { StatsCards } from '../components/StatsCards'
 import { OutboundLinkModal } from '../components/OutboundLinkModal'
 import { FounderClaimPrompt } from '../components/FounderClaimPrompt'
 import { PaintControls } from '../components/PaintControls'
+import { SpotDialog } from '../components/SpotDialog'
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
 import { useCanvasHeader } from '../hooks/useCanvasHeader'
 import { useDebounced } from '../hooks/useDebounced'
+import { useGenesisLeft } from '../hooks/useGenesisLeft'
 import { usePaintDraft } from '../hooks/usePaintDraft'
 import { usePaintedRegions } from '../hooks/usePaintedRegions'
 import { useBlockTimestamps } from '../hooks/useBlockTimestamps'
@@ -42,8 +44,11 @@ const MINOR_GRIDLINE_EVERY = 50
 // Two-tier grid on the near-black canvas (#0b0b10): a light hairline every
 // 50px, and an ever-so-slightly darker one every 100px so the lattice reads
 // as even rather than the old sparse 100-only grid.
-const MINOR_GRIDLINE_COLOR = '#1d1d26'
-const MAJOR_GRIDLINE_COLOR = '#191921'
+// Faded 2026-10-10: on a mostly empty wall the grid read as the main
+// feature ("the grid doesn't make any sense"). Minor lines now match the
+// background, so only a faint 100px grid remains for orientation.
+const MINOR_GRIDLINE_COLOR = '#0b0b10'
+const MAJOR_GRIDLINE_COLOR = '#14141b'
 const HOVER_DEBOUNCE_MS = 200
 
 /** Human-readable byte size for the drop-target overlay subline. Mirrors
@@ -198,6 +203,14 @@ function CanvasView({
   // CSS-based zoom. 1 = fit-to-container, higher = larger with pan via the
   // wrapping scroll area. Integers keep gridline rendering clean.
   const [zoom, setZoom] = useState(1)
+  // "Pick a spot" first: a click on an empty (unlinked) part of the wall
+  // sets this, the marker shows where, and the next upload lands centred
+  // on it. Null until the visitor picks.
+  const [pickedSpot, setPickedSpot] = useState<{ x: number; y: number } | null>(null)
+  // The centred 1-2-3 card shown right after a spot is picked.
+  const [spotDialogOpen, setSpotDialogOpen] = useState(false)
+  // Brief glow on the paint panel when the spot card hands over to it.
+  const [paintGlow, setPaintGlow] = useState(false)
   // Mobile bottom-sheet tab. Below ~720px viewport the paint / scores
   // / activity panels stack into a tabbed sheet under the canvas so
   // the canvas remains the hero above the fold. Above 720px the tabs
@@ -274,6 +287,8 @@ function CanvasView({
     canvasHeight,
     maxStampSide: MAX_STAMP_SIDE,
     regions,
+    // usePaintDraft re-reads this getter on every render, so it's never stale.
+    getPreferredSpot: () => pickedSpot,
     // Constrain random placement to the visible viewport when the user
     // is zoomed in (operator preference 2026-05-25). At zoom = 1 the
     // user sees the whole canvas, so return null and pickFreeSlot
@@ -323,6 +338,7 @@ function CanvasView({
   const chains = useChains()
   const activeChain = chains.find((c) => c.id === chainId)
   const nativeSymbol = activeChain?.nativeCurrency.symbol ?? 'native'
+  const genesisLeft = useGenesisLeft(chainId)
   // Painting requires the wallet's REAL chain (useAccount().chainId, not
   // wagmi's clamped useChainId) to be a configured chain AND to match the
   // viewer chain the quote was priced on. usePaintSubmitBatch re-asserts
@@ -825,11 +841,25 @@ function CanvasView({
    * interstitial and the URL scheme is re-validated as defense-in-depth
    * before any window.open call.
    */
-  function onClickPixel() {
+  function onClickPixel(e: React.MouseEvent<HTMLCanvasElement>) {
     // Ignore clicks while placing / dragging / resizing a draft.
     if (paint.draft || dragOffset || resizing) return
-    if (!linkUrl) return
-    setOutboundUrl(linkUrl)
+    if (linkUrl) {
+      setOutboundUrl(linkUrl)
+      return
+    }
+    // Anywhere without a link: that's the visitor picking their spot.
+    // Read the position from the click itself, not the hover state: a tap
+    // on a touch screen arrives with no mousemove before it.
+    const c = eventToCoord(e)
+    if (c) {
+      // eventToCoord is sub-pixel (drag maths wants that); a spot is a pixel.
+      setPickedSpot({
+        x: Math.min(Math.max(Math.floor(c.x), 0), canvasWidth - 1),
+        y: Math.min(Math.max(Math.floor(c.y), 0), canvasHeight - 1),
+      })
+      setSpotDialogOpen(true)
+    }
   }
 
   function zoomIn() {
@@ -876,7 +906,7 @@ function CanvasView({
       />
       <div className="canvas-wrap">
         <div className="canvas-col">
-        <div data-mobile-panel="paint" className="mobile-panel-wrap">
+        <div data-mobile-panel="paint" className={`mobile-panel-wrap${paintGlow ? ' paint-glow' : ''}`}>
           <PaintControls
             draft={paint.draft}
             error={paint.error}
@@ -942,6 +972,9 @@ function CanvasView({
             regions={regions}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
+            pickedSpot={pickedSpot}
+            genesisLeft={genesisLeft}
+            chainName={activeChain?.name}
           />
         </div>
           {/* canvas-frame: non-scrolling positioned wrapper around
@@ -987,7 +1020,7 @@ function CanvasView({
                     }
                   : linkUrl
                   ? { cursor: 'pointer' }
-                  : undefined
+                  : { cursor: 'crosshair' }
               }
             />
             <canvas
@@ -995,6 +1028,16 @@ function CanvasView({
               className="tagwall-canvas overlay"
               aria-hidden
             />
+            {!paint.draft && pickedSpot && (
+              <div
+                className="spot-marker"
+                style={{
+                  left: `${(pickedSpot.x / canvasWidth) * 100}%`,
+                  top: `${(pickedSpot.y / canvasHeight) * 100}%`,
+                }}
+                aria-hidden
+              />
+            )}
             {paint.draft && (
               <div
                 className="draft-outline"
@@ -1154,6 +1197,25 @@ function CanvasView({
         <StatsCards regions={regions} />
       </div>
       <OutboundLinkModal url={outboundUrl} onClose={() => setOutboundUrl(null)} />
+      {spotDialogOpen && pickedSpot && (
+        <SpotDialog
+          spot={pickedSpot}
+          genesisLeft={genesisLeft}
+          chainName={activeChain?.name}
+          imageLoaded={paint.draft != null}
+          onChooseImage={() => {
+            // The upload input lives in the paint panel while no draft
+            // exists. The card stays open until the image lands.
+            document.getElementById('paint-upload-input')?.click()
+          }}
+          onClose={() => setSpotDialogOpen(false)}
+          onDone={() => {
+            setSpotDialogOpen(false)
+            setPaintGlow(true)
+            window.setTimeout(() => setPaintGlow(false), 1600)
+          }}
+        />
+      )}
 
       {/* Floating hover tooltip, positioned in viewport coords. Disabled
           while the user is placing / dragging / resizing a draft stamp

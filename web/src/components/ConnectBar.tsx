@@ -254,7 +254,13 @@ export function ConnectBar() {
         </div>
       )}
       <Link to="/" className="brand" aria-label="tagwall.io home">
-        <span className="brand-mark" aria-hidden /> tagwall.io
+        <span className="brand-mark" aria-hidden />
+        <span className="brand-name">tagwall.io</span>
+        <span className="brand-sep" aria-hidden>•</span>
+        <span className="brand-copy">
+          <span className="brand-headline">a graffiti wall that lives on chain</span>
+          <span className="brand-tagline">no owner, no admin, no token</span>
+        </span>
       </Link>
 
       {/* Share CTA sits right of the brand. Visible always: when
@@ -262,13 +268,10 @@ export function ConnectBar() {
           links to /share where users paste an address manually. */}
       <ShareReferralButton address={address} />
 
-      {/* Founders link: the per-chain "be early, provably" surface. Kept
-          in the primary nav (not the footer) because the scarcity counter
-          there is a core acquisition hook, not a secondary page. NavLink
-          so the current page gets the `.active` highlight. */}
-      <NavLink to="/founders" className="nav-link">
-        Founders
-      </NavLink>
+      {/* Founders moved out of the header 2026-10-10 so the header fits on a
+          13" laptop. It's reached from the genesis-spots lines in the paint
+          panel and the spot card (where the scarcity hook actually lands),
+          and from the footer. */}
 
       {/* Competition link: only while a contest is featured (nomination live,
           or referral upcoming/live). Auto-drops once both are over, the same

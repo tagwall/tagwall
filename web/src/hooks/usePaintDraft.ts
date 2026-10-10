@@ -58,6 +58,12 @@ export interface PaintDraftParams {
    * Operator preference 2026-05-25.
    */
   getViewport?: () => { x: number; y: number; w: number; h: number } | null
+  /**
+   * The spot the visitor picked on the wall before uploading, in canvas
+   * pixels, or null. When set, the new draft is centred on it (clamped to
+   * the canvas) instead of being placed in a random free slot.
+   */
+  getPreferredSpot?: () => { x: number; y: number } | null
 }
 
 /**
@@ -224,6 +230,7 @@ export function usePaintDraft({
   maxStampSide,
   regions,
   getViewport,
+  getPreferredSpot,
 }: PaintDraftParams) {
   const [draft, setDraft] = useState<PaintDraft | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -236,6 +243,8 @@ export function usePaintDraft({
   // every scroll/zoom change.
   const getViewportRef = useRef(getViewport)
   getViewportRef.current = getViewport
+  const getPreferredSpotRef = useRef(getPreferredSpot)
+  getPreferredSpotRef.current = getPreferredSpot
   // When true, the stamp is laid out in a square frame with the image
   // centered inside and the rest transparent. Useful for extreme-aspect
   // uploads (panoramas, portrait photos) where the default scale leaves
@@ -303,8 +312,14 @@ export function usePaintDraft({
       disposeSource()
       sourceBitmapRef.current = bitmap
 
+      const spot = getPreferredSpotRef.current?.() ?? null
       const viewport = getViewportRef.current?.() ?? null
-      const { x, y } = pickFreeSlot(w, h, canvasWidth, canvasHeight, regionsRef.current, viewport)
+      const { x, y } = spot
+        ? {
+            x: Math.min(Math.max(spot.x - Math.floor(w / 2), 0), canvasWidth - w),
+            y: Math.min(Math.max(spot.y - Math.floor(h / 2), 0), canvasHeight - h),
+          }
+        : pickFreeSlot(w, h, canvasWidth, canvasHeight, regionsRef.current, viewport)
 
       setDraft({
         name: file.name,

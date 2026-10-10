@@ -2544,17 +2544,17 @@ body { margin: 0; background: var(--bg); color: var(--text); }
      the loaded-state 5-zone bar with one fewer column (no Metadata
      until something's uploaded). Map column matches the open-state
      Zone 5 width so the bar's right edge is stable across upload state. */
-  grid-template-columns: 360px 1fr 160px 184px;
+  grid-template-columns: 1fr 160px 184px;
   border-bottom: 1px solid var(--tw-line);
 }
 @media (max-width: 1280px) {
   /* Drop the map at narrower widths so the rest of the bar keeps
      breathing room. Zoom is still reachable via wheel gestures. */
-  .paint-bar-empty { grid-template-columns: 360px 1fr 160px; }
+  .paint-bar-empty { grid-template-columns: 1fr 160px; }
   .paint-bar-empty .pz-minimap { display: none; }
 }
 @media (max-width: 1100px) {
-  .paint-bar-empty { grid-template-columns: 320px 1fr 160px; }
+  .paint-bar-empty { grid-template-columns: 1fr 160px; }
   .paint-bar-empty .pz { grid-column: auto; grid-row: auto; }
 }
 @media (max-width: 760px) {
@@ -5082,3 +5082,214 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 
 .site-footer-articles { color: var(--tw-accent); text-decoration: none; }
 .site-footer-articles:hover { text-decoration: underline; }
+
+/* Phones: wall straight after the header, paint panel below it, so the
+   wall stays on the first screen. */
+@media (max-width: 720px) {
+  .canvas-col > .canvas-frame { order: -1; margin-bottom: 12px; }
+}
+
+/* "Pick a spot": marker on the chosen pixel. */
+.spot-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid var(--tw-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* Paint panel: the merged three-step flow (empty state). */
+.peb-flow-steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.peb-flow-step { display: flex; flex-direction: column; gap: 6px; }
+.peb-flow-head { display: flex; align-items: center; gap: 10px; }
+.peb-flow-num {
+  flex: 0 0 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: 600 12px 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--text-dim);
+}
+.peb-flow-title { font: 600 14px 'JetBrains Mono', ui-monospace, monospace; color: var(--text-dim); }
+.peb-flow-meta { font-size: 12px; color: var(--tw-accent); }
+.peb-flow-step.is-current .peb-flow-num { border-color: var(--tw-accent); color: var(--tw-accent); }
+.peb-flow-step.is-current .peb-flow-title { color: var(--text); }
+.peb-flow-step.is-done .peb-flow-num { border-color: var(--tw-accent); background: var(--tw-accent); color: #0a0b0a; }
+.peb-flow-step.is-done .peb-flow-title { color: var(--text); }
+.peb-flow-body { display: flex; flex-direction: column; gap: 6px; padding-left: 34px; font-size: 13px; color: var(--text); }
+.peb-flow-body[hidden] { display: none; }
+.peb-flow-genesis { font-size: 12px; color: var(--tw-accent); text-decoration: none; }
+.peb-flow-genesis:hover { text-decoration: underline; }
+.spot-dialog-genesis a { color: inherit; text-decoration: none; }
+.spot-dialog-genesis a:hover { text-decoration: underline; }
+.peb-flow-skip { align-self: flex-start; font-size: 12px; }
+.peb-flow-note { padding-left: 34px; font-size: 12px; color: var(--text-dim); }
+
+/* Header: big mark + name, a centred bullet, then the headline with the
+   tagline directly under it. */
+.brand { align-items: center; gap: 12px; flex-wrap: wrap; row-gap: 4px; }
+.brand .brand-mark { width: 32px; height: 32px; flex-shrink: 0; }
+.brand-name { font-size: 34px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; }
+.brand-sep { color: var(--text-dim); font-size: 18px; line-height: 1; }
+.brand-copy { display: flex; flex-direction: column; line-height: 1.25; }
+.brand-headline {
+  font: 600 13px 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--text);
+}
+.brand-tagline { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+/* Keep the header on one row on 13" laptops and narrower windows. */
+@media (max-width: 1279px) {
+  .connect-bar { gap: 14px; }
+  .brand .brand-mark { width: 26px; height: 26px; }
+  .brand-name { font-size: 28px; }
+  .brand-headline { font-size: 12px; }
+}
+@media (max-width: 1150px) {
+  /* "Yours" (and its divider) is the least useful metric before connecting. */
+  .nav-metrics > :nth-child(n + 4) { display: none; }
+  .brand-name { font-size: 24px; }
+  .brand .brand-mark { width: 22px; height: 22px; }
+}
+@media (max-width: 480px) {
+  .brand .brand-mark { width: 24px; height: 24px; }
+  .brand-name { font-size: 26px; }
+  .brand-sep { display: none; }
+  .brand-copy { flex-basis: 100%; }
+  .brand-headline { font-size: 11px; }
+}
+
+/* Centred 1-2-3 card after picking a spot. */
+.spot-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 6, 5, 0.6);
+  transition: background 400ms ease, opacity 300ms ease;
+}
+.spot-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  padding: 22px 22px 18px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  animation: spot-dialog-in 220ms ease-out;
+  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes spot-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+/* Image placed: let the wall show through and the visitor drag the image,
+   and slide the card down so its bottom sits just above the screen edge. */
+.spot-dialog-backdrop.is-loaded {
+  background: transparent;
+  pointer-events: none;
+}
+.spot-dialog-backdrop.is-loaded .spot-dialog {
+  pointer-events: auto;
+  /* Phones: the paint panel is below the wall, so glide down. */
+  transform: translateY(calc(50vh - 50% - 16px));
+}
+@media (min-width: 980px) {
+  /* Desktop: the paint panel is on the right, so glide right towards it. */
+  .spot-dialog-backdrop.is-loaded .spot-dialog {
+    transform: translateX(calc(50vw - 50% - 24px));
+  }
+}
+.spot-dialog-backdrop.is-leaving { opacity: 0; }
+/* Paint panel glow when the card hands over. */
+.paint-glow .paint-controls {
+  animation: paint-glow 1.6s ease-out;
+}
+@keyframes paint-glow {
+  0% { box-shadow: 0 0 0 2px var(--tw-accent), 0 0 24px color-mix(in srgb, var(--tw-accent) 40%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spot-dialog, .spot-dialog-backdrop { animation: none; transition: none; }
+  .paint-glow .paint-controls { animation: none; }
+}
+.spot-dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+}
+.spot-dialog-title {
+  margin: 0 0 14px;
+  font: 700 17px 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--text);
+}
+.spot-dialog-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.spot-dialog-steps li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--text-dim);
+}
+.spot-dialog-steps li > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.spot-dialog-steps strong { font-size: 14px; font-weight: 600; color: var(--text); }
+.spot-dialog-sub { font-size: 12px; line-height: 1.4; }
+.spot-dialog-num {
+  flex: 0 0 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font: 600 12px 'JetBrains Mono', ui-monospace, monospace;
+}
+.spot-dialog-steps li.is-done .spot-dialog-num {
+  border-color: var(--tw-accent);
+  background: var(--tw-accent);
+  color: #0a0b0a;
+}
+.spot-dialog-steps li.is-current .spot-dialog-num {
+  border-color: var(--tw-accent);
+  color: var(--tw-accent);
+}
+.spot-dialog-genesis {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--tw-accent);
+}
+.spot-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+.spot-dialog-primary {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--tw-accent);
+  color: #0a0b0a;
+  font: 700 14px 'JetBrains Mono', ui-monospace, monospace;
+  cursor: pointer;
+}

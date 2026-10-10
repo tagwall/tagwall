@@ -120,7 +120,11 @@ export function MinimapOverlay({
     const update = () => {
       if (placed) return // rule 3: don't ever move it after first placement
       const r = scroller.getBoundingClientRect()
-      if (r.width === 0 || r.height === 0) return // not laid out yet
+      // Wait until the canvas area is big enough to hold the overlay.
+      // Placing on an early, tiny measurement clamped the position to
+      // (0, 0), so the map stuck in the top-left corner (where it covers
+      // the origin tags) instead of its intended bottom-right.
+      if (r.width < MAP_W + MARGIN * 2 || r.height < OVERLAY_H + MARGIN * 2) return
       setPos({
         x: Math.max(0, r.width - MAP_W - MARGIN),
         y: Math.max(0, r.height - OVERLAY_H - MARGIN),

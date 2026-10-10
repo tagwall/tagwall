@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { formatEther, isAddress, getAddress } from 'viem'
 import type { Address } from 'viem'
 import { useBalance } from 'wagmi'
@@ -120,6 +121,11 @@ interface Props {
   /** Canvas dimensions; the minimap derives its scale from these. */
   canvasWidth?: number
   canvasHeight?: number
+  /** The spot the visitor clicked on the wall, before uploading. */
+  pickedSpot?: { x: number; y: number } | null
+  /** Genesis spots left on this chain (first 100 painters), or null. */
+  genesisLeft?: number | null
+  chainName?: string
   /**
    * Replaces the pixel-cap chunk estimate in the "Needs N signatures"
    * caption. Chain families whose chunking is not a simple
@@ -215,10 +221,15 @@ export function PaintControls({
   chunkCountOverride,
   referrerValidator,
   referrerPlaceholder,
+  pickedSpot,
+  genesisLeft,
+  chainName,
 }: Props) {
   const usdRate = useNativeUsdPrice(chainId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [link, setLink] = useState('')
+  // "or skip and choose an image": open step 2 without picking a spot.
+  const [skipSpot, setSkipSpot] = useState(false)
   const [reserveBps, setReserveBps] = useState<number>(MULTIPLIER_MIN_BPS)
   // Referrer is optional; empty string = no referrer = 0x0...0 on-chain.
   // Seed from the ?ref= query param when present (embed + share-link use).
@@ -436,6 +447,11 @@ export function PaintControls({
 
   const scaled = draft && (draft.sourceW !== draft.w || draft.sourceH !== draft.h)
 
+  // Step flow for the empty state: 1 until a spot is picked (or the visitor
+  // skips), then 2. Dragging a file always shows step 2.
+  const spotDone = pickedSpot != null
+  const flowStep: 1 | 2 = isDragging || spotDone || skipSpot ? 2 : 1
+
   // The empty-state is now a full 3-zone bar (Image / How it works / CTA)
   // instead of the original 1-button row — needs the same vertical room
   // as the draft-loaded open state. Treat both as "open" for layout; the
@@ -444,95 +460,99 @@ export function PaintControls({
     <section className="paint-controls paint-controls-open" aria-live="polite">
       {!draft && (
         <div className={`paint-bar paint-bar-empty${isDragging ? ' is-dragging' : ''}`}>
-          {/* Zone 1 — image dropzone tile. <label> wraps a hidden <input>
-              so click anywhere triggers the native file picker. */}
-          <div className="pz peb-image">
+          {/* Zone 1: the three steps in one place. Step 1 (pick a spot) is
+              open until the visitor clicks the wall, then folds to a tick
+              and step 2 (the dropzone) opens. The dropzone stays mounted
+              while folded so the centred spot card and drag-and-drop can
+              still reach its file input. */}
+          <div className="pz peb-image peb-flow">
             <div className={`pz-label peb-zone-label${isDragging ? ' peb-zone-label-active' : ''}`}>
-              {isDragging ? '01 · Image · Drop to upload' : '01 · Image'}
+              {isDragging ? 'Drop to upload' : 'Tag the wall'}
             </div>
-            <label
-              className={`peb-tile${isDragging ? ' peb-tile-active' : ''}`}
-              title="Upload an image to paint on the canvas"
-            >
-              <span className="peb-tile-icon" aria-hidden>
-                {isDragging ? '↓' : '↑'}
-              </span>
-              <span className="peb-tile-copy">
-                {isDragging ? (
-                  <>
-                    <span className="peb-tile-primary peb-tile-primary-active">
-                      Release to upload
+            <ol className="peb-flow-steps">
+              <li className={`peb-flow-step ${spotDone ? 'is-done' : flowStep === 1 ? 'is-current' : ''}`}>
+                <div className="peb-flow-head">
+                  <span className="peb-flow-num">{spotDone ? '✓' : '1'}</span>
+                  <span className="peb-flow-title">Pick a spot</span>
+                  {pickedSpot && (
+                    <span className="peb-flow-meta">
+                      ({pickedSpot.x}, {pickedSpot.y})
                     </span>
-                    <span className="peb-tile-secondary peb-tile-secondary-active">
-                      {dragFileHint
-                        ? `${dragFileHint.name} · ${formatBytes(dragFileHint.size)}`
-                        : 'image · waiting…'}
-                    </span>
-                  </>
+                  )}
+                </div>
+                {flowStep === 1 ? (
+                  <div className="peb-flow-body">
+                    <span>Click anywhere on the wall.</span>
+                    {genesisLeft != null && (
+                      <Link to="/founders" className="peb-flow-genesis">
+                        {genesisLeft} genesis spots left{chainName ? ` on ${chainName}` : ''}. One pixel is enough.
+                      </Link>
+                    )}
+                    <button type="button" className="link-btn peb-flow-skip" onClick={() => setSkipSpot(true)}>
+                      or skip and choose an image
+                    </button>
+                  </div>
                 ) : (
-                  <>
-                    <span className="peb-tile-primary">
-                      Drop an image or <span className="peb-tile-browse">browse</span>
-                    </span>
-                    <span className="peb-tile-secondary">
-                      PNG&nbsp;·&nbsp;JPG&nbsp;·&nbsp;GIF&nbsp;&nbsp;·&nbsp;&nbsp;any size
-                    </span>
-                  </>
+                  pickedSpot && <div className="peb-flow-note">click the wall to change it</div>
                 )}
-              </span>
-              <input
-                ref={fileInputRef}
-                id="paint-upload-input"
-                type="file"
-                accept="image/png,image/jpeg,image/gif"
-                onChange={handleFile}
-              />
-            </label>
+              </li>
+              <li className={`peb-flow-step ${flowStep === 2 ? 'is-current' : ''}`}>
+                <div className="peb-flow-head">
+                  <span className="peb-flow-num">2</span>
+                  <span className="peb-flow-title">Choose an image</span>
+                </div>
+                <div className="peb-flow-body" hidden={flowStep !== 2}>
+                  <label
+                    className={`peb-tile${isDragging ? ' peb-tile-active' : ''}`}
+                    title="Upload an image to paint on the canvas"
+                  >
+                    <span className="peb-tile-icon" aria-hidden>
+                      {isDragging ? '↓' : '↑'}
+                    </span>
+                    <span className="peb-tile-copy">
+                      {isDragging ? (
+                        <>
+                          <span className="peb-tile-primary peb-tile-primary-active">
+                            Release to upload
+                          </span>
+                          <span className="peb-tile-secondary peb-tile-secondary-active">
+                            {dragFileHint
+                              ? `${dragFileHint.name} · ${formatBytes(dragFileHint.size)}`
+                              : 'image · waiting…'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="peb-tile-primary">
+                            Drop an image or <span className="peb-tile-browse">browse</span>
+                          </span>
+                          <span className="peb-tile-secondary">
+                            PNG · JPG · GIF, scaled to fit {maxStampSide} × {maxStampSide} px
+                          </span>
+                        </>
+                      )}
+                    </span>
+                    <input
+                      ref={fileInputRef}
+                      id="paint-upload-input"
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif"
+                      onChange={handleFile}
+                    />
+                  </label>
+                </div>
+              </li>
+              <li className="peb-flow-step">
+                <div className="peb-flow-head">
+                  <span className="peb-flow-num">3</span>
+                  <span className="peb-flow-title">Paint</span>
+                </div>
+                <div className="peb-flow-note">
+                  Connect your wallet and confirm. Larger pieces can be painted in sections.
+                </div>
+              </li>
+            </ol>
             {error && <span className="paint-err peb-err">{error}</span>}
-          </div>
-
-          {/* Zone 2 — How it works. 3-step explainer in idle, single line
-              when dragging (the canvas overlay carries the message). */}
-          <div className="pz peb-howto">
-            <div className="pz-label">How it works</div>
-            {isDragging ? (
-              <p className="peb-howto-line">
-                Drop anywhere on the page — we'll auto-scale your image to
-                fit within{' '}
-                <span className="peb-howto-accent">
-                  {maxStampSide} × {maxStampSide} px
-                </span>
-                .
-              </p>
-            ) : (
-              <ol className="peb-steps">
-                <li className="peb-step">
-                  <span className="peb-step-num">1</span>
-                  <span className="peb-step-body">
-                    <span className="peb-step-head">Upload</span>
-                    <span className="peb-step-sub">PNG / JPG / GIF — any size</span>
-                  </span>
-                </li>
-                <li className="peb-step">
-                  <span className="peb-step-num">2</span>
-                  <span className="peb-step-body">
-                    <span className="peb-step-head">Auto-scaled</span>
-                    <span className="peb-step-sub">
-                      Fit to {maxStampSide} × {maxStampSide} px · split across txs as needed
-                    </span>
-                  </span>
-                </li>
-                <li className="peb-step">
-                  <span className="peb-step-num">3</span>
-                  <span className="peb-step-body">
-                    <span className="peb-step-head">Paint</span>
-                    <span className="peb-step-sub">
-                      Larger pieces? Paint multiple sections
-                    </span>
-                  </span>
-                </li>
-              </ol>
-            )}
           </div>
 
           {/* Zone 3 — disabled CTA. Hidden in dragging state because the
