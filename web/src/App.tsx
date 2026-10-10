@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import ArticlesPage from './pages/ArticlesPage'
 import CanvasRouter from './pages/CanvasRouter'
-import CompetitionPage from './pages/CompetitionPage'
 import EmbedPage from './pages/EmbedPage'
 import FoundersPage from './pages/FoundersPage'
 import HoldingPage from './pages/HoldingPage'
@@ -55,10 +54,6 @@ export default function App() {
               wallet-free; the non-X landing for HN / Reddit traffic. */}
           <Route path="/articles" element={<ArticlesPage />} />
           <Route path="/articles/:slug" element={<ArticlesPage />} />
-          {/* /competition: live referral-contest page. Prize pool (80% of
-              referred-paint volume, 7.77M PLS floor) + Top Referrers board,
-              both read live from on-chain Painted events. */}
-          <Route path="/competition" element={<CompetitionPage />} />
           {/* /tweets is an operator tool surfacing copy-ready tweets:
               cross-chain 7-day summary, per-chain weekly recaps, and
               individual notable-paint announcements. Public route

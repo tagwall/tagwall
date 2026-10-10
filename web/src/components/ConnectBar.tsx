@@ -11,10 +11,9 @@ import {
   useDisconnect,
   useSwitchChain,
 } from 'wagmi'
-import { Link, NavLink, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { useCanvasDeployed } from '../hooks/useCanvasDeployed'
-import { competitionFeatured } from '../lib/contest'
 import { shortenAddress } from '../lib/format'
 import { advanceRpcRotation } from '../lib/rpcPool'
 import { useViewerChainId, useSetViewerChain } from '../lib/viewerChain'
@@ -273,15 +272,6 @@ export function ConnectBar() {
           panel and the spot card (where the scarcity hook actually lands),
           and from the footer. */}
 
-      {/* Competition link: only while a contest is featured (nomination live,
-          or referral upcoming/live). Auto-drops once both are over, the same
-          date-driven check the home banner uses; /competition stays reachable
-          for final standings. */}
-      {competitionFeatured() && (
-        <NavLink to="/competition" className="nav-link">
-          Competition
-        </NavLink>
-      )}
 
       <div className="connect-bar-right">
         {/* Canvas metrics live in the nav bar (left of chain) so the

@@ -44,7 +44,6 @@ import { SOLANA_PSEUDO_CHAIN_ID } from '../lib/usdPrice'
 import { SOLANA_EXPLORER_SUFFIX } from '../solana/cluster'
 import { useSolanaWallet } from '../solana/SolanaWalletProvider'
 import { usePaintDraft } from '../hooks/usePaintDraft'
-import { CompetitionBanner } from '../components/CompetitionBanner'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
 import { Leaderboard } from '../components/Leaderboard'
 import { ActivityFeed } from '../components/ActivityFeed'
@@ -474,7 +473,6 @@ export default function SolanaPage() {
   return (
     <>
       <SolanaDemandBanner />
-      <CompetitionBanner />
       <LeaderboardTicker
         regions={regions}
         nativeSymbol="SOL"

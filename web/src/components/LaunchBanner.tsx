@@ -11,8 +11,8 @@ import { useSetViewerChain, useViewerChainId } from '../lib/viewerChain'
 
 /**
  * Prominent launch-announcement bar for a freshly deployed chain, mounted
- * above the competition banner on the canvas page. Robinhood-green so it
- * reads as its own thing, not the brand-lime contest bar below it.
+ * above the ticker on the canvas page. Robinhood-green so it reads as its
+ * own thing.
  *
  * Self-hides when: the launch window has passed (see lib/launch.ts), the
  * viewer is already looking at the launched chain, or the viewer dismissed

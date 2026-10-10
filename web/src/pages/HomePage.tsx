@@ -9,7 +9,6 @@ import { useViewerChainId } from '../lib/viewerChain'
 
 import { ActivityFeed } from '../components/ActivityFeed'
 import { Leaderboard, useLinkUrls } from '../components/Leaderboard'
-import { CompetitionBanner } from '../components/CompetitionBanner'
 import { LaunchBanner } from '../components/LaunchBanner'
 import { LeaderboardTicker } from '../components/LeaderboardTicker'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
@@ -889,9 +888,6 @@ function CanvasView({
           after the launch window, on dismiss, or when already viewing the
           launched chain (see LaunchBanner + lib/launch.ts). */}
       <LaunchBanner />
-      {/* Referral-contest promo bar. Sits above the ticker; self-hides
-          once the contest is over (see CompetitionBanner). */}
-      <CompetitionBanner />
       {/* Stock-ticker-style scroller of the top leaderboard entries.
           Rendered here (not in AppLayout) so it can receive the
           `regions` prop that HomePage already owns from its single
