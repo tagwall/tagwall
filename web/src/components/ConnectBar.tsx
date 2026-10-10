@@ -257,7 +257,7 @@ export function ConnectBar() {
         <span className="brand-name">tagwall.io</span>
         <span className="brand-sep" aria-hidden>•</span>
         <span className="brand-copy">
-          <span className="brand-headline">a graffiti wall that lives on chain</span>
+          <span className="brand-headline">on-chain graffiti wall</span>
           <span className="brand-tagline">no owner, no admin, no token</span>
         </span>
       </Link>
