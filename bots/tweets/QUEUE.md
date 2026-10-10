@@ -13,6 +13,12 @@ scanning all five EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **PulseChain** · 2026-10-10 14:14 UTC · 22×11 · 242 px · 1,621,400 PLS · [tx](https://otter.pulsechain.com/tx/0x296b5377ddc89ce6a29f038f721cf5d38f64c232dab73ec0012a3adb10a7cddc) · [pixel](https://tagwall.io/pixel/625,400)
+
+  ```text
+  🎨 0x0698…5C88 painted 22×11 on PulseChain for 1,621,400 PLS (242 px). https://tagwall.io/pixel/625,400
+  ```
+
 - [ ] **PulseChain** · 2026-10-10 01:32 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text
