@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-10-17T13:50:56Z",
+  "generatedAt": "2026-10-17T16:50:57Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
     "chainCount": 4,
-    "totalPaints": 1,
+    "totalPaints": 0,
     "totalOverpaints": 0,
-    "uniquePainters": 1,
-    "weeklyActivePainters": 1,
+    "uniquePainters": 0,
+    "weeklyActivePainters": 0,
     "gini": 0.0,
     "dailyActivity": [
       {
@@ -119,14 +119,14 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 27760522,
-      "windowEndBlock": 27821002,
-      "paintCount": 1,
+      "windowStartBlock": 27761565,
+      "windowEndBlock": 27822045,
+      "paintCount": 0,
       "overpaintCount": 0,
-      "uniquePainters": 1,
+      "uniquePainters": 0,
       "uniqueReferrers": 0,
       "gini": 0.0,
-      "totalVolumeFormatted": "1,621,400 PLS",
+      "totalVolumeFormatted": "0.000000 PLS",
       "dailyActivity": [
         {
           "date": "2026-10-11",
@@ -157,37 +157,15 @@
           "paints": 0
         }
       ],
-      "biggestByPixels": {
-        "x": 625,
-        "y": 400,
-        "w": 22,
-        "h": 11,
-        "pixels": 242,
-        "priceFormatted": "1,621,400 PLS",
-        "painter": "0x069868ddc6F2e454e4B36875A3C9F2F2327F5C88",
-        "painterShort": "0x0698\u20265C88",
-        "pixelUrl": "https://tagwall.io/pixel/625,400",
-        "txUrl": "https://otter.pulsechain.com/tx/0x296b5377ddc89ce6a29f038f721cf5d38f64c232dab73ec0012a3adb10a7cddc"
-      },
-      "biggestByPrice": {
-        "x": 625,
-        "y": 400,
-        "w": 22,
-        "h": 11,
-        "pixels": 242,
-        "priceFormatted": "1,621,400 PLS",
-        "painter": "0x069868ddc6F2e454e4B36875A3C9F2F2327F5C88",
-        "painterShort": "0x0698\u20265C88",
-        "pixelUrl": "https://tagwall.io/pixel/625,400",
-        "txUrl": "https://otter.pulsechain.com/tx/0x296b5377ddc89ce6a29f038f721cf5d38f64c232dab73ec0012a3adb10a7cddc"
-      }
+      "biggestByPixels": null,
+      "biggestByPrice": null
     },
     {
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 26162288,
-      "windowEndBlock": 26212688,
+      "windowStartBlock": 26163186,
+      "windowEndBlock": 26213586,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -231,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 52425486,
-      "windowEndBlock": 52727886,
+      "windowStartBlock": 52430886,
+      "windowEndBlock": 52733286,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -276,8 +254,8 @@
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 84942168,
-      "windowEndBlock": 90990168,
+      "windowStartBlock": 85048744,
+      "windowEndBlock": 91096744,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
