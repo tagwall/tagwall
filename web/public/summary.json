@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-22T18:42:20Z",
+  "generatedAt": "2026-10-22T22:06:30Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
-    "chainCount": 3,
+    "chainCount": 4,
     "totalPaints": 0,
     "totalOverpaints": 0,
     "uniquePainters": 0,
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 27804196,
-      "windowEndBlock": 27864676,
+      "windowStartBlock": 27805380,
+      "windowEndBlock": 27865860,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 26199648,
-      "windowEndBlock": 26250048,
+      "windowStartBlock": 26200648,
+      "windowEndBlock": 26251048,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -209,8 +209,53 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 52650380,
-      "windowEndBlock": 52952780,
+      "windowStartBlock": 52656414,
+      "windowEndBlock": 52958814,
+      "paintCount": 0,
+      "overpaintCount": 0,
+      "uniquePainters": 0,
+      "uniqueReferrers": 0,
+      "gini": 0.0,
+      "totalVolumeFormatted": "0.000000 ETH",
+      "dailyActivity": [
+        {
+          "date": "2026-10-16",
+          "paints": 0
+        },
+        {
+          "date": "2026-10-17",
+          "paints": 0
+        },
+        {
+          "date": "2026-10-18",
+          "paints": 0
+        },
+        {
+          "date": "2026-10-19",
+          "paints": 0
+        },
+        {
+          "date": "2026-10-20",
+          "paints": 0
+        },
+        {
+          "date": "2026-10-21",
+          "paints": 0
+        },
+        {
+          "date": "2026-10-22",
+          "paints": 0
+        }
+      ],
+      "biggestByPixels": null,
+      "biggestByPrice": null
+    },
+    {
+      "chain": "Robinhood",
+      "chainId": 4663,
+      "native": "ETH",
+      "windowStartBlock": 89414265,
+      "windowEndBlock": 95462265,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
