@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T20:17:50Z",
+  "generatedAt": "2026-10-21T23:31:09Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -10,10 +10,6 @@
     "weeklyActivePainters": 0,
     "gini": 0.0,
     "dailyActivity": [
-      {
-        "date": "2026-10-15",
-        "paints": 0
-      },
       {
         "date": "2026-10-16",
         "paints": 0
@@ -36,6 +32,10 @@
       },
       {
         "date": "2026-10-21",
+        "paints": 0
+      },
+      {
+        "date": "2026-10-22",
         "paints": 0
       }
     ]
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 27796299,
-      "windowEndBlock": 27856779,
+      "windowStartBlock": 27797431,
+      "windowEndBlock": 27857911,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 26192923,
-      "windowEndBlock": 26243323,
+      "windowStartBlock": 26193885,
+      "windowEndBlock": 26244285,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -209,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 52609901,
-      "windowEndBlock": 52912301,
+      "windowStartBlock": 52615705,
+      "windowEndBlock": 52918105,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -254,8 +254,8 @@
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 88522434,
-      "windowEndBlock": 94570434,
+      "windowStartBlock": 88634180,
+      "windowEndBlock": 94682180,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
