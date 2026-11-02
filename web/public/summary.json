@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T23:45:17Z",
+  "generatedAt": "2026-11-02T04:35:29Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 27890092,
-      "windowEndBlock": 27950572,
+      "windowStartBlock": 27891781,
+      "windowEndBlock": 27952261,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -128,10 +128,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 PLS",
       "dailyActivity": [
-        {
-          "date": "2026-10-26",
-          "paints": 0
-        },
         {
           "date": "2026-10-27",
           "paints": 0
@@ -154,6 +150,10 @@
         },
         {
           "date": "2026-11-01",
+          "paints": 0
+        },
+        {
+          "date": "2026-11-02",
           "paints": 0
         }
       ],
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 26272900,
-      "windowEndBlock": 26323300,
+      "windowStartBlock": 26274343,
+      "windowEndBlock": 26324743,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -173,10 +173,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-10-26",
-          "paints": 0
-        },
         {
           "date": "2026-10-27",
           "paints": 0
@@ -200,6 +196,10 @@
         {
           "date": "2026-11-01",
           "paints": 0
+        },
+        {
+          "date": "2026-11-02",
+          "paints": 0
         }
       ],
       "biggestByPixels": null,
@@ -209,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 53091357,
-      "windowEndBlock": 53393757,
+      "windowStartBlock": 53100041,
+      "windowEndBlock": 53402441,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -254,8 +254,8 @@
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 97743246,
-      "windowEndBlock": 103791246,
+      "windowStartBlock": 97911560,
+      "windowEndBlock": 103959560,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
