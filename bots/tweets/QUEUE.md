@@ -13,6 +13,18 @@ scanning all five EVM chains for `Painted` events at or above
 
 <!-- queue:start -->
 
+- [ ] **PulseChain** · 2026-11-10 03:51 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  96 of 100 Genesis founder slots left on PulseChain. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
+- [ ] **Robinhood** · 2026-11-10 03:52 UTC · founder scarcity · [founders](https://tagwall.io/founders)
+
+  ```text
+  98 of 100 Genesis founder slots left on Robinhood. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders
+  ```
+
 - [ ] **PulseChain** · 2026-11-09 02:54 UTC · founder scarcity · [founders](https://tagwall.io/founders)
 
   ```text
