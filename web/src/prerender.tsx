@@ -1,6 +1,8 @@
 import { renderToString } from 'react-dom/server'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
+import { HomeIntro } from './components/HomeIntro'
+import { HOME_CHAINS } from './lib/homeChains'
 import ArticlesPage from './pages/ArticlesPage'
 import { ARTICLES } from './lib/articles'
 
@@ -54,3 +56,11 @@ export function pages(): PrerenderPage[] {
     })),
   ]
 }
+
+/** Static markup of the home page intro, placed in dist/index.html's #root. */
+export function homeIntroHtml(): string {
+  return renderToString(<HomeIntro />)
+}
+
+/** Chains named in the intro, reused for llms.txt so the two never drift. */
+export const homeChains = HOME_CHAINS

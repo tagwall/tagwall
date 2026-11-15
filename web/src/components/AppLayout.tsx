@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import type * as React from 'react'
 import { useAccount, useChainId } from 'wagmi'
 
@@ -89,6 +89,19 @@ export function AppLayout() {
       `</svg>`
     link.href = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
   }, [tokens.hex])
+
+  // index.html is served for every route without its own file, and it
+  // carries <link rel="canonical"> for "/" (scripts/prerender.mjs). That is
+  // right for the canvas views (/, /pixel/..., /stats, ?chain= links) but
+  // would mark /founders, /share and the rest as copies of the home page,
+  // so point it at the current path there. Keeps the origin the build used.
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+    if (!link) return
+    const canvasView = pathname === '/' || pathname === '/stats' || pathname.startsWith('/pixel/')
+    link.href = new URL(canvasView ? '/' : pathname, link.href).href
+  }, [pathname])
 
   return (
     <main

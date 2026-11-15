@@ -14,6 +14,7 @@ import { LeaderboardTicker } from '../components/LeaderboardTicker'
 import { ReferrersLeaderboard } from '../components/ReferrersLeaderboard'
 import { MinimapOverlay } from '../components/MinimapOverlay'
 import { StatsCards } from '../components/StatsCards'
+import { HomeIntro } from '../components/HomeIntro'
 import { OutboundLinkModal } from '../components/OutboundLinkModal'
 import { FounderClaimPrompt } from '../components/FounderClaimPrompt'
 import { PaintControls } from '../components/PaintControls'
@@ -1192,6 +1193,7 @@ function CanvasView({
         <ReferrersLeaderboard />
         <StatsCards regions={regions} />
       </div>
+      <HomeIntro />
       <OutboundLinkModal url={outboundUrl} onClose={() => setOutboundUrl(null)} />
       {spotDialogOpen && pickedSpot && (
         <SpotDialog

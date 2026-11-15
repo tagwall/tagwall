@@ -3909,6 +3909,31 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   gap: 12px;
 }
 
+/* Home intro: plain text under the canvas dock saying what tagwall is.
+   Also prerendered into index.html, where it shows on its own until the
+   app mounts, so it must look right without any parent layout. */
+.home-intro {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 24px 24px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.home-intro h1 {
+  margin: 0 0 8px;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-bright);
+}
+.home-intro p { margin: 0 0 8px; max-width: 68ch; }
+.home-intro p:last-child { margin-bottom: 0; }
+@media (max-width: 600px) {
+  .home-intro { padding: 20px 12px 16px; }
+}
+
 /* Footer */
 .site-footer {
   margin-top: auto;
