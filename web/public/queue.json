@@ -1,6 +1,17 @@
 {
-  "generatedAt": "2026-11-19T06:00:10Z",
+  "generatedAt": "2026-11-19T15:38:29Z",
   "entries": [
+    {
+      "id": "scarcity-1-2026-11-19",
+      "kind": "scarcity",
+      "chain": "Ethereum",
+      "chainId": 1,
+      "queuedAt": "2026-11-19T15:38:29Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on Ethereum. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
     {
       "id": "scarcity-369-2026-11-19",
       "kind": "scarcity",
@@ -53,17 +64,6 @@
       "tweet": "\ud83c\udfa8 0x0698\u20265C88 painted 22\u00d711 on PulseChain for 1,621,400 PLS (242 px). https://tagwall.io/pixel/625,400",
       "txUrl": "https://otter.pulsechain.com/tx/0x296b5377ddc89ce6a29f038f721cf5d38f64c232dab73ec0012a3adb10a7cddc",
       "pixelUrl": "https://tagwall.io/pixel/625,400"
-    },
-    {
-      "id": "scarcity-1-2026-09-11",
-      "kind": "scarcity",
-      "chain": "Ethereum",
-      "chainId": 1,
-      "queuedAt": "2026-09-11T09:31:37Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on Ethereum. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
     },
     {
       "id": "scarcity-8453-2026-09-09",
