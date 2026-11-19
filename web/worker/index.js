@@ -33,7 +33,7 @@ const DAY = 86400
  * build, and browsers dialling /api/rpc pick the change up immediately.
  */
 const RPC_POOL = {
-  '369': ['https://rpc-pulsechain.g4mm4.io', 'https://rpc.pulsechain.com'],
+  '369': ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com'],
   '1': [
     'https://rpc.mevblocker.io',
     'https://eth.drpc.org',
@@ -69,7 +69,7 @@ const RPC_POOL = {
   // goes first. robinhood-rpc.publicnode.com serves eth_call but 429s getLogs;
   // drpc and arrowrpc were unusable from a Worker. Probed 2026-09-26.
   '4663': ['https://rpc.ordofi.network', 'https://rpc.mainnet.chain.robinhood.com'],
-  '943': ['https://rpc-testnet-pulsechain.g4mm4.io'],
+  '943': ['https://rpc.v4.testnet.pulsechain.com', 'https://pulsechain-testnet-rpc.publicnode.com'],
 }
 
 /**

@@ -36,8 +36,8 @@ const V1_2 = '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C'
 /** Keep in step with web/src/lib/rpcPool.ts and web/worker/index.js. */
 const CHAINS = {
   pulsechain: { id: 369, address: V1, deployBlock: 26606708, chunk: 9500, urls: [
-    'https://rpc-pulsechain.g4mm4.io',
     'https://rpc.pulsechain.com',
+    'https://pulsechain-rpc.publicnode.com',
   ]},
   ethereum: { id: 1, address: V1, deployBlock: 25161961, chunk: 9500, urls: [
     'https://rpc.mevblocker.io',

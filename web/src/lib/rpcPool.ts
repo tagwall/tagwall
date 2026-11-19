@@ -53,8 +53,9 @@ export function workerRpcUrl(chainId: number): string {
  * its turn as the first one tried.
  */
 export const DIRECT_RPCS: Record<number, readonly string[]> = {
-  // PulseChain (369). g4mm4 and the official RPC are the only two survivors.
-  369: ['https://rpc-pulsechain.g4mm4.io', 'https://rpc.pulsechain.com'],
+  // PulseChain (369). g4mm4.io takes all its servers offline on 21 Nov 2026;
+  // publicnode serves full log history again (re-probed 19 Nov 2026).
+  369: ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com'],
   // Ethereum (1). merkle.io is gone from this list: getLogs is -32601 there.
   1: [
     'https://rpc.mevblocker.io',
@@ -116,7 +117,7 @@ export const DIRECT_RPCS: Record<number, readonly string[]> = {
   // keep its cold-scan call count sane, so it is not a usable substitute.
   4663: ['https://rpc.mainnet.chain.robinhood.com'],
   // PulseChain v4 testnet (943). Dev convenience only, not a launch chain.
-  943: ['https://rpc-testnet-pulsechain.g4mm4.io'],
+  943: ['https://rpc.v4.testnet.pulsechain.com', 'https://pulsechain-testnet-rpc.publicnode.com'],
 }
 
 /**
