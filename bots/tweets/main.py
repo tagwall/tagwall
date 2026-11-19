@@ -111,12 +111,11 @@ CHAINS = [
         "id": 1,
         "name": "Ethereum",
         "rpc_env": "ETHEREUM_RPC_URL",
-        # dRPC's public Ethereum endpoint. Free tier, no key required.
-        # Survives the bot's 7-day backfill (~11 get_logs calls per run
-        # at LOGS_WINDOW=5000 on a chain with 12s block times). Operator
-        # can override via ETHEREUM_RPC_URL if they want a paid provider
-        # for headroom; current load doesn't justify it.
-        "rpc_default": "https://eth.drpc.org",
+        # MEV Blocker's public endpoint. Free, no key, full log history at
+        # 9,500-block windows (re-probed 2026-11-19). dRPC, the previous
+        # default, now caps free-plan getLogs at 100 blocks. Operator can
+        # override via ETHEREUM_RPC_URL.
+        "rpc_default": "https://rpc.mevblocker.io",
         "native": "ETH",
         "explorer_tx": "https://etherscan.io/tx/",
         "deploy_block": 25_161_961,
@@ -125,13 +124,14 @@ CHAINS = [
         "id": 8453,
         "name": "Base",
         "rpc_env": "BASE_RPC_URL",
-        # PublicNode's Base endpoint. Survives the first-run 7-day
-        # backfill burst (~60 chunks at LOGS_WINDOW=5000 over 300k
-        # blocks @ 2s/block) — benchmark showed 3 chunks in 0.85s
-        # without rate-limit, vs mainnet.base.org's 429 after ~30
-        # rapid requests and base.drpc.org's intermittent 408 timeouts.
-        # Operator can override via BASE_RPC_URL if needed.
-        "rpc_default": "https://base.publicnode.com",
+        # Tenderly's public Base gateway: full log history, but getLogs
+        # ranges are capped at 1,000 blocks, hence logs_window below.
+        # PublicNode (the previous default) is archive-gated and 429s
+        # shared egress; mainnet.base.org answers "request limit reached"
+        # to getLogs (re-probed 2026-11-19). Operator can override via
+        # BASE_RPC_URL.
+        "rpc_default": "https://base.gateway.tenderly.co",
+        "logs_window": 900,
         "native": "ETH",
         "explorer_tx": "https://basescan.org/tx/",
         "deploy_block": 46_399_049,

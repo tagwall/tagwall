@@ -56,13 +56,12 @@ export const DIRECT_RPCS: Record<number, readonly string[]> = {
   // PulseChain (369). g4mm4.io takes all its servers offline on 21 Nov 2026;
   // publicnode serves full log history again (re-probed 19 Nov 2026).
   369: ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com'],
-  // Ethereum (1). merkle.io is gone from this list: getLogs is -32601 there.
-  1: [
-    'https://rpc.mevblocker.io',
-    'https://eth.drpc.org',
-    'https://0xrpc.io/eth',
-    'https://eth.api.onfinality.io/public',
-  ],
+  // Ethereum (1). Re-probed 2026-11-19 from this Mac and from a Worker:
+  // mevblocker and tenderly serve full log history. Dropped: drpc (100-block
+  // getLogs cap on the free plan), 0xrpc.io (404), onfinality (429), and
+  // publicnode (archive-gated, 429 from a Worker). merkle.io went earlier
+  // (getLogs is -32601 there).
+  1: ['https://rpc.mevblocker.io', 'https://mainnet.gateway.tenderly.co'],
   // Base (8453). Re-probed 2026-09-26. publicnode is out: from a browser it
   // hung 16-26s per request before failing over, which made the Base wall
   // take ~40s to appear. It is also archive-gated. tenderly is back in: it was
@@ -74,10 +73,16 @@ export const DIRECT_RPCS: Record<number, readonly string[]> = {
   // Also rejected on 2026-09-26: nodies (50-block cap), blastapi (10-block
   // cap), baseazul (100-block cap), drpc, meowrpc, onfinality, omniatech and
   // zan (rate-limited), llamarpc and blockpi (5xx), lava.build (discontinued).
+  //
+  // Re-probed 2026-11-19: both Coinbase endpoints are out (mainnet.base.org
+  // answers "request limit reached" to getLogs, developer-access no longer
+  // resolves). daybreak serves full history at the 1,000-block chunk;
+  // baseazul now takes 1,000-block windows at head (it capped at 100 in
+  // September) but caps history at 50, so it only helps the live tail scan.
   8453: [
-    'https://mainnet.base.org',
-    'https://developer-access-mainnet.base.org',
     'https://base.gateway.tenderly.co',
+    'https://base.daybreak-rpc.network',
+    'https://rpc.baseazul.dev',
   ],
   // BSC (56). Probed 2026-09-11. No endpoint has archive depth, so
   // BSC cannot be cold-scanned from its deploy block on free public RPC at

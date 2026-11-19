@@ -34,22 +34,19 @@ const DAY = 86400
  */
 const RPC_POOL = {
   '369': ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com'],
-  '1': [
-    'https://rpc.mevblocker.io',
-    'https://eth.drpc.org',
-    'https://0xrpc.io/eth',
-    'https://eth.api.onfinality.io/public',
-  ],
+  // Ethereum and Base re-probed from a Worker 2026-11-19: drpc caps getLogs
+  // at 100 blocks, 0xrpc.io is 404, onfinality and publicnode answer 429.
+  '1': ['https://rpc.mevblocker.io', 'https://mainnet.gateway.tenderly.co'],
   // Base: both Coinbase endpoints answer 429 to Cloudflare's egress and
   // publicnode is slow and archive-gated (dropped 2026-09-26), so tenderly goes first.
   // It serves eth_getLogs up to 1,000 blocks (the frontend's 2,000 chunk is
   // too wide for it, which is why the frontend pool rejected it). Probed from
   // a Worker 2026-09-26.
-  '8453': [
-    'https://base.gateway.tenderly.co',
-    'https://mainnet.base.org',
-    'https://developer-access-mainnet.base.org',
-  ],
+  // 2026-11-19: both Coinbase endpoints are dead from a Worker (bad reply /
+  // 530). daybreak serves full history at 1,000 blocks. baseazul is left
+  // out here: it caps history windows at 50 blocks, which the snapshot
+  // catch-up needs.
+  '8453': ['https://base.gateway.tenderly.co', 'https://base.daybreak-rpc.network'],
   // BSC re-probed 2026-09-11: bloxroute now times out server-side on
   // eth_getLogs after 30s while serving eth_call fine, so it is out. Neither
   // survivor has archive depth. See the pool comment in rpcPool.ts.

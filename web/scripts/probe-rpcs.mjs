@@ -41,14 +41,12 @@ const CHAINS = {
   ]},
   ethereum: { id: 1, address: V1, deployBlock: 25161961, chunk: 9500, urls: [
     'https://rpc.mevblocker.io',
-    'https://eth.drpc.org',
-    'https://0xrpc.io/eth',
-    'https://eth.api.onfinality.io/public',
+    'https://mainnet.gateway.tenderly.co',
   ]},
   base: { id: 8453, address: V1, deployBlock: 46399049, chunk: 1000, urls: [
-    'https://mainnet.base.org',
-    'https://developer-access-mainnet.base.org',
     'https://base.gateway.tenderly.co',
+    'https://base.daybreak-rpc.network',
+    'https://rpc.baseazul.dev',
   ]},
   bsc: { id: 56, address: V1, deployBlock: 100071283, chunk: 5000, urls: [
     'https://rpc-bsc.48.club',
