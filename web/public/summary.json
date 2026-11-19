@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T17:47:49Z",
+  "generatedAt": "2026-11-18T23:54:43Z",
   "windowDays": 7,
   "minPixels": 100,
   "allChains": {
@@ -10,10 +10,6 @@
     "weeklyActivePainters": 0,
     "gini": 0.0,
     "dailyActivity": [
-      {
-        "date": "2026-11-12",
-        "paints": 0
-      },
       {
         "date": "2026-11-13",
         "paints": 0
@@ -36,6 +32,10 @@
       },
       {
         "date": "2026-11-18",
+        "paints": 0
+      },
+      {
+        "date": "2026-11-19",
         "paints": 0
       }
     ]
@@ -119,8 +119,8 @@
       "chain": "PulseChain",
       "chainId": 369,
       "native": "PLS",
-      "windowStartBlock": 28030469,
-      "windowEndBlock": 28090949,
+      "windowStartBlock": 28032606,
+      "windowEndBlock": 28093086,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -164,8 +164,8 @@
       "chain": "Ethereum",
       "chainId": 1,
       "native": "ETH",
-      "windowStartBlock": 26393154,
-      "windowEndBlock": 26443554,
+      "windowStartBlock": 26394977,
+      "windowEndBlock": 26445377,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -209,8 +209,8 @@
       "chain": "Base",
       "chainId": 8453,
       "native": "ETH",
-      "windowStartBlock": 58867019,
-      "windowEndBlock": 59169419,
+      "windowStartBlock": 58976591,
+      "windowEndBlock": 59278991,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -218,10 +218,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-11-12",
-          "paints": 0
-        },
         {
           "date": "2026-11-13",
           "paints": 0
@@ -244,6 +240,10 @@
         },
         {
           "date": "2026-11-18",
+          "paints": 0
+        },
+        {
+          "date": "2026-11-19",
           "paints": 0
         }
       ],
@@ -254,8 +254,8 @@
       "chain": "HyperEVM",
       "chainId": 999,
       "native": "HYPE",
-      "windowStartBlock": 51010275,
-      "windowEndBlock": 51615075,
+      "windowStartBlock": 51032455,
+      "windowEndBlock": 51637255,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -263,10 +263,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 HYPE",
       "dailyActivity": [
-        {
-          "date": "2026-11-12",
-          "paints": 0
-        },
         {
           "date": "2026-11-13",
           "paints": 0
@@ -289,6 +285,10 @@
         },
         {
           "date": "2026-11-18",
+          "paints": 0
+        },
+        {
+          "date": "2026-11-19",
           "paints": 0
         }
       ],
@@ -299,8 +299,8 @@
       "chain": "Robinhood",
       "chainId": 4663,
       "native": "ETH",
-      "windowStartBlock": 111556712,
-      "windowEndBlock": 117604712,
+      "windowStartBlock": 111764441,
+      "windowEndBlock": 117812441,
       "paintCount": 0,
       "overpaintCount": 0,
       "uniquePainters": 0,
@@ -308,10 +308,6 @@
       "gini": 0.0,
       "totalVolumeFormatted": "0.000000 ETH",
       "dailyActivity": [
-        {
-          "date": "2026-11-12",
-          "paints": 0
-        },
         {
           "date": "2026-11-13",
           "paints": 0
@@ -334,6 +330,10 @@
         },
         {
           "date": "2026-11-18",
+          "paints": 0
+        },
+        {
+          "date": "2026-11-19",
           "paints": 0
         }
       ],
