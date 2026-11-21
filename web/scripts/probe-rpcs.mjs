@@ -38,6 +38,7 @@ const CHAINS = {
   pulsechain: { id: 369, address: V1, deployBlock: 26606708, chunk: 9500, urls: [
     'https://rpc.pulsechain.com',
     'https://pulsechain-rpc.publicnode.com',
+    'https://rpc.libertyswap.finance',
   ]},
   ethereum: { id: 1, address: V1, deployBlock: 25161961, chunk: 9500, urls: [
     'https://rpc.mevblocker.io',

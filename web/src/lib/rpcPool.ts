@@ -53,9 +53,15 @@ export function workerRpcUrl(chainId: number): string {
  * its turn as the first one tried.
  */
 export const DIRECT_RPCS: Record<number, readonly string[]> = {
-  // PulseChain (369). g4mm4.io takes all its servers offline on 21 Nov 2026;
+  // PulseChain (369). g4mm4.io took all its servers offline on 21 Nov 2026;
   // publicnode serves full log history again (re-probed 19 Nov 2026).
-  369: ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com'],
+  // LibertySwap's RPC (a PulseChain DEX, PulseChain only) added 21 Nov 2026:
+  // full log history with CORS, probed from this Mac and from a Worker.
+  369: [
+    'https://rpc.pulsechain.com',
+    'https://pulsechain-rpc.publicnode.com',
+    'https://rpc.libertyswap.finance',
+  ],
   // Ethereum (1). Re-probed 2026-11-19 from this Mac and from a Worker:
   // mevblocker and tenderly serve full log history. Dropped: drpc (100-block
   // getLogs cap on the free plan), 0xrpc.io (404), onfinality (429), and

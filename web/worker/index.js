@@ -33,7 +33,7 @@ const DAY = 86400
  * build, and browsers dialling /api/rpc pick the change up immediately.
  */
 const RPC_POOL = {
-  '369': ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com'],
+  '369': ['https://rpc.pulsechain.com', 'https://pulsechain-rpc.publicnode.com', 'https://rpc.libertyswap.finance'],
   // Ethereum and Base re-probed from a Worker 2026-11-19: drpc caps getLogs
   // at 100 blocks, 0xrpc.io is 404, onfinality and publicnode answer 429.
   '1': ['https://rpc.mevblocker.io', 'https://mainnet.gateway.tenderly.co'],
