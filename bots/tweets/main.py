@@ -56,6 +56,7 @@ from pathlib import Path
 import requests
 
 from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
 from web3.exceptions import ContractLogicError, Web3RPCError
 
 PAINTED_EVENT_ABI = [{
@@ -92,6 +93,10 @@ TREASURY_SEND_FAILED_TOPIC0 = Web3.keccak(text="TreasurySendFailed(uint256)")
 CANVAS_VIEW_ABI = [
     {"type": "function", "name": "startingPrice", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
     {"type": "function", "name": "links", "stateMutability": "view", "inputs": [{"type": "uint256"}], "outputs": [{"type": "string"}]},
+    # Incremented once per paint, immediately before Painted is emitted
+    # (TreasurySendFailed can only fire inside a paint too), so an
+    # unchanged value across a block range means no events in it.
+    {"type": "function", "name": "stampCount", "stateMutability": "view", "inputs": [], "outputs": [{"type": "uint256"}]},
 ]
 
 CHAINS = [
@@ -140,26 +145,30 @@ CHAINS = [
         "id": 56,
         "name": "BSC",
         "rpc_env": "BSC_RPC_URL",
-        # Bloxroute is the only public BSC RPC that doesn't prune logs
-        # (the operator's pre-launch survey found dataseed1-4 and
-        # publicnode all return "history has been pruned" after ~24h,
-        # and most others cap eth_getLogs at 500-block ranges). The
-        # frontend uses the same endpoint for the same reason.
-        # bsc.drpc.org is a flake-prone secondary; not used as default
-        # because intermittent 400s would burn the bot's retry budget.
-        "rpc_default": "https://bsc.rpc.blxrbdn.com",
+        # 48.club, the same endpoint the frontend uses. Bloxroute (the
+        # previous default) answers 403 to getLogs since Nov 2026. 48.club
+        # serves 4,500-block ranges reliably but was flaky at 5,000
+        # (re-probed 2026-11-22), hence logs_window below. It prunes old
+        # history, which the stampCount skip-ahead works around.
+        "rpc_default": "https://rpc-bsc.48.club",
         "native": "BNB",
         "explorer_tx": "https://bscscan.com/tx/",
         "deploy_block": 100_071_283,
+        # BSC is a proof-of-authority chain: its block extraData is longer
+        # than web3.py's 32-byte default allows, so reading a block raises
+        # ExtraDataLengthError without the POA middleware.
+        "poa": True,
+        "logs_window": 4_000,
     },
     {
         "id": 999,
         "name": "HyperEVM",
         "rpc_env": "HYPEREVM_RPC_URL",
-        # Bloxroute, same endpoint the frontend + BSC use: CORS-clean,
-        # fast, and returns canvas-deploy-block logs without the range
-        # caps or pruning that hobble most public HyperEVM RPCs.
-        "rpc_default": "https://hyperliquid.rpc.blxrbdn.com",
+        # Hypurrscan. Bloxroute (the previous default) answers "invalid
+        # block range" to any getLogs this far back, so the bot's scan sat
+        # 14.5M blocks behind (re-probed 2026-11-22). Hypurrscan serves
+        # 1,000-block ranges with full history.
+        "rpc_default": "https://rpc.hypurrscan.io",
         "native": "HYPE",
         "explorer_tx": "https://www.hyperscan.com/tx/",
         # HyperEVM runs the v1.1 Canvas build at a DIFFERENT CREATE2
@@ -182,9 +191,10 @@ CHAINS = [
         "id": 4663,
         "name": "Robinhood",
         "rpc_env": "ROBINHOOD_RPC_URL",
-        # Official Robinhood Chain RPC (Arbitrum Orbit L2). Only public
-        # endpoint verified so far; no observed eth_getLogs range cap
-        # (a 6M-block probe succeeded, 2026-07-12).
+        # Official Robinhood Chain RPC (Arbitrum Orbit L2). It accepts
+        # 500k-block ranges from a home connection but caps GitHub's
+        # runners at 100,000 ("query spans 500001 blocks ... only 100000
+        # are allowed"), seen 2026-11-22.
         "rpc_default": "https://rpc.mainnet.chain.robinhood.com",
         "native": "ETH",
         "explorer_tx": "https://robinhoodchain.blockscout.com/tx/",
@@ -193,10 +203,10 @@ CHAINS = [
         "canvas_address": "0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C",
         # v1.2 deploy block (2026-07-12, tx 0x43148827…).
         "deploy_block": 7_648_180,
-        # ~0.1s blocks mean a 7-day window is ~6M blocks. The RPC accepts
-        # wide ranges, so a large window keeps the weekly scan to ~12-13
-        # get_logs calls instead of the default window's ~1,200.
-        "logs_window": 500_000,
+        # ~0.1s blocks mean a 7-day window is ~6M blocks. 99,000 keeps the
+        # inclusive span (window + 1) under the 100,000 cap: ~61 calls for
+        # the weekly scan instead of the default window's ~1,200.
+        "logs_window": 99_000,
     },
 ]
 
@@ -253,6 +263,74 @@ SUMMARY_WINDOW_SECONDS = 7 * 24 * 60 * 60
 # exactly this reason; user-reported as a "BSC bug" 2026-05-28).
 # Erring small here costs more RPC chunks but never drops events.
 CHAIN_BLOCK_TIME_S = {369: 10, 1: 12, 8453: 2, 56: 0.5, 999: 1, 4663: 0.1}
+
+# A scan further behind than this many get_logs chunks first checks whether
+# anything was painted at all (see no_paints_between), so a chain that was
+# stuck for months catches up in two eth_calls instead of thousands of
+# get_logs calls that could outlast the run.
+SKIP_AHEAD_MIN_CHUNKS = 20
+
+
+def make_w3(chain: dict, rpc: str) -> Web3:
+    """Web3 client for a chain, with the POA middleware where it needs it."""
+    w3 = Web3(Web3.HTTPProvider(rpc))
+    if chain.get("poa"):
+        w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+    return w3
+
+
+_SNAPSHOT_CACHE: dict[int, dict | None] = {}
+
+
+def _snapshot_stamps_at(chain: dict, block: int) -> int | None:
+    """Paints at or before `block`, from the site's own snapshot.
+
+    Fallback for RPCs that prune old state (48.club on BSC, the official
+    Robinhood RPC), where stampCount() can't be read at an old block. The
+    Worker keeps every Painted event it has seen up to snapshotBlock in KV;
+    counting its regions up to `block` gives the same number. Fetched at
+    most once per chain per run (one Worker request). None if the snapshot
+    is unavailable or doesn't reach `block` yet.
+    """
+    cid = chain["id"]
+    if cid not in _SNAPSHOT_CACHE:
+        try:
+            r = requests.get(f"{TAGWALL_BASE_URL}/api/canvas/{cid}/snapshot", timeout=20)
+            r.raise_for_status()
+            _SNAPSHOT_CACHE[cid] = r.json()
+        except Exception as err:
+            print(f"[{chain['name']}] snapshot fallback unavailable: {sanitize_err(err)}", file=sys.stderr)
+            _SNAPSHOT_CACHE[cid] = None
+    snap = _SNAPSHOT_CACHE[cid]
+    if not snap or int(snap.get("snapshotBlock", -1)) < block:
+        return None
+    return sum(1 for reg in snap.get("regions", []) if int(reg.get("blockNumber", 1 << 62)) <= block)
+
+
+def no_paints_between(view_contract, chain: dict, before_block: int, latest: int) -> bool:
+    """True only if stampCount() is the same at before_block and latest.
+
+    stampCount goes up by one immediately before every Painted event, so
+    equal counts mean no Painted or TreasurySendFailed events in
+    (before_block, latest]. The count at before_block comes from an
+    archive read, or from the site's snapshot when the RPC has pruned that
+    state. Anything uncertain returns False and the caller scans normally:
+    a snapshot that undercounts can only make the counts differ, never
+    hide a paint.
+    """
+    try:
+        after = view_contract.functions.stampCount().call(block_identifier=latest)
+    except Exception as err:
+        print(f"[{chain['name']}] skip-ahead check unavailable, scanning normally: {sanitize_err(err)}", file=sys.stderr)
+        return False
+    try:
+        before = view_contract.functions.stampCount().call(block_identifier=before_block)
+    except Exception:
+        before = _snapshot_stamps_at(chain, before_block)
+        if before is None:
+            print(f"[{chain['name']}] skip-ahead check unavailable (no archive state, no snapshot), scanning normally", file=sys.stderr)
+            return False
+    return before == after
 # Overpaint heuristic threshold: if a paint's pricePerPixel is more than
 # this multiple of the chain's startingPrice (floor), at least one
 # pixel was painted over (compounded at +10% per overwrite). 1.05 gives
@@ -784,7 +862,7 @@ def process_chain(
         print(f"[{chain['name']}] skip: no RPC configured (set {chain['rpc_env']})")
         return [], [], [], []
 
-    w3 = Web3(Web3.HTTPProvider(rpc))
+    w3 = make_w3(chain, rpc)
     try:
         latest = w3.eth.block_number
     except Exception as err:
@@ -835,6 +913,13 @@ def process_chain(
         return [], [], [], []
     if from_block == latest:
         print(f"[{chain['name']}] up to date at block {latest}")
+        return [], [], [], []
+    window = chain.get("logs_window", LOGS_WINDOW)
+    if (latest - from_block) // (window + 1) >= SKIP_AHEAD_MIN_CHUNKS and no_paints_between(
+        view_contract, chain, from_block - 1, latest
+    ):
+        print(f"[{chain['name']}] no paints in blocks {from_block}-{latest} (stampCount unchanged); skipping to head")
+        state[cid_key] = latest + 1
         return [], [], [], []
 
     # Loop through LOGS_WINDOW-sized chunks until we either catch up to
@@ -976,7 +1061,7 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict], d
         print(f"[{chain['name']}] summary: no RPC configured")
         return None, {}, {}
 
-    w3 = Web3(Web3.HTTPProvider(rpc))
+    w3 = make_w3(chain, rpc)
     try:
         latest_block = w3.eth.get_block("latest")
         latest = latest_block["number"]
@@ -1021,8 +1106,13 @@ def compute_weekly_summary(chain: dict) -> tuple[dict | None, dict[str, dict], d
     biggest_by_price: tuple[int, dict, str] | None = None
 
     cur = from_block
+    window = chain.get("logs_window", LOGS_WINDOW)
+    if (latest - from_block) // (window + 1) >= SKIP_AHEAD_MIN_CHUNKS and no_paints_between(
+        view_contract, chain, from_block - 1, latest
+    ):
+        cur = latest + 1  # nothing painted this window: zero summary, no scan
     while cur <= latest:
-        to = min(latest, cur + chain.get("logs_window", LOGS_WINDOW))
+        to = min(latest, cur + window)
         try:
             events = get_logs_with_retry(
                 contract.events.Painted.get_logs, cur, to, chain["name"],
@@ -1425,7 +1515,7 @@ def scan_founders(chain: dict, fstate: dict) -> bool:
         print(f"[{chain['name']}] founders: no RPC configured")
         return False
 
-    w3 = Web3(Web3.HTTPProvider(rpc))
+    w3 = make_w3(chain, rpc)
     try:
         latest = w3.eth.block_number
     except Exception as err:
@@ -1446,6 +1536,12 @@ def scan_founders(chain: dict, fstate: dict) -> bool:
     window = chain.get("logs_window", LOGS_WINDOW)
     cur = from_block
     chunks = 0
+    view_contract = w3.eth.contract(address=canvas_address, abi=CANVAS_VIEW_ABI)
+    if (latest - from_block) // (window + 1) >= SKIP_AHEAD_MIN_CHUNKS and no_paints_between(
+        view_contract, chain, from_block - 1, latest
+    ):
+        slot["lastBlock"] = latest  # nothing painted since; no new founders
+        cur = latest + 1
     while cur <= latest:
         if chunks >= FOUNDERS_MAX_CHUNKS_PER_RUN:
             break  # budget spent; remaining blocks resume next run

@@ -62,10 +62,14 @@ const RPC_POOL = {
     'https://rpc.hyperlend.finance',
   ],
   // Robinhood: the official RPC rate-limits Cloudflare's shared egress (429 on
-  // eth_call and eth_getLogs from a Worker, fine from a browser), so ordofi
-  // goes first. robinhood-rpc.publicnode.com serves eth_call but 429s getLogs;
-  // drpc and arrowrpc were unusable from a Worker. Probed 2026-09-26.
-  '4663': ['https://rpc.ordofi.network', 'https://rpc.mainnet.chain.robinhood.com'],
+  // eth_call, eth_getLogs and often eth_blockNumber from a Worker, fine from a
+  // browser). ordofi, the previous primary, no longer resolves (2026-11-22),
+  // which left the snapshot logging "no head from 2 upstream(s)". daybreak
+  // serves head, stampCount and full-history getLogs up to 2,000 blocks from
+  // a Worker (3/3 rounds, 2026-11-24); hence the 1,900 chunk below. Also
+  // rejected from a Worker that day: publicnode (archive token), drpc
+  // (100-block cap), blockreq (429), blockvectra (invalid_params).
+  '4663': ['https://robinhood.daybreak-rpc.network', 'https://rpc.mainnet.chain.robinhood.com'],
   '943': ['https://rpc.v4.testnet.pulsechain.com', 'https://pulsechain-testnet-rpc.publicnode.com'],
 }
 
@@ -578,15 +582,17 @@ const PAINTED_TOPIC = '0x5d25316e707ac9e251fa4433187862ac94eb0cae501474a1473bee6
  *  chains failed from then on. Base is 1,000 here because the only upstream a
  *  Worker can reach reliably (tenderly) caps there. Robinhood's frontend chunk
  *  is 500k against the official RPC, but that RPC answers 429 to Cloudflare's
- *  egress on everything except eth_blockNumber, so the Worker scans through
- *  ordofi, which caps at 10,000. Measured from a Worker on 2026-09-26. */
+ *  egress, so the Worker scans through daybreak, which caps at 2,000
+ *  (ordofi, at 10,000, is gone). About 3,000 Robinhood blocks a cron period
+ *  is two chunks, and the stampCount skip covers any backlog. Measured from
+ *  a Worker on 2026-11-24. */
 const CANVAS_BY_CHAIN = {
   '1': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 25161961, chunk: 9500 },
   '56': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 100071283, chunk: 5000 },
   '369': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 26606708, chunk: 9500 },
   '8453': { address: '0xd58D54ec0dBa952Efd56cE2a04DCDF1719676415', deployBlock: 46399049, chunk: 1000 },
   '999': { address: '0xbe682DB4c67F723Ad52a2f7Ba7Bc982C8BBDC5A4', deployBlock: 36585579, chunk: 1000 },
-  '4663': { address: '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C', deployBlock: 7648180, chunk: 10000 },
+  '4663': { address: '0x280f4b7AD154109B35B550D8caBfAc98Fa02Fa4C', deployBlock: 7648180, chunk: 1900 },
 }
 
 /** stampCount() selector. The contract increments it exactly once per
