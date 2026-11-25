@@ -1,6 +1,39 @@
 {
-  "generatedAt": "2026-11-25T05:13:32Z",
+  "generatedAt": "2026-11-25T15:54:20Z",
   "entries": [
+    {
+      "id": "scarcity-8453-2026-11-25",
+      "kind": "scarcity",
+      "chain": "Base",
+      "chainId": 8453,
+      "queuedAt": "2026-11-25T15:54:20Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on Base. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
+    {
+      "id": "scarcity-56-2026-11-25",
+      "kind": "scarcity",
+      "chain": "BSC",
+      "chainId": 56,
+      "queuedAt": "2026-11-25T15:54:20Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
+    {
+      "id": "scarcity-999-2026-11-25",
+      "kind": "scarcity",
+      "chain": "HyperEVM",
+      "chainId": 999,
+      "queuedAt": "2026-11-25T15:54:20Z",
+      "tier": "genesis",
+      "label": "99 of 100 Genesis left",
+      "tweet": "99 of 100 Genesis founder slots left on HyperEVM. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
+      "foundersUrl": "https://tagwall.io/founders"
+    },
     {
       "id": "scarcity-369-2026-11-25",
       "kind": "scarcity",
@@ -35,17 +68,6 @@
       "foundersUrl": "https://tagwall.io/founders"
     },
     {
-      "id": "scarcity-56-2026-11-19",
-      "kind": "scarcity",
-      "chain": "BSC",
-      "chainId": 56,
-      "queuedAt": "2026-11-19T06:00:10Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on BSC. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
-    },
-    {
       "id": "0x296b5377ddc89ce6a29f038f721cf5d38f64c232dab73ec0012a3adb10a7cddc",
       "chain": "PulseChain",
       "chainId": 369,
@@ -64,17 +86,6 @@
       "tweet": "\ud83c\udfa8 0x0698\u20265C88 painted 22\u00d711 on PulseChain for 1,621,400 PLS (242 px). https://tagwall.io/pixel/625,400",
       "txUrl": "https://otter.pulsechain.com/tx/0x296b5377ddc89ce6a29f038f721cf5d38f64c232dab73ec0012a3adb10a7cddc",
       "pixelUrl": "https://tagwall.io/pixel/625,400"
-    },
-    {
-      "id": "scarcity-8453-2026-09-09",
-      "kind": "scarcity",
-      "chain": "Base",
-      "chainId": 8453,
-      "queuedAt": "2026-09-09T01:03:04Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on Base. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
     },
     {
       "id": "0xb8da350840e8e0b8157a5faf82801533f739360777d85a5c182a6bb24a53322d",
@@ -375,17 +386,6 @@
       "tweet": "\ud83d\udcb8 6,994,800 PLS on PulseChain for a 36\u00d736 region by 0x19C1\u20264759, 1,044 px. https://tagwall.io/pixel/0,0 \u21aa ref 0x8c5b\u2026aBbf +349,740 PLS",
       "txUrl": "https://otter.pulsechain.com/tx/0xb1a29fab651d905bad49d068b20c216ddda0f2182c77d14cfe78351bf5f9a78f",
       "pixelUrl": "https://tagwall.io/pixel/0,0"
-    },
-    {
-      "id": "scarcity-999-2026-06-10",
-      "kind": "scarcity",
-      "chain": "HyperEVM",
-      "chainId": 999,
-      "queuedAt": "2026-06-10T00:19:52Z",
-      "tier": "genesis",
-      "label": "99 of 100 Genesis left",
-      "tweet": "99 of 100 Genesis founder slots left on HyperEVM. Paint one pixel, claim a permanent on-chain founder number. https://tagwall.io/founders",
-      "foundersUrl": "https://tagwall.io/founders"
     },
     {
       "id": "0x8004b96910beed14a32d4108809d4c29aab1b69c9ec1e8807a8638a9deb3ff91",
