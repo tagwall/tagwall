@@ -62,6 +62,11 @@ const SLUG_BY_CHAIN: Record<number, string> = {
  * URL param nor wallet is decisive, so wagmi's default-first-chain
  * behaviour still applies.
  */
+/** URL slug for a chain id (`?chain=<slug>`), or undefined for unknown ids. */
+export function chainSlug(chainId: number): string | undefined {
+  return SLUG_BY_CHAIN[chainId]
+}
+
 export function useViewerChainId(): ChainId {
   const { isConnected } = useAccount()
   const walletChainId = useChainId()

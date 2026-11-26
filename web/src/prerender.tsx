@@ -2,6 +2,7 @@ import { renderToString } from 'react-dom/server'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import { HomeIntro } from './components/HomeIntro'
+import { ReplayIntro } from './components/ReplayIntro'
 import { HOME_CHAINS } from './lib/homeChains'
 import ArticlesPage from './pages/ArticlesPage'
 import { ARTICLES } from './lib/articles'
@@ -22,6 +23,8 @@ export interface PrerenderPage {
   description: string
   /** Site-relative image path for link previews. */
   image: string
+  /** og:type; defaults to "article". */
+  ogType?: string
   html: string
 }
 
@@ -45,8 +48,20 @@ export function pages(): PrerenderPage[] {
     image: ARTICLES[0]?.cover ?? '',
     html: render('/articles'),
   }
+  // /replay is a client-rendered tool; only its intro is prerendered, so the
+  // URL has real text for search engines and link previews.
+  const replay: PrerenderPage = {
+    path: '/replay',
+    title: 'wall replay · tagwall',
+    description:
+      "Play back tagwall's on-chain graffiti wall one paint at a time, for the whole wall or any area, and share a link to that exact view.",
+    image: '',
+    ogType: 'website',
+    html: renderToString(<ReplayIntro />),
+  }
   return [
     index,
+    replay,
     ...ARTICLES.map((a) => ({
       path: `/articles/${a.slug}`,
       title: `${a.title} · tagwall`,

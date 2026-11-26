@@ -140,6 +140,8 @@ export function AppLayout() {
             <Link to="/articles" className="site-footer-articles">how and why it was built</Link>
             {' · '}
             <Link to="/founders" className="site-footer-articles">founders</Link>
+            {' · '}
+            <Link to="/replay" className="site-footer-articles">replay the wall</Link>
           </small>
           <small className="site-footer-build" title={`Built ${__BUILD_TIME__}`}>
             build {formatBuildTime(__BUILD_TIME__)} · <code>{__BUILD_COMMIT__}</code>

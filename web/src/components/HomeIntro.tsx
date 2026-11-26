@@ -21,7 +21,8 @@ export function HomeIntro() {
       </p>
       <p>
         The wall is live on {chains}. There's no owner, no admin key and no token, and the code
-        is open source.
+        is open source. You can watch every paint so far in the{' '}
+        <a href="/replay">wall replay</a>.
       </p>
     </section>
   )

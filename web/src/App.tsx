@@ -7,6 +7,7 @@ import EmbedPage from './pages/EmbedPage'
 import FoundersPage from './pages/FoundersPage'
 import HoldingPage from './pages/HoldingPage'
 import OpsStatsPage from './pages/OpsStatsPage'
+import ReplayPage from './pages/ReplayPage'
 import SharePage from './pages/SharePage'
 import TweetsPage from './pages/TweetsPage'
 import './styles.css'
@@ -49,6 +50,11 @@ export default function App() {
               left" scarcity counter. Derived from on-chain paint order;
               no contract coupling. Linked from the top bar. */}
           <Route path="/founders" element={<FoundersPage />} />
+          {/* /replay: plays the wall's paint history back for the viewer's
+              chain, whole wall or a chosen area, with a shareable link.
+              Reads the same filtered regions as the canvas (KV snapshot),
+              so it costs the same as a wall view. */}
+          <Route path="/replay" element={<ReplayPage />} />
           {/* /articles: the "building tagwall" long-form series, compiled
               in from marketing/articles/*.md at build time. Static and
               wallet-free; the non-X landing for HN / Reddit traffic. */}

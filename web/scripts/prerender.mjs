@@ -33,7 +33,7 @@ function page(p) {
     `<title>${esc(p.title)}</title>`,
     `<meta name="description" content="${esc(p.description)}" />`,
     `<link rel="canonical" href="${esc(url)}" />`,
-    `<meta property="og:type" content="article" />`,
+    `<meta property="og:type" content="${esc(p.ogType ?? 'article')}" />`,
     `<meta property="og:site_name" content="tagwall" />`,
     `<meta property="og:title" content="${esc(p.title)}" />`,
     `<meta property="og:description" content="${esc(p.description)}" />`,
@@ -102,6 +102,7 @@ const articleFiles = readdirSync(join(WEB, 'content', 'articles')).filter((f) =>
 function sourceOf(path) {
   if (path === '/') return ['index.html', 'src']
   if (path === '/articles') return ['content/articles', 'src/pages/ArticlesPage.tsx']
+  if (path === '/replay') return ['src/pages/ReplayPage.tsx', 'src/components/ReplayIntro.tsx']
   const slug = path.replace('/articles/', '')
   const file = articleFiles.find((f) => f.replace(/^\d+-/, '').replace(/\.md$/, '') === slug)
   if (!file) throw new Error(`prerender: no source file for ${path}`)
@@ -134,6 +135,7 @@ const llms = [
   '## Key pages',
   '',
   `- [Home: the live wall](${SITE}/)`,
+  `- [Wall replay: play back the wall's history, whole or one area](${SITE}/replay)`,
   `- [Articles: how and why tagwall was built](${SITE}/articles)`,
   ...all
     .filter((p) => p.path.startsWith('/articles/'))
