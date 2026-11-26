@@ -768,6 +768,10 @@ export function PaintControls({
               {submitLabel}
               {!submitDisabled && submitStatus === 'idle' && ' →'}
             </button>
+            {/* Brand line (Struck Out direction, GitLab #3). Worded to stay
+                true alongside overwrites: the record of the paint is what
+                nobody can erase, not the visible pixel. */}
+            <div className="pz-cta-promise">No admin. Nobody can erase that you painted it.</div>
             {(maxTotalCost !== null || chunksMessage) && (
               <div className="pz-cta-meta">
                 {maxTotalCost !== null && (

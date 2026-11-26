@@ -4035,6 +4035,15 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .replay-range .replay-hint { margin: 0; }
 .home-intro a { color: var(--accent); }
 
+/* Paint confirm step: brand line under the Tag it button. */
+.pz-cta-promise {
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
 /* Footer */
 .site-footer {
   margin-top: auto;
