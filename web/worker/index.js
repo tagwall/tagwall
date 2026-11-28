@@ -122,6 +122,14 @@ export default {
     if (url.pathname === '/api/tag-image') {
       return handleTagImage(url)
     }
+    if (url.pathname === '/api/replay-image') {
+      return handleReplayImage(url, env, ctx)
+    }
+    // wrangler.toml routes /replay here before the asset layer
+    // (run_worker_first) so each shared link gets its own preview tags.
+    if (url.pathname === '/replay') {
+      return handleReplayPage(request, url, env)
+    }
     const rpcMatch = url.pathname.match(/^\/api\/rpc\/(\d+)$/)
     if (rpcMatch) {
       return handleRpc(request, rpcMatch[1], ctx)
@@ -468,6 +476,190 @@ function hexToBytes(hex) {
   return out
 }
 
+// ---------------------------------------------------------------------------
+// /replay link previews
+//
+// /replay is a client-rendered page, so every shared link would otherwise get
+// the same static preview. The Worker serves the prerendered replay.html with
+// og:image / description tags for the link's own chain, area and moment, and
+// /api/replay-image draws that picture from the KV snapshot (no RPC).
+//
+// Cost: one Worker request per direct /replay load or link-preview fetch (in-
+// app navigation to /replay never reaches the Worker), plus one per preview
+// image fetch. Images go through the Cache API, so a widely shared link
+// renders once: 30 days when the link names an end time (history up to then
+// is fixed), 1 hour without one (the wall can still change).
+//
+// The image is drawn from the raw snapshot, so it does not apply the
+// frontend's client-side filter lists; /api/tag-image has the same property.
+// ---------------------------------------------------------------------------
+
+const WALL_W = 1250
+const WALL_H = 800
+/** Link-preview image size: 1.91:1 for large cards, small enough to render
+ *  well inside the free plan's per-request CPU budget. */
+const OG_W = 600
+const OG_H = 315
+
+const REPLAY_CHAIN_BY_SLUG = {
+  pulse: '369', pulsechain: '369',
+  eth: '1', ethereum: '1', mainnet: '1',
+  base: '8453',
+  bsc: '56',
+  hyperevm: '999', hyperliquid: '999', hype: '999',
+  robinhood: '4663', hood: '4663',
+}
+const REPLAY_CHAIN_NAME = {
+  369: 'PulseChain', 1: 'Ethereum', 8453: 'Base', 56: 'BSC', 999: 'HyperEVM', 4663: 'Robinhood Chain',
+}
+
+/** chain / area / to from a /replay or /api/replay-image query, mirroring
+ *  ReplayPage.tsx. Null for an unknown chain. */
+function parseReplayView(params) {
+  const raw = (params.get('chain') || 'pulse').toLowerCase()
+  const chainId = REPLAY_CHAIN_BY_SLUG[raw] ?? (REPLAY_CHAIN_NAME[raw] ? raw : null)
+  if (!chainId || !CANVAS_BY_CHAIN[chainId]) return null
+  let area = null
+  const parts = (params.get('area') || '').split(',').map((n) => Number.parseInt(n, 10))
+  if (parts.length === 4 && parts.every(Number.isFinite)) {
+    const x = Math.min(Math.max(parts[0], 0), WALL_W - 1)
+    const y = Math.min(Math.max(parts[1], 0), WALL_H - 1)
+    const w = Math.min(Math.max(parts[2], 1), WALL_W - x)
+    const h = Math.min(Math.max(parts[3], 1), WALL_H - y)
+    area = { x, y, w, h }
+  }
+  const toN = Number.parseInt(params.get('to') || '', 10)
+  const to = Number.isFinite(toN) && toN > 0 ? toN : null
+  return { chainId, area, to }
+}
+
+/** Canonical query string for a view, so equal views share one cache entry. */
+function replayViewQuery(view) {
+  const q = new URLSearchParams({ chain: view.chainId })
+  if (view.area) q.set('area', `${view.area.x},${view.area.y},${view.area.w},${view.area.h}`)
+  if (view.to) q.set('to', String(view.to))
+  return q.toString()
+}
+
+async function handleReplayImage(url, env, ctx) {
+  const view = parseReplayView(url.searchParams)
+  if (!view) return new Response('bad request', { status: 400, headers: CORS_HEADERS })
+  const cacheKey = new Request(`${url.origin}/api/replay-image?${replayViewQuery(view)}`)
+  const cache = caches.default
+  const hit = await cache.match(cacheKey)
+  if (hit) return hit
+
+  const stored = await env.SNAPSHOTS.get(`snapshot:${view.chainId}`)
+  if (!stored) return new Response('no snapshot', { status: 404, headers: CORS_HEADERS })
+  let regions
+  try {
+    regions = JSON.parse(stored).regions ?? []
+  } catch {
+    return new Response('bad snapshot', { status: 500, headers: CORS_HEADERS })
+  }
+  const png = await renderReplayPng(regions, view.area ?? { x: 0, y: 0, w: WALL_W, h: WALL_H }, view.to)
+  const res = new Response(png, {
+    headers: {
+      'content-type': 'image/png',
+      'cache-control': `public, max-age=${view.to ? 30 * DAY : 3600}`,
+      ...CORS_HEADERS,
+    },
+  })
+  ctx.waitUntil(cache.put(cacheKey, res.clone()))
+  return res
+}
+
+/** The wall inside `area` as of `to` (unix s, or null for now), letterboxed
+ *  into an OG_W x OG_H PNG with square, unsmoothed pixels. */
+async function renderReplayPng(regions, area, to) {
+  const BG = [11, 11, 16]
+  const colors = new Uint32Array(area.w * area.h).fill(TRANSPARENT)
+  for (const r of regions) {
+    if (!r.pixels) continue
+    if (to && typeof r.blockTimestamp === 'number' && r.blockTimestamp > to) continue
+    if (r.x >= area.x + area.w || r.x + r.w <= area.x || r.y >= area.y + area.h || r.y + r.h <= area.y) continue
+    const px = uint32FromBase64(r.pixels)
+    const x0 = Math.max(r.x, area.x)
+    const y0 = Math.max(r.y, area.y)
+    const x1 = Math.min(r.x + r.w, area.x + area.w)
+    const y1 = Math.min(r.y + r.h, area.y + area.h)
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const c = px[(y - r.y) * r.w + (x - r.x)]
+        if (c !== undefined && c !== TRANSPARENT) colors[(y - area.y) * area.w + (x - area.x)] = c
+      }
+    }
+  }
+  // Letterbox: largest scale that fits, centred, nearest-neighbour.
+  const scale = Math.min(OG_W / area.w, OG_H / area.h)
+  const dw = Math.max(1, Math.round(area.w * scale))
+  const dh = Math.max(1, Math.round(area.h * scale))
+  const ox = Math.floor((OG_W - dw) / 2)
+  const oy = Math.floor((OG_H - dh) / 2)
+  const stride = OG_W * 3 + 1
+  const raw = new Uint8Array(stride * OG_H)
+  for (let y = 0; y < OG_H; y++) {
+    let p = y * stride + 1
+    const inY = y >= oy && y < oy + dh
+    const sy = inY ? Math.min(area.h - 1, ((y - oy) / scale) | 0) : 0
+    for (let x = 0; x < OG_W; x++) {
+      let c = TRANSPARENT
+      if (inY && x >= ox && x < ox + dw) {
+        c = colors[sy * area.w + Math.min(area.w - 1, ((x - ox) / scale) | 0)]
+      }
+      if (c === TRANSPARENT) {
+        raw[p++] = BG[0]; raw[p++] = BG[1]; raw[p++] = BG[2]
+      } else {
+        raw[p++] = (c >>> 16) & 0xff; raw[p++] = (c >>> 8) & 0xff; raw[p++] = c & 0xff
+      }
+    }
+  }
+  return encodePngRgb(OG_W, OG_H, raw)
+}
+
+/** Inverse of base64FromUint32: base64 of big-endian uint32 words. */
+function uint32FromBase64(b64) {
+  const bin = atob(b64)
+  const out = new Uint32Array(bin.length >>> 2)
+  for (let i = 0; i < out.length; i++) {
+    const o = i * 4
+    out[i] = ((bin.charCodeAt(o) << 24) | (bin.charCodeAt(o + 1) << 16) | (bin.charCodeAt(o + 2) << 8) | bin.charCodeAt(o + 3)) >>> 0
+  }
+  return out
+}
+
+function escAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/** Prerendered replay.html with preview tags for this link's own view. */
+async function handleReplayPage(request, url, env) {
+  const assetRes = await env.ASSETS.fetch(request)
+  const view = parseReplayView(url.searchParams)
+  if (!view || !assetRes.ok || !(assetRes.headers.get('content-type') || '').includes('text/html')) {
+    return assetRes
+  }
+  const image = `${url.origin}/api/replay-image?${replayViewQuery(view)}`
+  const chainName = REPLAY_CHAIN_NAME[view.chainId]
+  const when = view.to
+    ? ` up to ${new Date(view.to * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`
+    : ''
+  const what = view.area ? `a ${view.area.w}×${view.area.h} area of the ${chainName} wall` : `the ${chainName} wall`
+  const description = `Replay ${what}${when} on tagwall, one paint at a time. Every paint is stored on chain.`
+  const tags = [
+    `<meta property="og:image" content="${escAttr(image)}" />`,
+    `<meta property="og:image:width" content="${OG_W}" />`,
+    `<meta property="og:image:height" content="${OG_H}" />`,
+    `<meta name="twitter:image" content="${escAttr(image)}" />`,
+  ].join('')
+  const setContent = (value) => ({ element(el) { el.setAttribute('content', value) } })
+  return new HTMLRewriter()
+    .on('meta[name="description"]', setContent(description))
+    .on('meta[property="og:description"]', setContent(description))
+    .on('head', { element(el) { el.append(tags, { html: true }) } })
+    .transform(assetRes)
+}
+
 /** Build an upscaled RGB raster and PNG-encode it. */
 async function renderPng({ w, h, colors }) {
   const scale = Math.max(1, Math.floor(MAX_OUT / Math.max(w, h)))
@@ -492,6 +684,11 @@ async function renderPng({ w, h, colors }) {
       raw[p++] = r; raw[p++] = g; raw[p++] = b
     }
   }
+  return encodePngRgb(W, H, raw)
+}
+
+/** PNG-encode a raw RGB raster whose rows each start with a 0 filter byte. */
+async function encodePngRgb(W, H, raw) {
   const ihdr = new Uint8Array(13)
   const dv = new DataView(ihdr.buffer)
   dv.setUint32(0, W)

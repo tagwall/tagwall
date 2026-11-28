@@ -24,7 +24,10 @@ not_found_handling = "single-page-application"
 # anything is served (see the operator sign-in section of web/worker/index.js).
 # Listing paths here turns the SPA fallback on for everything else, so /api/*
 # has to be named or it gets index.html.
-run_worker_first = ["/api/*", "/ops", "/ops/*"]
+# /replay: the Worker adds per-link preview tags (og:image) to the prerendered
+# page; ~1 request per direct load or link-preview fetch, none for in-app
+# navigation.
+run_worker_first = ["/api/*", "/ops", "/ops/*", "/replay"]
 
 # Per-chain paint snapshots, built incrementally by the cron below and served
 # at /api/canvas/<chainId>/snapshot. Lets the browser render the historical
